@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Nathan's login: the only one that can add or remove people.
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'nathan.emmerson@hotmail.com';
+    }
+
+    // Someone Nathan has added, who shares the household of `owner`.
+    function isMemberOf(owner) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/members/$(request.auth.uid)).data.household == owner;
+    }
+
+    // Household settings (categories, rules, accounts) and every transaction.
+    match /households/{owner}/{document=**} {
+      allow read, write: if (isAdmin() && request.auth.uid == owner) || isMemberOf(owner);
+    }
+
+    // The list of people with access. People can see their own record; only Nathan can change it.
+    match /members/{uid} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow write: if isAdmin();
+    }
+  }
+}
