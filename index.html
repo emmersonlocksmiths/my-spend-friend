@@ -63,7 +63,13 @@ nav button{flex:1;background:none;border:0;font-size:11px;color:var(--muted);pad
 nav button .ic{display:block;font-size:20px;line-height:1.25;filter:grayscale(1) brightness(1.3);opacity:.7}
 nav button.on{color:var(--strong);font-weight:600}
 nav button.on .ic{filter:none;opacity:1}
-nav button.on::before{content:"";position:absolute;top:-6px;left:30%;right:30%;height:3px;border-radius:0 0 3px 3px;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.navind{position:absolute;top:0;height:3px;border-radius:0 0 3px 3px;background:var(--accent);box-shadow:0 0 10px var(--accent);
+  width:calc(100% / var(--n,5) * .4);left:calc(100% / var(--n,5) * (var(--i,0) + .3));transition:left .28s cubic-bezier(.3,.7,.2,1)}
+nav button{transition:color .2s}
+nav button .ic{transition:filter .2s,opacity .2s,transform .2s}
+nav button.on .ic{transform:translateY(-1px) scale(1.06)}
+.badge.bump{animation:bump .35s ease}
+@keyframes bump{40%{transform:scale(1.3)}}
 .badge{position:absolute;top:0;left:calc(50% + 6px);background:var(--accent);color:var(--onaccent);border-radius:10px;font-size:10px;padding:1px 6px;font-weight:700}
 button.btn{background:linear-gradient(180deg,var(--accent2),var(--accent));color:var(--onaccent);border:0;border-radius:11px;padding:10px 14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 12px rgba(245,179,1,.22)}
 button.btn.ghost{background:var(--card2);color:var(--strong);box-shadow:none;border:1px solid var(--line)}
@@ -189,6 +195,48 @@ nav button{font-size:10px}
 .authmsg{background:rgba(255,77,79,.1);border:1px solid rgba(255,77,79,.35);color:var(--errfg);border-radius:10px;padding:9px 11px;font-size:13px;margin:4px 0 10px}
 .spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:40px auto 14px;animation:spin 0.9s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* ---------- Transitions ---------- */
+.anim-tab{animation:tabIn .24s cubic-bezier(.2,.7,.2,1)}
+@keyframes tabIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.anim-fade{animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:.25}to{opacity:1}}
+.anim-left{animation:inFromRight .22s cubic-bezier(.2,.7,.2,1)}
+.anim-right{animation:inFromLeft .22s cubic-bezier(.2,.7,.2,1)}
+@keyframes inFromRight{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes inFromLeft{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+.rvanim{transition:transform .15s ease,opacity .15s ease}
+.rvanim.out-left{transform:translateX(-36px);opacity:0}
+.rvanim.out-right{transform:translateX(36px);opacity:0}
+.qpgrid button.picked,.suggrow button.picked,.catgrid button.picked{border-color:var(--accent);background:var(--soft);transform:scale(.97)}
+.modal-bg{animation:bgIn .2s ease}
+.modal-bg .modal{animation:sheetUp .26s cubic-bezier(.2,.8,.2,1)}
+.modal-bg.closing{animation:bgOut .2s ease forwards}
+.modal-bg.closing .modal{animation:sheetDown .2s ease forwards}
+@keyframes bgIn{from{opacity:0}}
+@keyframes bgOut{to{opacity:0}}
+@keyframes sheetUp{from{transform:translateY(40px);opacity:.4}}
+@keyframes sheetDown{to{transform:translateY(40px);opacity:0}}
+@media(min-width:600px){@keyframes sheetUp{from{transform:translateY(16px) scale(.98);opacity:0}}}
+.anim-open{animation:openDown .22s cubic-bezier(.2,.7,.2,1)}
+@keyframes openDown{from{opacity:0;transform:translateY(-6px)}}
+details[open]>summary~*{animation:openDown .2s ease}
+.toast{animation:toastIn .22s cubic-bezier(.2,.8,.2,1)}
+.toast.hide{transition:opacity .25s,transform .25s;opacity:0;transform:translateX(-50%) translateY(8px)}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}}
+button,.btn,.catrow,.crow,.txn,.lrow,.chip,.seg button,.qpgrid button,.suggrow button,.catgrid button,.period button{transition:transform .12s ease,background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s}
+button:active:not(:disabled),.txn:active,.catrow:active,.crow:active{transform:scale(.97)}
+.txn:active,.crow:active,.catrow:active{transform:scale(.99)}
+.bar i,.crow-bar i,.sharebar i{transition:width .35s cubic-bezier(.2,.7,.2,1)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+.donutwrap{display:flex;align-items:center;gap:14px}
+.donut{flex:none}
+.legend{flex:1;min-width:0}
+.lg{display:flex;align-items:center;gap:7px;font-size:13px;padding:3px 0}
+.lg .grow{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini3 > div{margin-bottom:6px}
+.rvctl{display:flex;gap:6px;align-items:center}
+.pill{background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;min-width:34px}
+.pill:disabled{opacity:.35}
 svg text{font-family:inherit}
 </style>
 </head>
@@ -200,7 +248,7 @@ svg text{font-family:inherit}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.10';
+const APP_VERSION='0.11';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -301,7 +349,22 @@ function acctName(a){ const x=state.accounts[a]; return (x&&x.name)||('…'+a.sl
 function ymAdd(ym,n){ let [y,m]=ym.split('-').map(Number); m+=n; while(m<1){m+=12;y--} while(m>12){m-=12;y++} return y+'-'+String(m).padStart(2,'0'); }
 function ymLabel(ym){ const [y,m]=ym.split('-').map(Number); return MONTHS_L[m-1]+' '+y; }
 function dayLabel(d){ const dt=new Date(d+'T00:00:00'); return DAYS[dt.getDay()]+' '+dt.getDate()+' '+MONTHS[dt.getMonth()]+' '+dt.getFullYear(); }
-function toast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2600); }
+function toast(msg){
+  document.querySelectorAll('.toast').forEach(x=>x.remove());
+  const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t);
+  setTimeout(()=>{ t.classList.add('hide'); setTimeout(()=>t.remove(),250); },2300);
+}
+// Close the open sheet with a slide-down; a sheet opened meanwhile is left alone.
+let modalSeq=0;
+function closeModal(){
+  const root=document.getElementById('modalRoot'), bg=root.firstElementChild;
+  if(!bg) return;
+  if(reducedMotion()){ root.innerHTML=''; return; }
+  const seq=++modalSeq; bg.classList.add('closing'); bg.style.pointerEvents='none';
+  setTimeout(()=>{ if(seq===modalSeq&&root.firstElementChild===bg) root.innerHTML=''; },200);
+}
+let catJustOpened=null;
+function toggleCat(id){ catOpen=catOpen===id?null:id; catJustOpened=catOpen; render(); catJustOpened=null; }
 function isTransferCat(id){ const c=catById(id); return c&&c.kind==='transfer'; }
 
 /* ============ Merchant cleaning & rules ============ */
@@ -424,18 +487,35 @@ function uncatCount(){ return state.txns.filter(t=>!t.cat&&isCounted(t)).length;
 
 /* ============ Navigation ============ */
 let tab='dashboard';
-const TABS=[['dashboard','📊','Dashboard'],['review','✅','Review'],['txns','📋','Transactions'],['cats','🏷️','Categories'],['settings','⚙️','Settings']];
+const TABS=[['dashboard','📊','Dashboard'],['review','✅','Review'],['txns','📋','Transactions'],['cats','📈','Charts'],['settings','⚙️','Settings']];
 function renderNav(){
-  const n=uncatCount();
-  document.getElementById('nav').innerHTML=TABS.map(([id,ic,l])=>
-    `<button class="${tab===id?'on':''}" onclick="go('${id}')"><span class="ic">${ic}</span>${l}${id==='review'&&n?`<span class="badge">${n}</span>`:''}</button>`).join('');
+  const nav=document.getElementById('nav'), n=uncatCount();
+  if(!nav.querySelector('button')){
+    nav.innerHTML=TABS.map(([id,ic,l])=>`<button data-tab="${id}" onclick="go('${id}')"><span class="ic">${ic}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
+  }
+  nav.querySelectorAll('button').forEach(b=>{
+    b.classList.toggle('on',b.dataset.tab===tab);
+    const bd=b.querySelector('.badge'); const show=b.dataset.tab==='review'&&n>0;
+    if(bd){ if(show&&bd.textContent!==String(n)){ bd.textContent=n; bd.classList.remove('bump'); void bd.offsetWidth; bd.classList.add('bump'); } bd.style.display=show?'':'none'; }
+  });
+  nav.style.setProperty('--i',TABS.findIndex(t=>t[0]===tab));
+  nav.style.setProperty('--n',TABS.length);
 }
-function go(t){ tab=t; render(); window.scrollTo(0,0); }
+// Transitions: the next render plays this animation on the page ('tab', 'fade', 'left', 'right').
+let nextAnim=null;
+function animateNext(kind){ nextAnim=kind; }
+function go(t){ if(t!==tab) animateNext('tab'); tab=t; render(); window.scrollTo({top:0}); }
 function render(){
   if(appScreen!=='app') return;
   renderNav();
   const el=document.getElementById('app');
-  ({dashboard:renderDashboard,review:renderReview,txns:renderTxns,cats:renderCats,settings:renderSettings})[tab](el);
+  ({dashboard:renderDashboard,review:renderReview,txns:renderTxns,cats:renderCharts,settings:renderSettings})[tab](el);
+  if(nextAnim){
+    const target=nextAnim==='left'||nextAnim==='right'?(el.querySelector('.rvanim')||el):el;
+    const cls='anim-'+nextAnim; target.classList.remove('anim-tab','anim-fade','anim-left','anim-right'); void target.offsetWidth; target.classList.add(cls);
+    target.addEventListener('animationend',()=>target.classList.remove(cls),{once:true});
+    nextAnim=null;
+  }
 }
 
 /* ============ Dashboard ============ */
@@ -531,7 +611,7 @@ function renderDashboard(el){
     </div>
     ${pace}
     ${balancesCard()}
-    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Where the money went</h2><button class="link small" onclick="go('cats')">Categories ›</button></div>${catHtml}
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Where the money went</h2><button class="link small" onclick="go('cats')">Charts ›</button></div>${catHtml}
       ${ps?`<p class="small muted" style="margin:8px 0 0">▲▼ compared with ${esc(pv.short)}.</p>`:''}</div>
     <div class="card"><h2>Spending by month</h2>${trendSVG()}</div>
     <div class="card"><h2>Top places</h2>${placesHtml}</div>
@@ -563,9 +643,9 @@ function trendSVG(){
   });
   return `<svg viewBox="0 0 ${W} ${H}" width="100%">${bars}</svg><p class="muted small" style="margin:4px 0 0">Tap a month to open it.</p>`;
 }
-function setMode(m){ state.view.mode=m; save(); render(); }
-function shift(n){ const step=state.view.mode==='3m'?3:state.view.mode==='year'?12:1; state.view.anchor=ymAdd(state.view.anchor||latestYM(),n*step); save(); render(); }
-function jumpMonth(m){ state.view.mode='month'; state.view.anchor=m; save(); render(); }
+function setMode(m){ state.view.mode=m; animateNext('fade'); save(); render(); }
+function shift(n){ const step=state.view.mode==='3m'?3:state.view.mode==='year'?12:1; state.view.anchor=ymAdd(state.view.anchor||latestYM(),n*step); animateNext(n<0?'right':'left'); save(); render(); }
+function jumpMonth(m){ state.view.mode='month'; state.view.anchor=m; animateNext('fade'); save(); render(); }
 function filterCat(id){ txFilter={q:'',cat:id,acct:'',period:true}; go('txns'); }
 
 /* ============ Review ============ */
@@ -620,9 +700,12 @@ function renderReview(el){
   const sIds=sugg.map(x=>x.id);
   const picks=quickPicks(t).filter(id=>!sIds.includes(id)).slice(0,9);
   el.innerHTML=toggle+`
-    <div class="rvhead"><span><b>${q.length}</b> left${rv.done?` · ${rv.done} done`:''}</span>${rv.undo?`<button class="link" onclick="reviewUndo()">↶ Undo</button>`:''}</div>
+    <div class="rvhead"><span><b>${q.length}</b> left${rv.done?` · ${rv.done} done`:''}</span>
+      <span class="rvctl">${rv.undo?`<button class="pill" onclick="reviewUndo()">↶ Undo</button>`:''}
+        <button class="pill" ${q.length<2?'disabled':''} onclick="reviewStep(-1)" aria-label="Back">‹</button>
+        <button class="pill" ${q.length<2?'disabled':''} onclick="reviewStep(1)">Skip ›</button></span></div>
     <div class="bar" style="margin:0 0 12px"><i style="width:${pct}%;background:var(--accent)"></i></div>
-    <div class="card rvcard">
+    <div class="rvanim"><div class="card rvcard">
       <div class="rvtop">
         <div style="min-width:0;flex:1"><div class="rvname">${esc(titleCase(cleanDesc(t.desc)))}</div>
           <div class="small muted">${dayLabel(t.date).replace(/ \d{4}$/,'')} · ${esc(acctName(t.acct))}</div></div>
@@ -631,25 +714,38 @@ function renderReview(el){
       <div class="rvraw">${esc(t.desc)}</div>
     </div>
     ${sugg.length?`<div class="small muted" style="margin:2px 2px 6px">Suggested</div>
-      <div class="suggrow">${sugg.map(x=>{const c=catById(x.id); return `<button onclick="reviewSave('${x.id}')"><span class="dot" style="background:${c.color}"></span><span><b>${esc(c.name)}</b><span class="why">${esc(x.why)}</span></span></button>`;}).join('')}</div>`:''}
+      <div class="suggrow">${sugg.map(x=>{const c=catById(x.id); return `<button onclick="reviewSave('${x.id}',this)"><span class="dot" style="background:${c.color}"></span><span><b>${esc(c.name)}</b><span class="why">${esc(x.why)}</span></span></button>`;}).join('')}</div>`:''}
     <div class="small muted" style="margin:4px 2px 6px">Most used</div>
-    <div class="qpgrid">${picks.map(id=>{const c=catById(id); return `<button onclick="reviewSave('${id}')"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>
+    <div class="qpgrid">${picks.map(id=>{const c=catById(id); return `<button onclick="reviewSave('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>
     <details class="card" style="padding:12px 14px" ${rv.allOpen?'open':''} ontoggle="rv.allOpen=this.open"><summary style="cursor:pointer;font-weight:600">All categories</summary>
-      <div class="catgrid">${state.categories.map(c=>`<button onclick="reviewSave('${c.id}')"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`).join('')}
+      <div class="catgrid">${state.categories.map(c=>`<button onclick="reviewSave('${c.id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`).join('')}
       <button style="border-style:dashed;color:var(--accent)" onclick="openCatEditor()">✏️ Add / edit categories</button></div></details>
-    <div style="display:flex;justify-content:space-between;margin-top:4px">
-      <button class="btn ghost" ${q.length<2?'disabled style="opacity:.4"':''} onclick="rv.idx=(rv.idx-1+${q.length})%${q.length};render()">‹ Back</button>
-      <button class="btn ghost" ${q.length<2?'disabled style="opacity:.4"':''} onclick="rv.idx=(rv.idx+1)%${q.length};render()">Skip ›</button>
-    </div>`;
+    </div>
+`;
 }
-function reviewSave(catId){
-  const t=state.txns.find(x=>x.id===rv.cur); if(!t) return;
-  rv.undo=snapshot();
-  applyCategory(t,catId);
-  rv.done++;
-  save(); render(); window.scrollTo(0,0);
-  toast(catById(catId).name);
+function reviewSave(catId,btn){
+  const t=state.txns.find(x=>x.id===rv.cur); if(!t||rv.busy) return;
+  if(btn) btn.classList.add('picked');
+  slideOut('left',()=>{
+    rv.undo=snapshot();
+    applyCategory(t,catId);
+    rv.done++;
+    animateNext('left'); save(); render(); window.scrollTo({top:0});
+    toast(catById(catId).name);
+  });
 }
+function reviewStep(d){
+  const q=reviewQueue(); if(q.length<2||rv.busy) return;
+  slideOut(d>0?'left':'right',()=>{ rv.idx=(rv.idx+d+q.length)%q.length; animateNext(d>0?'left':'right'); render(); });
+}
+// Slide the current review card away, then run fn (which renders the next one sliding in).
+function slideOut(dir,fn){
+  const card=document.querySelector('.rvanim');
+  if(!card||reducedMotion()){ fn(); return; }
+  rv.busy=true; card.classList.add('out-'+dir);
+  setTimeout(()=>{ rv.busy=false; fn(); },150);
+}
+function reducedMotion(){ return matchMedia('(prefers-reduced-motion: reduce)').matches; }
 function reviewUndo(){ if(!rv.undo) return; restore(rv.undo); rv.undo=null; rv.done=Math.max(0,rv.done-1); save(); render(); toast('Undone'); }
 
 /* ============ Transactions ============ */
@@ -719,7 +815,7 @@ function drawPicker(){
 }
 function choose(catId){ applyCategory(pick.t,catId); save(); closePicker(); render(); toast('Saved'); }
 function clearCat(){ pick.t.cat=null; save(); closePicker(); render(); toast('Back in Review'); }
-function closePicker(){ document.getElementById('modalRoot').innerHTML=''; pick=null; }
+function closePicker(){ closeModal(); pick=null; }
 
 /* ============ Categories tab ============ */
 let catOpen=null;
@@ -735,94 +831,138 @@ function sparkline(vals,color){
   const W=84,H=26,bw=W/vals.length,max=Math.max(...vals.map(v=>v.a),1);
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${vals.map((v,i)=>{const h=Math.max(2,Math.max(v.a,0)/max*(H-2)); return `<rect x="${i*bw+1.5}" y="${H-h}" width="${bw-3}" height="${h}" rx="2" fill="${color}" opacity="${i===vals.length-1?1:.45}"/>`;}).join('')}</svg>`;
 }
-function renderCats(el){
+/* ============ Charts helpers ============ */
+function donutSVG(parts,total){
+  const R=70,r=46,C=90; let a0=-Math.PI/2, paths='';
+  const tot=parts.reduce((s,p)=>s+p.v,0)||1;
+  parts.forEach(p=>{
+    const frac=p.v/tot; if(frac<=0) return;
+    const a1=a0+frac*Math.PI*2-(parts.length>1?0.012:0);
+    const large=a1-a0>Math.PI?1:0;
+    const pt=(ang,rad)=>[C+rad*Math.cos(ang),C+rad*Math.sin(ang)];
+    const [x0,y0]=pt(a0,R),[x1,y1]=pt(a1,R),[x2,y2]=pt(a1,r),[x3,y3]=pt(a0,r);
+    if(frac>=0.9999) paths+=`<circle cx="${C}" cy="${C}" r="${(R+r)/2}" fill="none" stroke="${p.c}" stroke-width="${R-r}"/>`;
+    else paths+=`<path d="M${x0},${y0} A${R},${R} 0 ${large} 1 ${x1},${y1} L${x2},${y2} A${r},${r} 0 ${large} 0 ${x3},${y3} Z" fill="${p.c}"/>`;
+    a0+=frac*Math.PI*2;
+  });
+  return `<svg viewBox="0 0 180 180" width="170" height="170" class="donut">${paths}
+    <text x="90" y="86" text-anchor="middle" font-size="11" style="fill:var(--muted)">Spent</text>
+    <text x="90" y="104" text-anchor="middle" font-size="17" font-weight="800" style="fill:var(--ink)">${money0(total)}</text></svg>`;
+}
+function barChartSVG(labels,series,opts={}){
+  // series: [{vals,color}] drawn side by side per label; opts.avg draws a dashed average line for series 0
+  const W=600,H=opts.h||200,padL=8,padB=26,padT=22, n=labels.length, g=(W-padL*2)/n;
+  const max=Math.max(1,...series.flatMap(s=>s.vals));
+  const bw=g*0.7/series.length; let out='';
+  labels.forEach((lab,i)=>{
+    series.forEach((s,j)=>{
+      const v=Math.max(0,s.vals[i]), h=v/max*(H-padB-padT), x=padL+i*g+g*0.15+j*bw, y=H-padB-h;
+      out+=`<rect x="${x}" y="${y}" width="${bw-2}" height="${Math.max(h,v?2:0)}" rx="4" style="fill:${s.color}"/>`;
+      if(opts.values&&v) out+=`<text x="${x+(bw-2)/2}" y="${y-5}" text-anchor="middle" font-size="11" style="fill:var(--trendtext)">${money0(v)}</text>`;
+    });
+    out+=`<text x="${padL+i*g+g/2}" y="${H-8}" text-anchor="middle" font-size="12" style="fill:var(--muted)">${lab}</text>`;
+  });
+  if(opts.avg){ const y=H-padB-opts.avg/max*(H-padB-padT); out+=`<line x1="${padL}" x2="${W-padL}" y1="${y}" y2="${y}" stroke-dasharray="5 5" style="stroke:var(--muted)" stroke-width="1.5"/><text x="${W-padL}" y="${y-5}" text-anchor="end" font-size="11" style="fill:var(--muted)">avg ${money0(opts.avg)}</text>`; }
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%">${out}</svg>`;
+}
+function monthsBack(end,n){ const a=[]; for(let i=n-1;i>=0;i--) a.push(ymAdd(end,-i)); return a; }
+
+/* ============ Charts tab ============ */
+function renderCharts(el){
   const pr=periodRange(), s=summarise(pr.from,pr.to);
   const pv=prevRange(); const ps=pv&&coversFrom(pv.from)?summarise(pv.from,pv.to):null;
   const total=Math.max(s.spend,0.01);
   const exp=state.categories.filter(c=>c.kind==='expense');
   const end=state.view.anchor||latestYM();
-  // per-category txns in period
   const inP=state.txns.filter(t=>t.date>=pr.from&&t.date<=pr.to&&isCounted(t));
+  const purchases=spendTxns(pr.from,pr.to);
   const rows=exp.map(c=>{ const tx=inP.filter(t=>t.cat===c.id); return {c,tx,amt:s.byCat[c.id]||0}; });
   const spent=rows.filter(r=>Math.abs(r.amt)>0.004).sort((a,b)=>b.amt-a.amt);
   const unused=rows.filter(r=>Math.abs(r.amt)<=0.004);
-  // share bar
-  const share=spent.filter(r=>r.amt>0).map(r=>`<i title="${esc(r.c.name)}" style="width:${r.amt/total*100}%;background:${r.c.color}"></i>`).join('')+(s.uncatOut>0?`<i style="width:${s.uncatOut/total*100}%;background:var(--pending)"></i>`:'');
+  // ---- headline stats
+  const days={}; purchases.forEach(t=>{ days[t.date]=(days[t.date]||0)-t.amount; });
+  const bigDay=Object.entries(days).sort((a,b)=>b[1]-a[1])[0];
+  const datesIn=inP.map(t=>t.date).sort(); const spanDays=datesIn.length?Math.round((new Date(datesIn[datesIn.length-1])-new Date(datesIn[0]))/86400000)+1:0;
+  const placesN=new Set(purchases.map(merchantKey)).size;
+  const avgBuy=purchases.length?purchases.reduce((a,t)=>a-t.amount,0)/purchases.length:0;
   const budgeted=exp.filter(c=>c.budget>0); const budTotal=budgeted.reduce((a,c)=>a+c.budget*pr.months,0);
   const budSpent=budgeted.reduce((a,c)=>a+(s.byCat[c.id]||0),0);
+  // ---- donut
+  const parts=spent.filter(r=>r.amt>0).map(r=>({v:r.amt,c:r.c.color,n:r.c.name}));
+  if(s.uncatOut>0) parts.push({v:s.uncatOut,c:'var(--pending)',n:'Not reviewed yet'});
+  const legend=parts.slice(0,8).map(p=>`<div class="lg"><span class="dot" style="background:${p.c}"></span><span class="grow">${esc(p.n)}</span><b>${Math.round(p.v/total*100)}%</b></div>`).join('')+(parts.length>8?`<div class="small muted">+${parts.length-8} more below</div>`:'');
+  // ---- category breakdown rows (tap for details)
   const card=(r)=>{
     const c=r.c, amt=r.amt, bud=c.budget*pr.months, over=bud&&amt>bud;
     const before=ps?ps.byCat[c.id]||0:0; const diff=ps&&before?Math.round((amt-before)/before*100):null;
-    const spend=r.tx.filter(t=>t.amount<0);
-    const avg=spend.length?spend.reduce((a,t)=>a-t.amount,0)/spend.length:0;
-    const open=catOpen===c.id;
-    let detail='';
+    const sp=r.tx.filter(t=>t.amount<0);
+    const avg=sp.length?sp.reduce((a,t)=>a-t.amount,0)/sp.length:0;
+    const open=catOpen===c.id; let detail='';
     if(open){
-      const places={}; spend.forEach(t=>{const k=merchantKey(t); (places[k]=places[k]||{n:0,a:0}); places[k].n++; places[k].a-=t.amount;});
+      const places={}; sp.forEach(t=>{const k=merchantKey(t); (places[k]=places[k]||{n:0,a:0}); places[k].n++; places[k].a-=t.amount;});
       const top=Object.entries(places).sort((a,b)=>b[1].a-a[1].a).slice(0,5);
-      const biggest=spend.sort((a,b)=>a.amount-b.amount)[0];
-      const months=catMonthly(c.id,end,12).filter(x=>x.a!==0||coversFrom(x.m+'-01'));
-      const withData=months.filter(x=>coversFrom(x.m+'-01')&&x.m<latestYM()); // full months only
+      const biggest=[...sp].sort((a,b)=>a.amount-b.amount)[0];
+      const withData=catMonthly(c.id,end,12).filter(x=>coversFrom(x.m+'-01')&&x.m<latestYM());
       const mAvg=withData.length?withData.reduce((a,x)=>a+x.a,0)/withData.length:null;
-      detail=`<div class="catdetail" onclick="event.stopPropagation()">
-        <div class="mini3">
-          <div><div class="k">Transactions</div><div class="v">${r.tx.length}</div></div>
-          <div><div class="k">Average</div><div class="v">${money0(avg)}</div></div>
-          <div><div class="k">Monthly avg</div><div class="v">${mAvg!==null?money0(mAvg):'—'}</div></div>
-        </div>
-        ${top.length?`<div class="small muted" style="margin:12px 0 2px">Top places</div>${top.map(([k,p])=>`<div class="lrow"><span class="grow">${esc(titleCase(k))}<div class="small muted">${p.n} visit${p.n>1?'s':''}</div></span><b class="neg">${money(p.a)}</b></div>`).join('')}`:''}
+      detail=`<div class="catdetail ${catJustOpened===c.id?'anim-open':''}" onclick="event.stopPropagation()">
+        <div class="mini3"><div><div class="k">Transactions</div><div class="v">${r.tx.length}</div></div><div><div class="k">Average</div><div class="v">${money0(avg)}</div></div><div><div class="k">Monthly avg</div><div class="v">${mAvg!==null?money0(mAvg):'—'}</div></div></div>
+        <div class="small muted" style="margin:12px 0 0">Last 6 months</div>${barChartSVG(catMonthly(c.id,end,6).map(x=>MONTHS[+x.m.slice(5)-1]),[{vals:catMonthly(c.id,end,6).map(x=>x.a),color:c.color}],{h:130,values:true})}
+        ${top.length?`<div class="small muted" style="margin:8px 0 2px">Top places</div>${top.map(([k,p])=>`<div class="lrow"><span class="grow">${esc(titleCase(k))}<div class="small muted">${p.n} visit${p.n>1?'s':''}</div></span><b class="neg">${money(p.a)}</b></div>`).join('')}`:''}
         ${biggest?`<div class="small muted" style="margin:12px 0 2px">Biggest</div><div class="lrow"><span class="grow">${esc(titleCase(cleanDesc(biggest.desc)))}<div class="small muted">${dayLabel(biggest.date)}</div></span><b class="neg">${money(biggest.amount)}</b></div>`:''}
-        <div class="small muted" style="margin:14px 0 6px">Edit</div>
-        <div class="row" style="margin:0">
-          <input type="color" value="${c.color}" style="width:38px;height:38px;padding:2px;flex:none" onchange="catColor('${c.id}',this.value);render()">
-          <input class="grow" value="${esc(c.name)}" onchange="catRename('${c.id}',this.value);render()">
-          <input type="number" min="0" step="10" placeholder="Budget/mth" value="${c.budget||''}" style="width:110px;flex:none" onchange="catBudget('${c.id}',this.value);render()">
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-          <button class="btn ghost" onclick="filterCat('${c.id}')">View transactions</button>
-          <button class="btn danger" onclick="openCatEditor();catEd.delId='${c.id}';drawCatEditor()">Delete…</button>
-        </div>
+        <button class="btn ghost" style="margin-top:10px" onclick="filterCat('${c.id}')">View transactions</button>
       </div>`;
     }
     const share=Math.round(Math.max(amt,0)/total*100);
     const fill=bud?Math.min(100,Math.max(amt,0)/bud*100):Math.max(amt,0)/total*100;
-    return `<div class="crow ${open?'open':''}" onclick="catOpen=catOpen==='${c.id}'?null:'${c.id}';render()">
-      <div class="crow-top">
-        <span class="dot" style="background:${c.color};margin:0"></span>
-        <span class="crow-name">${esc(c.name)}</span>
+    return `<div class="crow ${open?'open':''}" onclick="toggleCat('${c.id}')">
+      <div class="crow-top"><span class="dot" style="background:${c.color};margin:0"></span><span class="crow-name">${esc(c.name)}</span>
         ${diff!==null&&diff!==0?`<span class="crow-chg ${diff>0?'neg':'pos'}">${diff>0?'▲':'▼'}${Math.abs(diff)}%</span>`:''}
         <span class="crow-pct">${bud?(over?'over':Math.round(fill)+'% of budget'):share+'%'}</span>
-        <b class="crow-amt ${over?'over':''}">${money(amt)}</b>
-        <span class="crow-chev">${open?'▾':'›'}</span>
-      </div>
+        <b class="crow-amt ${over?'over':''}">${money(amt)}</b><span class="crow-chev">${open?'▾':'›'}</span></div>
       <div class="crow-bar"><i style="width:${Math.max(fill,1)}%;background:${over?'var(--bad)':c.color}"></i></div>
-      ${open?`<div class="crow-meta small muted">${r.tx.length} transaction${r.tx.length===1?'':'s'} · ${share}% of spending${bud?` · ${over?money(amt-bud)+' over':money(bud-amt)+' left'} of ${money0(bud)} budget`:''}<span style="float:right">${sparkline(catMonthly(c.id,end,6),c.color)}</span></div>`:''}
-      ${detail}
-    </div>`;
+      ${detail}</div>`;
   };
+  // ---- 12-month trend
+  const m12=monthsBack(end,12); const v12=m12.map(m=>summarise(m+'-01',m+'-31').spend);
+  const full=m12.filter((m,i)=>coversFrom(m+'-01')&&m<latestYM()); const avg12=full.length?full.reduce((a,m)=>a+summarise(m+'-01',m+'-31').spend,0)/full.length:0;
+  // ---- in vs out, 6 months
+  const m6=monthsBack(end,6); const s6=m6.map(m=>summarise(m+'-01',m+'-31'));
+  // ---- weekday
+  const wd=[0,0,0,0,0,0,0], wn=[0,0,0,0,0,0,0]; purchases.forEach(t=>{ const d=(new Date(t.date+'T00:00:00').getDay()+6)%7; wd[d]-=t.amount; wn[d]++; });
+  const busiest=wd.indexOf(Math.max(...wd));
+  // ---- most visited
+  const visits={}; purchases.forEach(t=>{ const k=merchantKey(t); (visits[k]=visits[k]||{n:0,a:0}); visits[k].n++; visits[k].a-=t.amount; });
+  const topVisits=Object.entries(visits).sort((a,b)=>b[1].n-a[1].n||b[1].a-a[1].a).slice(0,6);
   const incomeAmt=inP.filter(t=>catById(t.cat)?.kind==='income').reduce((a,t)=>a+t.amount,0);
   const xfer=inP.filter(t=>catById(t.cat)?.kind==='transfer');
   el.innerHTML=`${periodControls()}
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0">Spending by category</h2><b class="neg">${money(s.spend)}</b></div>
-      <div class="sharebar">${share||'<i style="width:100%;background:var(--track)"></i>'}</div>
-      <div class="mini3" style="margin-top:12px">
-        <div><div class="k">Categories used</div><div class="v">${spent.length}</div></div>
-        <div><div class="k">Biggest</div><div class="v" style="font-size:15px">${spent[0]?esc(spent[0].c.name):'—'}</div></div>
+    ${s.uncatOut>0?`<div class="banner"><span>${money(s.uncatOut)} not reviewed yet</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
+    <div class="card"><h2>At a glance</h2>
+      <div class="mini3">
+        <div><div class="k">Purchases</div><div class="v">${purchases.length}</div></div>
+        <div><div class="k">Average purchase</div><div class="v">${money0(avgBuy)}</div></div>
+        <div><div class="k">Per day</div><div class="v">${spanDays?money0(s.spend/spanDays):'—'}</div></div>
+        <div><div class="k">Places</div><div class="v">${placesN}</div></div>
+        <div><div class="k">Biggest day</div><div class="v" style="font-size:15px">${bigDay?money0(bigDay[1]):'—'}</div>${bigDay?`<div class="small muted">${dayLabel(bigDay[0]).replace(/ \d{4}$/,'')}</div>`:''}</div>
         <div><div class="k">Budgets</div><div class="v ${budTotal&&budSpent>budTotal?'neg':''}" style="font-size:15px">${budTotal?money0(budSpent)+' / '+money0(budTotal):'None set'}</div></div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:14px">
-      <button class="btn" style="flex:1" onclick="openCatEditor();setTimeout(()=>document.getElementById('newCat')?.focus(),50)">＋ New category</button>
-      <button class="btn ghost" style="flex:1" onclick="openCatEditor()">✏️ Edit / reorder</button>
+    <div class="card"><h2>Where it went</h2>
+      ${parts.length?`<div class="donutwrap">${donutSVG(parts,s.spend)}<div class="legend">${legend}</div></div>`:'<p class="muted">No spending in this period.</p>'}
     </div>
-    ${s.uncatOut>0?`<div class="banner"><span>${money(s.uncatOut)} not reviewed yet</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
-    ${spent.length?`<div class="card catlist">${spent.map(card).join('')}</div>`:'<p class="muted">No spending in this period.</p>'}
+    ${spent.length?`<div class="card catlist"><h2 style="margin:12px 0 2px">Category breakdown</h2>${spent.map(card).join('')}</div>`:''}
+    <div class="card"><h2>Monthly spending</h2>${barChartSVG(m12.map(m=>MONTHS[+m.slice(5)-1].slice(0,1)+MONTHS[+m.slice(5)-1].slice(1,3)),[{vals:v12,color:'var(--accent)'}],{avg:avg12||0,h:190})}
+      <p class="small muted" style="margin:4px 0 0">Last 12 months.${avg12?` Dashed line is your average over complete months.`:' The average line appears once you have a full month imported.'}</p></div>
+    <div class="card"><h2>Money in vs spent</h2>${barChartSVG(m6.map(m=>MONTHS[+m.slice(5)-1]),[{vals:s6.map(x=>x.moneyIn),color:'var(--good)'},{vals:s6.map(x=>x.spend),color:'var(--bad)'}],{h:190})}
+      <div class="small muted" style="display:flex;gap:14px;margin-top:4px"><span><span class="dot" style="background:var(--good)"></span>Money in</span><span><span class="dot" style="background:var(--bad)"></span>Spent</span></div></div>
+    <div class="card"><h2>Spending by day of week</h2>${barChartSVG(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],[{vals:wd,color:'var(--accent)'}],{h:170,values:true})}
+      ${purchases.length?`<p class="small muted" style="margin:4px 0 0">${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][busiest]} is your biggest spending day (${wn[busiest]} purchase${wn[busiest]===1?'':'s'}).</p>`:''}</div>
+    <div class="card"><h2>Most visited</h2>${topVisits.length?topVisits.map(([k,v],i)=>`<div class="lrow"><span class="rank">${i+1}</span><span class="grow">${esc(titleCase(k))}<div class="small muted">${v.n} visit${v.n>1?'s':''} · avg ${money0(v.a/v.n)}</div></span><b class="neg">${money(v.a)}</b></div>`).join(''):'<p class="muted small">Nothing yet.</p>'}</div>
     <div class="card"><h2>Money in & transfers</h2>
       <div class="lrow"><span class="grow"><span class="dot" style="background:${catById('income')?.color||'#4cd964'}"></span>${esc(catById('income')?.name||'Income')}</span><b class="pos">${money(incomeAmt)}</b></div>
       <div class="lrow"><span class="grow"><span class="dot" style="background:${catById('transfer')?.color||'#6d6d78'}"></span>${esc(catById('transfer')?.name||'Transfers')}<div class="small muted">${xfer.length} moved between accounts, not counted</div></span><b class="muted">${money(xfer.reduce((a,t)=>a+Math.abs(t.amount),0))}</b></div>
     </div>
-    ${unused.length?`<div class="card"><h2>Nothing spent this period</h2><div style="display:flex;flex-wrap:wrap;gap:6px">${unused.map(r=>`<span class="chip" style="cursor:pointer" onclick="catOpen='${r.c.id}';openCatEditor()"><span class="dot" style="background:${r.c.color};width:8px;height:8px;margin-right:5px"></span>${esc(r.c.name)}${r.c.budget?` · ${money0(r.c.budget*pr.months)} budget`:''}</span>`).join('')}</div></div>`:''}`;
+    ${unused.length?`<div class="card"><h2>Nothing spent this period</h2><div style="display:flex;flex-wrap:wrap;gap:6px">${unused.map(r=>`<span class="chip"><span class="dot" style="background:${r.c.color};width:8px;height:8px;margin-right:5px"></span>${esc(r.c.name)}</span>`).join('')}</div></div>`:''}`;
 }
 
 /* ============ Accounts ============ */
@@ -918,6 +1058,11 @@ function renderSettings(el){
       <p class="small muted">Pending ("Authorisation only") transactions are skipped. They come through once they settle, in your next export.</p></details>
   </div>
   ${accountsSection()}
+  <div class="card"><h2>Categories & monthly budgets</h2>
+    <p class="small muted" style="margin-top:-6px">Add, rename, recolour, reorder or delete categories, and set a monthly budget for each.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${state.categories.map(c=>`<span class="chip"><span class="dot" style="background:${c.color};width:8px;height:8px;margin-right:5px"></span>${esc(c.name)}${c.budget?` · ${money0(c.budget)}`:''}</span>`).join('')}</div>
+    <div style="display:flex;gap:8px"><button class="btn" onclick="openCatEditor()">✏️ Edit categories</button><button class="btn ghost" onclick="openCatEditor();setTimeout(()=>document.getElementById('newCat')?.focus(),60)">＋ New</button></div>
+  </div>
   <div class="card"><h2>Suggestion rules</h2>
     <p class="small muted" style="margin-top:-6px">These only suggest a category in Review, so nothing is categorised without you. Your own past choices for a place are suggested first.</p>
     ${userRules.length?`<table class="simple">${userRules.map(ruleRow).join('')}</table>`:''}
@@ -1001,7 +1146,7 @@ function drawCatEditor(){
   </div></div>`;
 }
 function closeCatEditor(){
-  document.getElementById('modalRoot').innerHTML='';
+  closeModal();
   const r=catEd.returnTo; catEd={delId:null,returnTo:null};
   render();
   if(r&&pick) drawPicker();
