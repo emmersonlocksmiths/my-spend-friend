@@ -313,6 +313,38 @@ input,select{border-radius:12px}
 .catgroup{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 2px 4px}
 .catgroup:empty{display:none}
 .kindsel{width:auto;padding:4px 8px;border-radius:9px}
+/* ---------- Category editor ---------- */
+.modal-bg.noanim,.modal-bg.noanim .modal{animation:none}
+.ce-top{display:flex;justify-content:space-between;align-items:center}
+.ce-add{background:var(--card2);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:6px}
+.ce-add input{background:var(--bg)}
+.ce-section{margin-top:18px}
+.ce-head{display:flex;flex-direction:column;margin:0 2px 8px}
+.ce-head b{font-size:13px;text-transform:uppercase;letter-spacing:.07em}
+.ce-head span{font-size:12.5px;color:var(--muted);margin-top:2px}
+.ce-list{display:flex;flex-direction:column;gap:6px}
+.ce-row{background:var(--card2);border:1px solid var(--line);border-radius:14px;transition:transform .18s cubic-bezier(.2,.7,.2,1),box-shadow .18s}
+.ce-list.sorting .ce-row{transition:transform .18s cubic-bezier(.2,.7,.2,1)}
+.ce-row.dragging{transition:none;z-index:5;position:relative;box-shadow:0 10px 28px var(--shadow);border-color:var(--accent);background:var(--card)}
+.ce-row.open{border-color:var(--openborder)}
+.ce-main{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 4px;cursor:pointer}
+.ce-handle{touch-action:none;cursor:grab;color:var(--muted);font-size:16px;letter-spacing:-3px;padding:8px 8px 8px 10px;user-select:none;-webkit-user-select:none}
+.ce-row.dragging .ce-handle{cursor:grabbing;color:var(--accent)}
+.ce-dot{width:14px;height:14px;border-radius:50%;flex:none}
+.ce-name{flex:1;min-width:0;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ce-sub{display:block;font-size:12px;font-weight:400;color:var(--muted)}
+.ce-budget{font-size:12.5px;font-weight:700;background:var(--soft);color:var(--accent);padding:3px 9px;border-radius:999px;white-space:nowrap}
+.ce-budget.none{background:none;color:var(--muted);font-weight:500}
+.ce-chev{color:var(--muted);width:12px;text-align:center}
+.ce-edit{padding:4px 14px 14px 14px;border-top:1px dashed var(--line)}
+.ce-lbl{display:block;font-size:12px;color:var(--muted);font-weight:600;margin:12px 0 5px}
+.ce-edit input{background:var(--bg)}
+.ce-money{display:flex;align-items:center;gap:6px}.ce-money span{color:var(--muted);font-weight:700}
+.ce-colours{display:flex;flex-wrap:wrap;gap:8px}
+.ce-swatch{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;position:relative;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.ce-swatch.sel{border-color:var(--ink);box-shadow:0 0 0 2px var(--bg) inset}
+.ce-custom{display:inline-flex;align-items:center;justify-content:center;background:var(--bg);color:var(--muted);font-size:16px;border:1px dashed var(--muted)}
+.ce-custom input{position:absolute;inset:0;opacity:0;cursor:pointer}
 svg text{font-family:inherit}
 </style>
 </head>
@@ -324,7 +356,7 @@ svg text{font-family:inherit}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.13';
+const APP_VERSION='0.14';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1214,49 +1246,87 @@ function confirmBox(msg){ try{ return window.confirm(msg); }catch(e){ return tru
 
 /* ============ Category editor ============ */
 let catEd={delId:null,returnTo:null};
-function openCatEditor(returnTo){ catEd={delId:null,returnTo:returnTo||null}; drawCatEditor(); }
+function openCatEditor(returnTo){ catEd={delId:null,openId:null,newKind:'expense',drawn:false,returnTo:returnTo||null}; drawCatEditor(); }
 function drawCatEditor(){
-  const row=(c,i,list)=>{
-    const n=state.txns.filter(t=>t.cat===c.id).length;
-    const locked=c.kind==='transfer'||c.id==='income';
-    let html=`<div style="border-bottom:1px solid var(--line);padding:9px 0">
-      <div class="row" style="margin:0">
-        <input type="color" value="${c.color}" style="width:34px;height:34px;padding:2px;flex:none" onchange="catColor('${c.id}',this.value)">
-        <input class="grow" value="${esc(c.name)}" onchange="catRename('${c.id}',this.value)">
-        ${c.kind==='expense'?`<input type="number" min="0" step="10" placeholder="Budget" title="Monthly budget" value="${c.budget||''}" style="width:92px;flex:none" onchange="catBudget('${c.id}',this.value)">`:''}
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;gap:8px">
-        <span class="small muted">${n} transaction${n===1?'':'s'}</span>
-        <span style="display:flex;gap:12px;align-items:center">
-          ${locked?'':`<select class="kindsel" onchange="catKind('${c.id}',this.value)"><option value="expense" ${c.kind==='expense'?'selected':''}>Expense</option><option value="income" ${c.kind==='income'?'selected':''}>Income</option></select>`}
-          <button class="link" ${i===0?'disabled style="opacity:.3"':''} onclick="catMove('${c.id}',-1)">▲</button>
-          <button class="link" ${i===list.length-1?'disabled style="opacity:.3"':''} onclick="catMove('${c.id}',1)">▼</button>
-          ${locked?'':`<button class="link" style="color:var(--bad)" onclick="catEd.delId='${c.id}';drawCatEditor()">Delete</button>`}
-        </span>
+  const total={}; state.txns.forEach(t=>{ if(t.cat) total[t.cat]=(total[t.cat]||0)+1; });
+  const row=c=>{
+    const n=total[c.id]||0, open=catEd.openId===c.id, locked=c.kind==='transfer'||c.id==='income';
+    let html=`<div class="ce-row ${open?'open':''}" data-id="${c.id}">
+      <div class="ce-main" onclick="catEd.openId=catEd.openId==='${c.id}'?null:'${c.id}';catEd.delId=null;drawCatEditor()">
+        <span class="ce-handle" title="Drag to reorder" onpointerdown="ceDragStart(event,'${c.id}')" onclick="event.stopPropagation()">⋮⋮</span>
+        <span class="ce-dot" style="background:${c.color}"></span>
+        <span class="ce-name">${esc(c.name)}<span class="ce-sub">${n} transaction${n===1?'':'s'}</span></span>
+        ${c.kind==='expense'?`<span class="ce-budget ${c.budget?'':'none'}">${c.budget?money0(c.budget)+'/mth':'No budget'}</span>`:''}
+        <span class="ce-chev">${open?'▾':'›'}</span>
       </div>`;
-    if(catEd.delId===c.id){
-      const opts=`<option value="">Uncategorised (review again)</option>`+state.categories.filter(x=>x.id!==c.id).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
-      html+=`<div class="rulebox warn" style="margin-top:8px">
-        <div class="small" style="margin-bottom:6px">Delete <b>${esc(c.name)}</b>?${n?` Move its ${n} transaction(s) and rules to:`:''}</div>
-        ${n?`<select id="delTarget" style="margin-bottom:8px">${opts}</select>`:''}
-        <div style="display:flex;gap:8px"><button class="btn danger" onclick="catDelete('${c.id}')">Delete</button><button class="btn ghost" onclick="catEd.delId=null;drawCatEditor()">Cancel</button></div>
+    if(open){
+      html+=`<div class="ce-edit anim-open">
+        <label class="ce-lbl">Name</label>
+        <input value="${esc(c.name)}" onchange="catRename('${c.id}',this.value);drawCatEditor()">
+        ${locked?'':`<label class="ce-lbl">Type</label>
+        <div class="seg" style="margin:0"><button class="${c.kind==='expense'?'on':''}" onclick="catKind('${c.id}','expense')">Expense (money out)</button><button class="${c.kind==='income'?'on':''}" onclick="catKind('${c.id}','income')">Income (money in)</button></div>`}
+        ${c.kind==='expense'?`<label class="ce-lbl">Monthly budget</label>
+        <div class="ce-money"><span>$</span><input type="number" inputmode="decimal" min="0" step="10" placeholder="No budget" value="${c.budget||''}" onchange="catBudget('${c.id}',this.value);drawCatEditor()"></div>`:''}
+        <label class="ce-lbl">Colour</label>
+        <div class="ce-colours">${PALETTE.concat(['#4cd964','#20c997','#74c0fc','#a9e34b']).filter((x,i,a)=>a.indexOf(x)===i).map(col=>`<button class="ce-swatch ${c.color.toLowerCase()===col.toLowerCase()?'sel':''}" style="background:${col}" onclick="catColor('${c.id}','${col}');drawCatEditor()" aria-label="Colour"></button>`).join('')}
+          <label class="ce-swatch ce-custom" title="Custom colour">＋<input type="color" value="${c.color}" onchange="catColor('${c.id}',this.value);drawCatEditor()"></label></div>
+        ${locked?`<p class="small muted" style="margin:10px 0 0">This category can't be deleted.</p>`:
+        catEd.delId===c.id?`<div class="rulebox warn" style="margin-top:12px">
+          <div class="small" style="margin-bottom:6px">Delete <b>${esc(c.name)}</b>?${n?` Its ${n} transaction(s) will move to:`:''}</div>
+          ${n?`<select id="delTarget" style="margin-bottom:8px"><option value="">Back to Review (uncategorised)</option>${state.categories.filter(x=>x.id!==c.id).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>`:''}
+          <div style="display:flex;gap:8px"><button class="btn danger" onclick="catDelete('${c.id}')">Delete</button><button class="btn ghost" onclick="catEd.delId=null;drawCatEditor()">Cancel</button></div></div>`
+        :`<button class="link" style="color:var(--bad);margin-top:12px" onclick="catEd.delId='${c.id}';drawCatEditor()">Delete category</button>`}
       </div>`;
     }
     return html+'</div>';
   };
-  const section=k=>{ const list=catsOfKind(k); return `<div class="catgroup" style="margin-top:14px">${KIND_LABEL[k]}</div>${list.map((c,i)=>row(c,i,list)).join('')}`; };
-  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeCatEditor()"><div class="modal">
-    <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Edit categories</h2><button class="btn" onclick="closeCatEditor()">Done</button></div>
-    <p class="small muted">Changes save as you go. Budgets are per month, so leave blank for no budget. Switch a category between Income and Expense with its dropdown.</p>
-    <div class="row" style="margin-top:6px"><input class="grow" id="newCat" placeholder="New category name" onkeydown="if(event.key==='Enter')addCat()">
-      <select id="newKind" style="width:auto;flex:none"><option value="expense">Expense</option><option value="income" ${catEd.newKind==='income'?'selected':''}>Income</option></select>
-      <button class="btn" onclick="addCat()">Add</button></div>
+  const DESC={income:'Money coming in: wages, business, payments.',expense:'Money going out. Tap one to set a monthly budget.',transfer:"Money moving between your own accounts. It isn't counted as income or spending."};
+  const section=k=>`<div class="ce-section"><div class="ce-head"><b>${KIND_LABEL[k]}</b><span>${DESC[k]}</span></div>
+    <div class="ce-list" data-kind="${k}">${catsOfKind(k).map(row).join('')}</div></div>`;
+  const root=document.getElementById('modalRoot');
+  const prevScroll=root.querySelector('.modal')?.scrollTop||0;
+  root.innerHTML=`<div class="modal-bg ${catEd.drawn?'noanim':''}" onclick="if(event.target===this)closeCatEditor()"><div class="modal ce">
+    <div class="ce-top"><h2 style="margin:0">Categories</h2><button class="btn" onclick="closeCatEditor()">Done</button></div>
+    <p class="small muted" style="margin:4px 0 12px">Tap a category to edit it. Drag <b>⋮⋮</b> to change the order, which is the order they appear when you pick one.</p>
+    <div class="ce-add">
+      <input id="newCat" placeholder="New category name" onkeydown="if(event.key==='Enter')addCat()">
+      <div class="seg" style="margin:8px 0"><button class="${catEd.newKind!=='income'?'on':''}" onclick="catEd.newKind='expense';drawCatEditor()">Expense</button><button class="${catEd.newKind==='income'?'on':''}" onclick="catEd.newKind='income';drawCatEditor()">Income</button></div>
+      <button class="btn" style="width:100%" onclick="addCat()">＋ Add category</button>
+    </div>
     ${section('income')}${section('expense')}${section('transfer')}
   </div></div>`;
+  catEd.drawn=true;
+  const m=root.querySelector('.modal'); if(m) m.scrollTop=prevScroll;
+}
+// Drag to reorder (touch and mouse) within a group.
+function ceDragStart(e,id){
+  e.preventDefault(); e.stopPropagation();
+  if(catEd.openId){ catEd.openId=null; drawCatEditor(); }
+  const row=document.querySelector(`.ce-row[data-id="${id}"]`); if(!row) return;
+  const list=row.parentElement, rows=[...list.querySelectorAll('.ce-row')], from=rows.indexOf(row);
+  const h=row.getBoundingClientRect().height+6, y0=e.clientY; let to=from;
+  row.classList.add('dragging'); list.classList.add('sorting');
+  const move=ev=>{
+    const dy=ev.clientY-y0; row.style.transform=`translateY(${dy}px)`;
+    to=Math.max(0,Math.min(rows.length-1,from+Math.round(dy/h)));
+    rows.forEach((r,i)=>{ if(r===row) return; let sh=0; if(from<to&&i>from&&i<=to) sh=-h; if(to<from&&i>=to&&i<from) sh=h; r.style.transform=sh?`translateY(${sh}px)`:''; });
+  };
+  const up=()=>{
+    document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); document.removeEventListener('pointercancel',up);
+    if(to!==from){
+      const kind=list.dataset.kind, ids=rows.map(r=>r.dataset.id); const [m]=ids.splice(from,1); ids.splice(to,0,m);
+      const others=state.categories.filter(c=>c.kind!==kind), group=ids.map(x=>catObj(x));
+      // keep groups in the same overall order: rebuild by walking the old list and refilling this kind's slots
+      let gi=0; state.categories=state.categories.map(c=>c.kind===kind?group[gi++]:c);
+      save(); if(navigator.vibrate) navigator.vibrate(10);
+    }
+    drawCatEditor();
+  };
+  document.addEventListener('pointermove',move); document.addEventListener('pointerup',up); document.addEventListener('pointercancel',up);
 }
 function closeCatEditor(){
   closeModal();
-  const r=catEd.returnTo; catEd={delId:null,returnTo:null};
+  const r=catEd.returnTo; catEd={delId:null,openId:null,returnTo:null};
   render();
   if(r&&pick) drawPicker();
 }
@@ -1270,11 +1340,11 @@ function catMove(id,d){
   let j=i+d; while(j>=0&&j<a.length&&a[j].kind!==k) j+=d;
   if(j<0||j>=a.length) return; [a[i],a[j]]=[a[j],a[i]]; save(); drawCatEditor();
 }
-function catKind(id,k){ const c=catObj(id); c.kind=k; if(k!=='expense') c.budget=0; save(); drawCatEditor(); toast(`${c.name} is now ${k==='income'?'an income':'an expense'} category`); }
+function catKind(id,k){ const c=catObj(id); if(c.kind===k) return; c.kind=k; if(k!=='expense') c.budget=0; save(); drawCatEditor(); toast(`${c.name} moved to ${k==='income'?'Income':'Expenses'}`); }
 function addCat(){
   const el=document.getElementById('newCat'); const v=el.value.trim(); if(!v) return;
   if(state.categories.some(c=>c.name.toLowerCase()===v.toLowerCase())){ toast('That category already exists'); return; }
-  const kind=(document.getElementById('newKind')||{}).value||'expense'; catEd.newKind=kind;
+  const kind=catEd.newKind||'expense';
   const n0=state.categories.length;
   state.categories.push({id:'c'+Date.now().toString(36),name:v,color:kind==='income'?'#38d9a9':PALETTE[n0%PALETTE.length],kind,budget:0});
   save(); drawCatEditor(); toast(`Added "${v}"`);
