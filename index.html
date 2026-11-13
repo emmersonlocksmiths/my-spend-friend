@@ -9,6 +9,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Spend Friend">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -44,7 +47,7 @@ html{touch-action:pan-y}
 body *{touch-action:manipulation}
 /* iPhone zooms into any text box with text under 16px, so keep them all at 16px */
 input,select,textarea{font-size:16px!important}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:84px;font-size:15px;
+body{font-family:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:84px;font-size:15px;
   background-image:radial-gradient(1200px 500px at 50% -200px,var(--glow),transparent 70%);background-repeat:no-repeat;min-height:100vh;min-height:100dvh}
 html{background:var(--bg)}
 header{max-width:760px;margin:0 auto;position:relative}
@@ -292,6 +295,24 @@ kbd{font-family:inherit;font-size:11px;background:var(--card2);border:1px solid 
   body.noapp{padding-left:0}
 }
 @media (min-width:1500px){ .cols{columns:3} }
+/* ---------- Premium style (Plus Jakarta Sans) ---------- */
+h2{font-weight:700;letter-spacing:-.015em;font-size:16px}
+.stat .v,.mini2 .v,.mini3 .v,.rvamt,.crow-amt,.cc-amt,.period .lbl,.rvname{letter-spacing:-.025em}
+.stat .v,.mini2 .v,.mini3 .v,.rvamt{font-weight:800}
+.stat .k,.mini2 .k,.mini3 .k{font-weight:600}
+.card,.stat{border-radius:22px;border-color:color-mix(in srgb,var(--accent) 20%,var(--line));box-shadow:0 4px 24px rgba(0,0,0,.16)}
+:root[data-theme=light] .card,:root[data-theme=light] .stat{box-shadow:0 4px 18px rgba(60,45,0,.06)}
+.banner{border-radius:18px}
+.modal{border-radius:24px 24px 0 0}
+@media(min-width:600px){.modal{border-radius:24px}}
+.acct,.rulebox{border-radius:16px}
+.qpgrid button,.suggrow button,.catgrid button{border-radius:14px}
+button.btn{border-radius:13px}
+.seg{border-radius:14px}.seg button{border-radius:11px}
+input,select{border-radius:12px}
+.catgroup{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 2px 4px}
+.catgroup:empty{display:none}
+.kindsel{width:auto;padding:4px 8px;border-radius:9px}
 svg text{font-family:inherit}
 </style>
 </head>
@@ -303,7 +324,7 @@ svg text{font-family:inherit}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.12';
+const APP_VERSION='0.13';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -367,12 +388,17 @@ const DEFAULT_RULES = {
   health:['CHEMIST WAREHOUSE','PRICELINE','TERRYWHITE','PHARMACY','CHEMIST'],
   insurance:['RACQ','AAMI','BUDGET DIRECT','NRMA','MEDIBANK','BUPA','HCF','NIB']
 };
+const INCOME_DEFAULTS=[['wages','Wages & Salary','#4cd964'],['business','Business income','#20c997'],['govt','Government payments','#74c0fc'],['interest','Interest','#a9e34b'],['income','Other income','#69db7c']];
+const INCOME_RULES={wages:['SALARY','WAGES','PAYROLL'],govt:['CENTRELINK','SERVICES AUSTRALIA','ATO','MEDICARE'],interest:['INTEREST','BONUS INTEREST']};
+const KIND_LABEL={income:'Income',expense:'Expenses',transfer:'Not counted (transfers)'};
+function catsOfKind(k){ return state.categories.filter(c=>c.kind===k); }
 function freshState(){
   const cats = DEFAULT_CATS.map(([id,name],i)=>({id,name,color:id==='water'?'#22b8cf':PALETTE[i%PALETTE.length],kind:'expense',budget:0}));
-  cats.push({id:'income',name:'Income',color:'#4cd964',kind:'income',budget:0});
+  INCOME_DEFAULTS.forEach(([id,name,color])=>cats.push({id,name,color,kind:'income',budget:0}));
   cats.push({id:'transfer',name:'Transfer (ignored)',color:'#6d6d78',kind:'transfer',budget:0});
   const rules=[];
   for(const [cat,kws] of Object.entries(DEFAULT_RULES)) kws.forEach(kw=>rules.push({kw,cat,dir:'out',user:false}));
+  for(const [cat,kws] of Object.entries(INCOME_RULES)) kws.forEach(kw=>rules.push({kw,cat,dir:'in',user:false}));
   return {txns:[],accounts:{},categories:cats,rules,imports:[],view:{mode:'month',anchor:null}};
 }
 let state = freshState();
@@ -380,6 +406,10 @@ try{ const v=JSON.parse(localStorage.getItem(VIEW_KEY)||'null'); if(v) state.vie
 // Keep older household settings in step with category changes made since they were created.
 function runMigrations(){
   const c=id=>state.categories.find(x=>x.id===id);
+  // income categories (v0.13)
+  if(c('income')&&c('income').name==='Income') c('income').name='Other income';
+  INCOME_DEFAULTS.forEach(([id,name,color])=>{ if(!c(id)){ const i=state.categories.findIndex(x=>x.id==='income'); state.categories.splice(i<0?state.categories.length:i,0,{id,name,color,kind:'income',budget:0}); } });
+  for(const [cat,kws] of Object.entries(INCOME_RULES)) kws.forEach(kw=>{ if(!state.rules.some(r=>r.kw===kw&&r.dir==='in')) state.rules.push({kw,cat,dir:'in',user:false}); });
   if(c('rent')&&c('rent').name==='Rent / Mortgage') c('rent').name='Rent';
   if(c('car')&&c('car').name==='Car') c('car').name='Car servicing';
   if(c('utilities')&&c('utilities').name==='Power & Water') c('utilities').name='Electricity';
@@ -542,7 +572,7 @@ function uncatCount(){ return state.txns.filter(t=>!t.cat&&isCounted(t)).length;
 
 /* ============ Navigation ============ */
 let tab='dashboard';
-const TABS=[['dashboard','📊','Dashboard'],['review','✅','Review'],['txns','📋','Transactions'],['cats','📈','Charts'],['settings','⚙️','Settings']];
+const TABS=[['dashboard','📊','Dashboard'],['cats','📈','Charts'],['txns','📋','Transactions'],['review','✅','Review'],['settings','⚙️','Settings']];
 function renderNav(){
   const nav=document.getElementById('nav'), n=uncatCount();
   if(!nav.querySelector('button')){
@@ -725,18 +755,27 @@ function suggestionsFor(t){
 }
 function snapshot(){ return {cats:state.txns.map(t=>[t.id,t.cat]),rules:JSON.parse(JSON.stringify(state.rules)),recent:[...(state.recent||[])]}; }
 function restore(s){ const m=new Map(s.cats.map(x=>[x[0],x])); state.txns.forEach(t=>{const x=m.get(t.id); if(x){t.cat=x[1];}}); state.rules=s.rules; state.recent=s.recent; }
-function quickPicks(t){
-  // Most-used categories first (by number of transactions in each), so the grid learns your habits.
-  const ids=[];
-  const add=id=>{ if(catById(id)&&!ids.includes(id)) ids.push(id); };
-  if(t.amount>0){ add('transfer'); add('income'); }
-  if(/^(TFD|TFC)$/.test(t.type)) add('transfer');
+// Categories in the order to offer them for this transaction: income first for money coming in,
+// expenses first for money going out. Within each group, the ones you use most come first.
+function rankCats(list){
   const counts={}; for(const x of state.txns){ if(x.cat) counts[x.cat]=(counts[x.cat]||0)+1; }
   const order=state.categories.map(c=>c.id);
-  const ranked=order.filter(id=>id!=='transfer'&&id!=='income'||t.amount>0)
-    .sort((a,b)=>(counts[b]||0)-(counts[a]||0)||order.indexOf(a)-order.indexOf(b));
-  ranked.forEach(add);
-  return ids.slice(0,12);
+  return list.map(c=>c.id).sort((a,b)=>(counts[b]||0)-(counts[a]||0)||order.indexOf(a)-order.indexOf(b));
+}
+function catGroupsFor(t){
+  const credit=t.amount>0, xfer=/^(TFD|TFC)$/.test(t.type)||OWN_XFER.test(t.desc);
+  const inc={kind:'income',ids:rankCats(catsOfKind('income'))}, exp={kind:'expense',ids:rankCats(catsOfKind('expense'))}, tr={kind:'transfer',ids:catsOfKind('transfer').map(c=>c.id)};
+  return credit?[inc,exp,tr]:[exp,inc,tr];
+}
+// Quick picks: the matching group (income for money in, expenses for money out); Transfer first when it looks like one.
+function quickPicks(t){
+  const g=catGroupsFor(t), tr=g.find(x=>x.kind==='transfer').ids;
+  const likely=t.amount>0||/^(TFD|TFC)$/.test(t.type)||OWN_XFER.test(t.desc);
+  return likely?[...tr,...g[0].ids]:g[0].ids;
+}
+// Every category, grouped (Income / Expenses / Not counted) in the order that suits this transaction.
+function groupedCatGrid(t,clickFn,selId){
+  return catGroupsFor(t).map(g=>`<div class="catgroup">${KIND_LABEL[g.kind]}</div><div class="catgrid">${g.ids.map(id=>{const c=catById(id); return `<button class="${selId===id?'sel':''}" onclick="${clickFn}('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>`).join('');
 }
 function renderReview(el){
   const q=reviewQueue();
@@ -756,7 +795,9 @@ function renderReview(el){
   const total=rv.done+q.length; const pct=total?rv.done/total*100:0;
   const sugg=suggestionsFor(t);
   const sIds=sugg.map(x=>x.id);
+  const groups=catGroupsFor(t);
   const picks=quickPicks(t).filter(id=>!sIds.includes(id)).slice(0,9);
+  const credit=t.amount>0;
   el.innerHTML=toggle+`
     <div class="rvhead"><span><b>${q.length}</b> left${rv.done?` · ${rv.done} done`:''}</span>
       <span class="rvctl">${rv.undo?`<button class="pill" onclick="reviewUndo()">↶ Undo</button>`:''}
@@ -774,11 +815,11 @@ function renderReview(el){
     ${sugg.length?`<div class="small muted" style="margin:2px 2px 6px">Suggested</div>
       <div class="suggrow">${sugg.map((x,i)=>{const c=catById(x.id); return `<button data-key="${i+1}" onclick="reviewSave('${x.id}',this)"><span class="dot" style="background:${c.color}"></span><span><b>${esc(c.name)}</b><span class="why">${esc(x.why)}</span></span></button>`;}).join('')}</div>`:''}
     </div><div class="rvright">
-    <div class="small muted" style="margin:4px 2px 6px">Most used</div>
+    <div class="small muted" style="margin:4px 2px 6px">${credit?'Income':'Most used expenses'}</div>
     <div class="qpgrid">${picks.map((id,i)=>{const c=catById(id); const k=sugg.length+i+1; return `<button ${k<=9?`data-key="${k}"`:''} onclick="reviewSave('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>
     <details class="card" style="padding:12px 14px" ${(rv.allOpen??isDesktop())?'open':''} ontoggle="rv.allOpen=this.open"><summary style="cursor:pointer;font-weight:600">All categories</summary>
-      <div class="catgrid">${state.categories.map(c=>`<button onclick="reviewSave('${c.id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`).join('')}
-      <button style="border-style:dashed;color:var(--accent)" onclick="openCatEditor()">✏️ Add / edit categories</button></div></details>
+      ${groupedCatGrid(t,'reviewSave')}
+      <div class="catgrid">      <button style="border-style:dashed;color:var(--accent)" onclick="openCatEditor()">✏️ Add / edit categories</button></div></details>
     </div></div>
     <p class="kbdhint small muted">Keyboard: <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>Enter</kbd> top suggestion · <kbd>→</kbd> skip · <kbd>←</kbd> back · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</p>
     </div>
@@ -866,8 +907,8 @@ function drawPicker(){
     <div class="small muted" style="margin-top:3px;word-break:break-word">${esc(t.desc)}</div></div>
     <div class="amt ${t.amount>0?'pos':'neg'}" style="font-size:18px;font-weight:700;white-space:nowrap">${t.amount>0?'+':''}${money(t.amount)}</div></div>
     ${sugg.length?`<div class="small muted" style="margin:12px 2px 6px">Suggested</div><div class="suggrow">${sugg.map(x=>{const c=catById(x.id); return `<button class="${pick.cat===x.id?'sel':''}" onclick="choose('${x.id}')"><span class="dot" style="background:${c.color}"></span><span><b>${esc(c.name)}</b><span class="why">${esc(x.why)}</span></span></button>`;}).join('')}</div>`:''}
-    <div class="catgrid">${state.categories.map(c=>`<button class="${pick.cat===c.id?'sel':''}" onclick="choose('${c.id}')"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`).join('')}
-      <button style="border-style:dashed;color:var(--accent)" onclick="openCatEditor('picker')">✏️ Add / edit categories</button></div>
+    ${groupedCatGrid(t,'choose',pick.cat)}
+    <div class="catgrid">      <button style="border-style:dashed;color:var(--accent)" onclick="openCatEditor('picker')">✏️ Add / edit categories</button></div>
     <div style="display:flex;gap:8px;margin-top:6px;justify-content:space-between">
       ${t.cat?`<button class="btn danger" onclick="clearCat()">Send back to Review</button>`:'<span></span>'}
       <button class="btn ghost" onclick="closePicker()">Cancel</button>
@@ -1020,8 +1061,9 @@ function renderCharts(el){
     <div class="card"><h2>Spending by day of week</h2>${barChartSVG(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],[{vals:wd,color:'var(--accent)'}],{h:170,values:true})}
       ${purchases.length?`<p class="small muted" style="margin:4px 0 0">${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][busiest]} is your biggest spending day (${wn[busiest]} purchase${wn[busiest]===1?'':'s'}).</p>`:''}</div>
     <div class="card"><h2>Most visited</h2>${topVisits.length?topVisits.map(([k,v],i)=>`<div class="lrow"><span class="rank">${i+1}</span><span class="grow">${esc(titleCase(k))}<div class="small muted">${v.n} visit${v.n>1?'s':''} · avg ${money0(v.a/v.n)}</div></span><b class="neg">${money(v.a)}</b></div>`).join(''):'<p class="muted small">Nothing yet.</p>'}</div>
-    <div class="card"><h2>Money in & transfers</h2>
-      <div class="lrow"><span class="grow"><span class="dot" style="background:${catById('income')?.color||'#4cd964'}"></span>${esc(catById('income')?.name||'Income')}</span><b class="pos">${money(incomeAmt)}</b></div>
+    <div class="card"><h2>Money in</h2>
+      ${(()=>{ const rowsIn=catsOfKind('income').map(c=>({c,a:inP.filter(t=>t.cat===c.id).reduce((x,t)=>x+t.amount,0)})).filter(r=>r.a).sort((a,b)=>b.a-a.a);
+        return rowsIn.length?rowsIn.map(r=>`<div class="lrow"><span class="grow"><span class="dot" style="background:${r.c.color}"></span>${esc(r.c.name)}</span><b class="pos">${money(r.a)}</b></div>`).join(''):'<p class="muted small">No income categorised in this period yet.</p>'; })()}
       <div class="lrow"><span class="grow"><span class="dot" style="background:${catById('transfer')?.color||'#6d6d78'}"></span>${esc(catById('transfer')?.name||'Transfers')}<div class="small muted">${xfer.length} moved between accounts, not counted</div></span><b class="muted">${money(xfer.reduce((a,t)=>a+Math.abs(t.amount),0))}</b></div>
     </div>
     ${unused.length?`<div class="card"><h2>Nothing spent this period</h2><div style="display:flex;flex-wrap:wrap;gap:6px">${unused.map(r=>`<span class="chip"><span class="dot" style="background:${r.c.color};width:8px;height:8px;margin-right:5px"></span>${esc(r.c.name)}</span>`).join('')}</div></div>`:''}
@@ -1123,7 +1165,7 @@ function renderSettings(el){
   ${accountsSection()}
   <div class="card"><h2>Categories & monthly budgets</h2>
     <p class="small muted" style="margin-top:-6px">Add, rename, recolour, reorder or delete categories, and set a monthly budget for each.</p>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${state.categories.map(c=>`<span class="chip"><span class="dot" style="background:${c.color};width:8px;height:8px;margin-right:5px"></span>${esc(c.name)}${c.budget?` · ${money0(c.budget)}`:''}</span>`).join('')}</div>
+    ${['income','expense'].map(k=>`<div class="catgroup">${KIND_LABEL[k]}</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${catsOfKind(k).map(c=>`<span class="chip"><span class="dot" style="background:${c.color};width:8px;height:8px;margin-right:5px"></span>${esc(c.name)}${c.budget?` · ${money0(c.budget)}`:''}</span>`).join('')}</div>`).join('')}
     <div style="display:flex;gap:8px"><button class="btn" onclick="openCatEditor()">✏️ Edit categories</button><button class="btn ghost" onclick="openCatEditor();setTimeout(()=>document.getElementById('newCat')?.focus(),60)">＋ New</button></div>
   </div>
   <div class="card"><h2>Suggestion rules</h2>
@@ -1174,26 +1216,26 @@ function confirmBox(msg){ try{ return window.confirm(msg); }catch(e){ return tru
 let catEd={delId:null,returnTo:null};
 function openCatEditor(returnTo){ catEd={delId:null,returnTo:returnTo||null}; drawCatEditor(); }
 function drawCatEditor(){
-  const cats=state.categories;
-  const rows=cats.map((c,i)=>{
+  const row=(c,i,list)=>{
     const n=state.txns.filter(t=>t.cat===c.id).length;
-    const fixed=c.kind!=='expense';
+    const locked=c.kind==='transfer'||c.id==='income';
     let html=`<div style="border-bottom:1px solid var(--line);padding:9px 0">
       <div class="row" style="margin:0">
         <input type="color" value="${c.color}" style="width:34px;height:34px;padding:2px;flex:none" onchange="catColor('${c.id}',this.value)">
         <input class="grow" value="${esc(c.name)}" onchange="catRename('${c.id}',this.value)">
-        ${c.kind==='expense'?`<input type="number" min="0" step="10" placeholder="Budget" title="Monthly budget" value="${c.budget||''}" style="width:92px;flex:none" onchange="catBudget('${c.id}',this.value)">`:`<span class="small muted" style="width:92px;flex:none;text-align:center">${c.kind==='income'?'Income':'Not counted'}</span>`}
+        ${c.kind==='expense'?`<input type="number" min="0" step="10" placeholder="Budget" title="Monthly budget" value="${c.budget||''}" style="width:92px;flex:none" onchange="catBudget('${c.id}',this.value)">`:''}
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;gap:8px">
         <span class="small muted">${n} transaction${n===1?'':'s'}</span>
-        <span style="display:flex;gap:14px">
-          <button class="link" ${i===0?'disabled style="opacity:.3"':''} onclick="catMove('${c.id}',-1)">▲ Up</button>
-          <button class="link" ${i===cats.length-1?'disabled style="opacity:.3"':''} onclick="catMove('${c.id}',1)">▼ Down</button>
-          ${fixed?'':`<button class="link" style="color:var(--bad)" onclick="catEd.delId='${c.id}';drawCatEditor()">Delete</button>`}
+        <span style="display:flex;gap:12px;align-items:center">
+          ${locked?'':`<select class="kindsel" onchange="catKind('${c.id}',this.value)"><option value="expense" ${c.kind==='expense'?'selected':''}>Expense</option><option value="income" ${c.kind==='income'?'selected':''}>Income</option></select>`}
+          <button class="link" ${i===0?'disabled style="opacity:.3"':''} onclick="catMove('${c.id}',-1)">▲</button>
+          <button class="link" ${i===list.length-1?'disabled style="opacity:.3"':''} onclick="catMove('${c.id}',1)">▼</button>
+          ${locked?'':`<button class="link" style="color:var(--bad)" onclick="catEd.delId='${c.id}';drawCatEditor()">Delete</button>`}
         </span>
       </div>`;
     if(catEd.delId===c.id){
-      const opts=`<option value="">Uncategorised (review again)</option>`+cats.filter(x=>x.id!==c.id).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+      const opts=`<option value="">Uncategorised (review again)</option>`+state.categories.filter(x=>x.id!==c.id).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
       html+=`<div class="rulebox warn" style="margin-top:8px">
         <div class="small" style="margin-bottom:6px">Delete <b>${esc(c.name)}</b>?${n?` Move its ${n} transaction(s) and rules to:`:''}</div>
         ${n?`<select id="delTarget" style="margin-bottom:8px">${opts}</select>`:''}
@@ -1201,12 +1243,15 @@ function drawCatEditor(){
       </div>`;
     }
     return html+'</div>';
-  }).join('');
+  };
+  const section=k=>{ const list=catsOfKind(k); return `<div class="catgroup" style="margin-top:14px">${KIND_LABEL[k]}</div>${list.map((c,i)=>row(c,i,list)).join('')}`; };
   document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeCatEditor()"><div class="modal">
     <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Edit categories</h2><button class="btn" onclick="closeCatEditor()">Done</button></div>
-    <p class="small muted">Changes save as you go. Budget is per month, so leave it blank for no budget.</p>
-    ${rows}
-    <div class="row" style="margin-top:12px"><input class="grow" id="newCat" placeholder="New category name" onkeydown="if(event.key==='Enter')addCat()"><button class="btn" onclick="addCat()">Add</button></div>
+    <p class="small muted">Changes save as you go. Budgets are per month, so leave blank for no budget. Switch a category between Income and Expense with its dropdown.</p>
+    <div class="row" style="margin-top:6px"><input class="grow" id="newCat" placeholder="New category name" onkeydown="if(event.key==='Enter')addCat()">
+      <select id="newKind" style="width:auto;flex:none"><option value="expense">Expense</option><option value="income" ${catEd.newKind==='income'?'selected':''}>Income</option></select>
+      <button class="btn" onclick="addCat()">Add</button></div>
+    ${section('income')}${section('expense')}${section('transfer')}
   </div></div>`;
 }
 function closeCatEditor(){
@@ -1219,12 +1264,19 @@ function catObj(id){ return state.categories.find(c=>c.id===id); }
 function catRename(id,v){ v=v.trim(); if(!v) return drawCatEditor(); catObj(id).name=v; save(); }
 function catColor(id,v){ catObj(id).color=v; save(); }
 function catBudget(id,v){ catObj(id).budget=parseFloat(v)||0; save(); }
-function catMove(id,d){ const a=state.categories; const i=a.findIndex(c=>c.id===id); const j=i+d; if(j<0||j>=a.length) return; [a[i],a[j]]=[a[j],a[i]]; save(); drawCatEditor(); }
+function catMove(id,d){
+  // move within its own group (Income / Expenses)
+  const a=state.categories, i=a.findIndex(c=>c.id===id), k=a[i].kind;
+  let j=i+d; while(j>=0&&j<a.length&&a[j].kind!==k) j+=d;
+  if(j<0||j>=a.length) return; [a[i],a[j]]=[a[j],a[i]]; save(); drawCatEditor();
+}
+function catKind(id,k){ const c=catObj(id); c.kind=k; if(k!=='expense') c.budget=0; save(); drawCatEditor(); toast(`${c.name} is now ${k==='income'?'an income':'an expense'} category`); }
 function addCat(){
   const el=document.getElementById('newCat'); const v=el.value.trim(); if(!v) return;
   if(state.categories.some(c=>c.name.toLowerCase()===v.toLowerCase())){ toast('That category already exists'); return; }
-  const ex=state.categories.filter(c=>c.kind==='expense').length;
-  state.categories.splice(ex,0,{id:'c'+Date.now().toString(36),name:v,color:PALETTE[ex%PALETTE.length],kind:'expense',budget:0});
+  const kind=(document.getElementById('newKind')||{}).value||'expense'; catEd.newKind=kind;
+  const n0=state.categories.length;
+  state.categories.push({id:'c'+Date.now().toString(36),name:v,color:kind==='income'?'#38d9a9':PALETTE[n0%PALETTE.length],kind,budget:0});
   save(); drawCatEditor(); toast(`Added "${v}"`);
   const n=document.getElementById('newCat'); if(n) n.focus();
 }

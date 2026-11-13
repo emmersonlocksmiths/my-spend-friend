@@ -1,7 +1,7 @@
 // Caches the app's own files so it opens instantly and works with no signal.
 // Firebase keeps your data offline itself; this only covers the app shell.
 // Bump VERSION whenever you change any file so phones pick up the update.
-const VERSION = 'msf-0.12'; // match APP_VERSION in index.html
+const VERSION = 'msf-0.13'; // match APP_VERSION in index.html
 const SHELL = ['./', 'index.html', 'manifest.json', 'banner.jpg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'favicon-32.png'];
 
 self.addEventListener('install', (e) => {
@@ -18,7 +18,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;
-  const ours = url.origin === location.origin || url.hostname === 'www.gstatic.com';
+  const ours = url.origin === location.origin || url.hostname === 'www.gstatic.com'
+    || url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
   if (!ours) return;
   const req = url.origin === location.origin ? new Request(e.request, { cache: 'no-cache' }) : e.request;
   e.respondWith(
