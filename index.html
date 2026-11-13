@@ -237,6 +237,61 @@ button:active:not(:disabled),.txn:active,.catrow:active,.crow:active{transform:s
 .rvctl{display:flex;gap:6px;align-items:center}
 .pill{background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;min-width:34px}
 .pill:disabled{opacity:.35}
+.cols>.card{break-inside:avoid}
+.navlogo{display:none}
+.kbdhint{display:none}
+kbd{font-family:inherit;font-size:11px;background:var(--card2);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px}
+.dropall{position:fixed;inset:0;z-index:70;background:var(--overlay);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .15s}
+.dropall.on{opacity:1}
+.dropall div{background:var(--card);border:2px dashed var(--accent);border-radius:20px;padding:40px 60px;font-size:18px;font-weight:700}
+/* ---------- Desktop layout ---------- */
+@media (min-width:1000px){
+  body{padding-bottom:30px;padding-left:232px;font-size:15px}
+  nav{top:0;bottom:0;left:0;right:auto;width:232px;flex-direction:column;justify-content:flex-start;align-items:stretch;gap:4px;padding:18px 14px;border-top:0;border-right:1px solid var(--line)}
+  .navlogo{display:flex;align-items:center;gap:10px;padding:4px 8px 18px;font-size:15px;line-height:1.15;color:var(--ink)}
+  .navlogo img{width:44px;height:44px;border-radius:11px}
+  .navlogo b{color:var(--accent)}
+  nav button{flex:none;display:flex;align-items:center;gap:12px;font-size:15px;padding:11px 14px;border-radius:12px;text-align:left;color:var(--muted)}
+  nav button .ic{display:inline-block;font-size:18px;line-height:1}
+  nav button:hover{background:var(--card2);color:var(--ink)}
+  nav button.on{background:var(--soft);color:var(--ink)}
+  nav button.on .ic{transform:none}
+  nav .badge{position:static;margin-left:auto}
+  .navind{top:var(--top,0);left:0;width:3px;height:30px;border-radius:0 3px 3px 0;transition:top .28s cubic-bezier(.3,.7,.2,1)}
+  header{max-width:1240px;padding:18px 28px 0}
+  header img{border-radius:18px;max-height:190px;aspect-ratio:auto;object-fit:cover;object-position:center 40%;box-shadow:0 8px 30px var(--glow)}
+  main{max-width:1240px;padding:18px 28px}
+  .cols{columns:2;column-gap:16px}
+  .cols>.card{display:inline-block;width:100%}
+  .stats{gap:16px}
+  .stat{padding:16px 18px}
+  .stat .v{font-size:24px}
+  .seg,.period{max-width:560px}
+  .period{margin-left:0}
+  .filters{grid-template-columns:2fr 1fr 1fr}
+  .filters .full{grid-column:auto}
+  .txn{padding:10px 8px;border-radius:10px}
+  .txn:hover,.crow:hover,.catrow:hover{background:var(--card2)}
+  .crow{padding-left:8px;padding-right:8px;border-radius:10px}
+  .rvhead,.rvgrid,.kbdhint{max-width:1100px}
+  .rvgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:20px;align-items:start}
+  .rvcard{padding:22px}
+  .rvname{font-size:22px;white-space:normal}
+  .rvamt{font-size:28px}
+  .rvraw{white-space:normal}
+  .qpgrid{grid-template-columns:repeat(3,1fr)}
+  .catgrid{grid-template-columns:repeat(3,1fr)}
+  [data-key]{position:relative}
+  [data-key]::after{content:attr(data-key);position:absolute;top:6px;right:8px;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:0 5px;line-height:16px}
+  .kbdhint{display:block;margin-top:6px}
+  button:hover:not(:disabled){filter:brightness(1.06)}
+  .qpgrid button:hover,.catgrid button:hover,.suggrow button:hover{border-color:var(--accent)}
+  .toast{bottom:30px;left:calc(50% + 116px)}
+  .modal{max-width:620px}
+  .authwrap{margin-top:40px}
+  body.noapp{padding-left:0}
+}
+@media (min-width:1500px){ .cols{columns:3} }
 svg text{font-family:inherit}
 </style>
 </head>
@@ -248,7 +303,7 @@ svg text{font-family:inherit}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.11';
+const APP_VERSION='0.12';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -491,7 +546,7 @@ const TABS=[['dashboard','📊','Dashboard'],['review','✅','Review'],['txns','
 function renderNav(){
   const nav=document.getElementById('nav'), n=uncatCount();
   if(!nav.querySelector('button')){
-    nav.innerHTML=TABS.map(([id,ic,l])=>`<button data-tab="${id}" onclick="go('${id}')"><span class="ic">${ic}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
+    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div>'+TABS.map(([id,ic,l])=>`<button data-tab="${id}" onclick="go('${id}')"><span class="ic">${ic}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
   }
   nav.querySelectorAll('button').forEach(b=>{
     b.classList.toggle('on',b.dataset.tab===tab);
@@ -499,6 +554,7 @@ function renderNav(){
     if(bd){ if(show&&bd.textContent!==String(n)){ bd.textContent=n; bd.classList.remove('bump'); void bd.offsetWidth; bd.classList.add('bump'); } bd.style.display=show?'':'none'; }
   });
   nav.style.setProperty('--i',TABS.findIndex(t=>t[0]===tab));
+  const onBtn=nav.querySelector('button.on'); if(onBtn) nav.style.setProperty('--top',(onBtn.offsetTop+onBtn.offsetHeight/2-15)+'px');
   nav.style.setProperty('--n',TABS.length);
 }
 // Transitions: the next render plays this animation on the page ('tab', 'fade', 'left', 'right').
@@ -609,6 +665,7 @@ function renderDashboard(el){
       <div class="stat"><div class="k">Spent</div><div class="v neg">${money0(s.spend)}</div>${ps?changeTag(s.spend,ps.spend,pv.short):''}</div>
       <div class="stat"><div class="k">Difference</div><div class="v ${net<0?'neg':'pos'}">${net<0?'−':''}${money0(Math.abs(net))}</div></div>
     </div>
+    <div class="cols">
     ${pace}
     ${balancesCard()}
     <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Where the money went</h2><button class="link small" onclick="go('cats')">Charts ›</button></div>${catHtml}
@@ -617,6 +674,7 @@ function renderDashboard(el){
     <div class="card"><h2>Top places</h2>${placesHtml}</div>
     <div class="card"><h2>Biggest purchases</h2>${bigHtml}</div>
     <div class="card"><h2>Regular bills & subscriptions</h2>${regHtml}</div>
+    </div>
     <p class="muted small" style="text-align:center">Transfers between your own accounts are left out of these totals.</p>`;
 }
 function balancesCard(){
@@ -705,7 +763,7 @@ function renderReview(el){
         <button class="pill" ${q.length<2?'disabled':''} onclick="reviewStep(-1)" aria-label="Back">‹</button>
         <button class="pill" ${q.length<2?'disabled':''} onclick="reviewStep(1)">Skip ›</button></span></div>
     <div class="bar" style="margin:0 0 12px"><i style="width:${pct}%;background:var(--accent)"></i></div>
-    <div class="rvanim"><div class="card rvcard">
+    <div class="rvanim"><div class="rvgrid"><div class="rvleft"><div class="card rvcard">
       <div class="rvtop">
         <div style="min-width:0;flex:1"><div class="rvname">${esc(titleCase(cleanDesc(t.desc)))}</div>
           <div class="small muted">${dayLabel(t.date).replace(/ \d{4}$/,'')} · ${esc(acctName(t.acct))}</div></div>
@@ -714,12 +772,15 @@ function renderReview(el){
       <div class="rvraw">${esc(t.desc)}</div>
     </div>
     ${sugg.length?`<div class="small muted" style="margin:2px 2px 6px">Suggested</div>
-      <div class="suggrow">${sugg.map(x=>{const c=catById(x.id); return `<button onclick="reviewSave('${x.id}',this)"><span class="dot" style="background:${c.color}"></span><span><b>${esc(c.name)}</b><span class="why">${esc(x.why)}</span></span></button>`;}).join('')}</div>`:''}
+      <div class="suggrow">${sugg.map((x,i)=>{const c=catById(x.id); return `<button data-key="${i+1}" onclick="reviewSave('${x.id}',this)"><span class="dot" style="background:${c.color}"></span><span><b>${esc(c.name)}</b><span class="why">${esc(x.why)}</span></span></button>`;}).join('')}</div>`:''}
+    </div><div class="rvright">
     <div class="small muted" style="margin:4px 2px 6px">Most used</div>
-    <div class="qpgrid">${picks.map(id=>{const c=catById(id); return `<button onclick="reviewSave('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>
-    <details class="card" style="padding:12px 14px" ${rv.allOpen?'open':''} ontoggle="rv.allOpen=this.open"><summary style="cursor:pointer;font-weight:600">All categories</summary>
+    <div class="qpgrid">${picks.map((id,i)=>{const c=catById(id); const k=sugg.length+i+1; return `<button ${k<=9?`data-key="${k}"`:''} onclick="reviewSave('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>
+    <details class="card" style="padding:12px 14px" ${(rv.allOpen??isDesktop())?'open':''} ontoggle="rv.allOpen=this.open"><summary style="cursor:pointer;font-weight:600">All categories</summary>
       <div class="catgrid">${state.categories.map(c=>`<button onclick="reviewSave('${c.id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`).join('')}
       <button style="border-style:dashed;color:var(--accent)" onclick="openCatEditor()">✏️ Add / edit categories</button></div></details>
+    </div></div>
+    <p class="kbdhint small muted">Keyboard: <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>Enter</kbd> top suggestion · <kbd>→</kbd> skip · <kbd>←</kbd> back · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</p>
     </div>
 `;
 }
@@ -937,6 +998,7 @@ function renderCharts(el){
   const xfer=inP.filter(t=>catById(t.cat)?.kind==='transfer');
   el.innerHTML=`${periodControls()}
     ${s.uncatOut>0?`<div class="banner"><span>${money(s.uncatOut)} not reviewed yet</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
+    <div class="cols">
     <div class="card"><h2>At a glance</h2>
       <div class="mini3">
         <div><div class="k">Purchases</div><div class="v">${purchases.length}</div></div>
@@ -962,7 +1024,8 @@ function renderCharts(el){
       <div class="lrow"><span class="grow"><span class="dot" style="background:${catById('income')?.color||'#4cd964'}"></span>${esc(catById('income')?.name||'Income')}</span><b class="pos">${money(incomeAmt)}</b></div>
       <div class="lrow"><span class="grow"><span class="dot" style="background:${catById('transfer')?.color||'#6d6d78'}"></span>${esc(catById('transfer')?.name||'Transfers')}<div class="small muted">${xfer.length} moved between accounts, not counted</div></span><b class="muted">${money(xfer.reduce((a,t)=>a+Math.abs(t.amount),0))}</b></div>
     </div>
-    ${unused.length?`<div class="card"><h2>Nothing spent this period</h2><div style="display:flex;flex-wrap:wrap;gap:6px">${unused.map(r=>`<span class="chip"><span class="dot" style="background:${r.c.color};width:8px;height:8px;margin-right:5px"></span>${esc(r.c.name)}</span>`).join('')}</div></div>`:''}`;
+    ${unused.length?`<div class="card"><h2>Nothing spent this period</h2><div style="display:flex;flex-wrap:wrap;gap:6px">${unused.map(r=>`<span class="chip"><span class="dot" style="background:${r.c.color};width:8px;height:8px;margin-right:5px"></span>${esc(r.c.name)}</span>`).join('')}</div></div>`:''}
+    </div>`;
 }
 
 /* ============ Accounts ============ */
@@ -1037,7 +1100,7 @@ function renderSettings(el){
   const latest=withTx.map(a=>{ const d=state.txns.filter(t=>t.acct===a).reduce((m,t)=>t.date>m?t.date:m,''); return `<tr><td>${esc(acctName(a))}<div class="small muted">${a}</div></td><td style="text-align:right" class="small">up to <b>${dayLabel(d)}</b></td></tr>`; }).join('');
   const userRules=state.rules.filter(r=>r.user), seeded=state.rules.filter(r=>!r.user);
   const ruleRow=(r)=>{ const i=state.rules.indexOf(r); const c=catById(r.cat); return `<tr><td><b>${esc(r.kw)}</b> <span class="small muted">(${r.dir==='out'?'money out':r.dir==='in'?'money in':'any'})</span></td><td class="small">${c?esc(c.name):'<i>deleted</i>'}</td><td style="text-align:right"><button class="link" onclick="delRule(${i})">Remove</button></td></tr>`; };
-  el.innerHTML=`
+  el.innerHTML=`<div class="cols">
   ${accountSection()}
   <div class="card"><h2>Appearance</h2>
     <div class="seg" style="margin:0">${[['auto','Auto'],['light','☀️ Light'],['dark','🌙 Dark']].map(([v,l])=>`<button class="${getThemePref()===v?'on':''}" onclick="setThemePref('${v}');render()">${l}</button>`).join('')}</div>
@@ -1077,6 +1140,7 @@ function renderSettings(el){
       <button class="btn danger" onclick="wipe()">Delete all data</button>
     </div>
     <input type="file" id="restoreIn" accept=".json" class="hidden" onchange="restoreBackup(this.files[0])">
+  </div>
   </div>
   <p class="small muted" style="text-align:center;margin:4px 0 10px">My Spend Friend · version ${APP_VERSION}</p>`;
   const d=document.getElementById('drop');
@@ -1180,6 +1244,7 @@ function showScreen(name){
   appScreen=name;
   const nav=document.getElementById('nav'), el=document.getElementById('app');
   nav.style.display=name==='app'?'':'none';
+  document.body.classList.toggle('noapp',name!=='app');
   if(name==='app'){ render(); return; }
   closePicker&&document.getElementById('modalRoot')&&(document.getElementById('modalRoot').innerHTML='');
   if(name==='loading'){ el.innerHTML=`<div class="authwrap"><div class="spinner"></div><p class="muted" style="text-align:center">Loading your spending…</p></div>`; return; }
@@ -1269,6 +1334,34 @@ async function removePerson(uid){
 ['gesturestart','gesturechange','gestureend'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
 document.addEventListener('touchmove',e=>{ if(e.touches.length>1) e.preventDefault(); },{passive:false});
 let lastTouchEnd=0; document.addEventListener('touchend',e=>{ const now=Date.now(); if(now-lastTouchEnd<=300&&!e.target.closest('input,select,textarea')) e.preventDefault(); lastTouchEnd=now; },{passive:false});
+// ---------- Desktop extras ----------
+function isDesktop(){ return matchMedia('(min-width: 1000px)').matches; }
+// Review keyboard shortcuts
+document.addEventListener('keydown',e=>{
+  if(appScreen!=='app') return;
+  const typing=e.target.closest('input,textarea,select');
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!typing&&tab==='review'&&rv.undo){ e.preventDefault(); reviewUndo(); return; }
+  if(typing||e.ctrlKey||e.metaKey||e.altKey) return;
+  if(document.querySelector('.modal-bg')){ if(e.key==='Escape'){ pick?closePicker():closeCatEditor(); } return; }
+  if(tab!=='review'||rv.list) return;
+  if(/^[1-9]$/.test(e.key)){ const b=document.querySelector(`.rvanim [data-key="${e.key}"]`); if(b){ e.preventDefault(); b.click(); } }
+  else if(e.key==='Enter'){ const b=document.querySelector('.rvanim [data-key="1"]'); if(b){ e.preventDefault(); b.click(); } }
+  else if(e.key==='ArrowRight'){ e.preventDefault(); reviewStep(1); }
+  else if(e.key==='ArrowLeft'){ e.preventDefault(); reviewStep(-1); }
+});
+// Drop Bankwest CSVs anywhere on the page to import them
+(function(){
+  let depth=0; const ov=document.createElement('div'); ov.className='dropall'; ov.innerHTML='<div>📄 Drop Bankwest CSV files to import</div>';
+  const hasFiles=e=>e.dataTransfer&&[...e.dataTransfer.types].includes('Files');
+  document.addEventListener('dragenter',e=>{ if(appScreen!=='app'||!hasFiles(e)) return; depth++; if(!ov.isConnected) document.body.appendChild(ov); ov.classList.add('on'); });
+  document.addEventListener('dragover',e=>{ if(appScreen==='app'&&hasFiles(e)) e.preventDefault(); });
+  document.addEventListener('dragleave',e=>{ if(!hasFiles(e)) return; depth=Math.max(0,depth-1); if(!depth) ov.classList.remove('on'); });
+  document.addEventListener('drop',e=>{ if(appScreen!=='app'||!hasFiles(e)) return; e.preventDefault(); depth=0; ov.classList.remove('on');
+    if(e.target.closest('#drop')) return; // the Settings drop box handles its own
+    const files=[...e.dataTransfer.files].filter(f=>/\.csv$/i.test(f.name)); if(!files.length){ toast('Only .csv files can be imported'); return; }
+    tab='settings'; animateNext('tab'); handleFiles(files); window.scrollTo({top:0}); });
+})();
+let wasDesktop=isDesktop(); addEventListener('resize',()=>{ const d=isDesktop(); if(d!==wasDesktop){ wasDesktop=d; render(); } });
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 showScreen('loading');
 </script>
