@@ -471,7 +471,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .dupcard{border:1px solid color-mix(in srgb,var(--accent) 55%,transparent);background:color-mix(in srgb,var(--accent) 7%,var(--card))}
 .duphead{display:flex;gap:10px;align-items:flex-start;margin-bottom:6px}.dupicon{font-size:20px;line-height:1.2}.dupn{display:inline-block;min-width:20px;padding:1px 6px;border-radius:10px;background:var(--accent);color:#1a1300;font-size:12px;vertical-align:middle;text-align:center}
 .dupitem{border-top:1px solid var(--line);padding:10px 0 4px;margin-top:8px}.duprow{display:flex;gap:10px;align-items:center;padding:4px 0}.duprow .grow{min-width:0}.duprow b{white-space:nowrap}
-.dupnote{margin:4px 0 0 18px}.dupbtns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.dupbtns .btn{padding:8px 14px;font-size:14px}
+.dupnote{margin:6px 0 0}.duptype{font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);margin-bottom:2px}.duplab{flex:none;width:58px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}.dupbtns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.dupbtns .btn{padding:8px 14px;font-size:14px}
 .dupfoot{display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
 .chip.warnchip{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
 .xferhint{display:flex;gap:10px;align-items:center;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--accent) 12%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);font-size:14px}.xferhint .grow{min-width:0}.xferhint .btn{padding:8px 14px;font-size:14px;flex:none}
@@ -505,7 +505,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.31';
+const APP_VERSION='0.32';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1158,8 +1158,9 @@ function dayGap(a,b){ return Math.abs((new Date(a+'T00:00:00')-new Date(b+'T00:0
 function looksXfer(t){ return /^(TFD|TFC)$/.test(t.type||'')||OWN_XFER.test(t.desc); }
 let _pairsMemo={sig:'',pairs:[],partner:new Map()};
 function transferPairs(){
-  const sig=state.txns.length+'|'+Object.keys(state.accounts).length;
-  if(_pairsMemo.sig===sig) return _pairsMemo;
+  // Cached per transaction list object and size, so a fresh import or cloud update always recomputes.
+  const sig=state.txns.length+'|'+Object.keys(state.accounts).length+'|'+(state.txns[0]&&state.txns[0].id);
+  if(_pairsMemo.sig===sig&&_pairsMemo.list===state.txns&&_pairsMemo.first===state.txns[0]&&_pairsMemo.last===state.txns[state.txns.length-1]) return _pairsMemo;
   const ins=new Map(), used=new Set(), pairs=[], partner=new Map();
   for(const t of state.txns) if(t.amount>0&&state.accounts[t.acct]){ const k=t.amount.toFixed(2); if(!ins.has(k)) ins.set(k,[]); ins.get(k).push(t); }
   const outs=state.txns.filter(t=>t.amount<0&&state.accounts[t.acct]).sort((a,b)=>a.date.localeCompare(b.date));
@@ -1171,50 +1172,80 @@ function transferPairs(){
       if(d<bd){ best=i; bd=d; } }
     if(best){ used.add(best.id); used.add(o.id); pairs.push([o,best]); partner.set(o.id,best); partner.set(best.id,o); }
   }
-  _pairsMemo={sig,pairs,partner}; return _pairsMemo;
+  _pairsMemo={sig,pairs,partner,list:state.txns,first:state.txns[0],last:state.txns[state.txns.length-1]}; return _pairsMemo;
+}
+// Words that say nothing about who was paid.
+const DUP_STOP=new Set(['TRANSFER','PAYMENT','PAY','FROM','AUS','AUD','PTY','LTD','BILL','THE','AND','FOR','INV','REF','CITY','EAST','WEST','NORTH','SOUTH']);
+function descWords(d){ return new Set(cleanDesc(d).toUpperCase().replace(/[^A-Z ]/g,' ').split(/\s+/).filter(w=>w.length>=3&&!DUP_STOP.has(w))); }
+// The real bill a transfer was probably covering: same category, close in date (3 days before to 10 days after),
+// and either a close amount (rounded transfers: within $5 or 10%) or a matching name with a looser amount.
+function realBillFor(x){
+  const k=catKindOf(x.cat); if(k!=='expense') return null;
+  const a=Math.abs(x.amount), words=descWords(x.desc), partner=transferPairs().partner;
+  let best=null, bs=-1e9;
+  for(const r of state.txns){
+    if(r.id===x.id||r.amount>=0||r.cat!==x.cat||partner.has(r.id)||OWN_XFER.test(r.desc)) continue;
+    const days=(new Date(r.date+'T00:00:00')-new Date(x.date+'T00:00:00'))/864e5; if(days<-3||days>10) continue;
+    const ra=Math.abs(r.amount), diff=Math.abs(ra-a);
+    const close=diff<=Math.max(5,a*.1), loose=diff<=a*.25;
+    const named=[...descWords(r.desc)].some(w=>words.has(w));
+    if(!(close||(named&&loose))) continue;
+    const sc=(named?2:0)+(close?1:0)-Math.abs(days)/30-diff/Math.max(a,1);
+    if(sc>bs){ bs=sc; best=r; }
+  }
+  return best;
 }
 function doubleUps(){
-  const ok=new Set(state.dupOk||[]), out=[], {pairs,partner}=transferPairs();
+  const ok=new Set(state.dupOk||[]), out=[], {pairs,partner}=transferPairs(), nums=Object.keys(state.accounts);
+  const consider=(xfer,sides)=>{
+    // 1) A transfer put in a spending category while the real bill is in the same category: counted twice.
+    const bill=realBillFor(xfer);
+    if(bill){ const key='d'+shortHash(xfer.id+'|'+bill.id); if(!ok.has(key)) out.push({type:'double',key,sides,xfer,bill}); return true; }
+    return false;
+  };
   for(const [o,i] of pairs){
-    const ko=catKindOf(o.cat), ki=catKindOf(i.cat);
-    if(!((ko&&ko!=='transfer')||(ki&&ki!=='transfer'))) continue;
-    const key='p'+shortHash(o.id+'|'+i.id); if(ok.has(key)) continue;
-    out.push({key,txns:[o,i]});
+    if(consider(o,[o,i])) continue; // the fix for a double-up also sorts out the other side
+    // 2) The receiving side of your own transfer put in an income category: not new money.
+    if(catKindOf(i.cat)==='income'){ const key='i'+shortHash(o.id+'|'+i.id); if(!ok.has(key)) out.push({type:'income',key,sides:[o,i],inc:i}); }
   }
-  // A transfer to/from one of your own account numbers that was categorised as spending or income.
-  const nums=Object.keys(state.accounts);
+  // Transfers to/from your own account numbers where the other side isn't imported yet.
   for(const t of state.txns){
-    const k=catKindOf(t.cat); if(!k||k==='transfer'||partner.has(t.id)) continue;
-    const m=t.desc.match(OWN_XFER); if(!m||!nums.includes(m[2])) continue;
-    const key='s'+shortHash(t.id); if(ok.has(key)) continue;
-    out.push({key,txns:[t],other:m[2]});
+    if(partner.has(t.id)) continue; const m=t.desc.match(OWN_XFER); if(!m||!nums.includes(m[2])) continue;
+    if(t.amount<0) consider(t,[t]);
+    else if(catKindOf(t.cat)==='income'){ const key='i'+shortHash(t.id); if(!ok.has(key)) out.push({type:'income',key,sides:[t],inc:t,other:m[2]}); }
   }
   return out;
 }
-function similarSpend(t){
-  if(catKindOf(t.cat)!=='expense') return null;
-  const a=Math.abs(t.amount);
-  return state.txns.find(x=>x.id!==t.id&&x.cat===t.cat&&x.amount<0&&dayGap(x.date,t.date)<=7&&Math.abs(Math.abs(x.amount)-a)<=Math.max(3,a*.03)&&!transferPairs().partner.has(x.id))||null;
-}
-function dupFix(key){ const d=doubleUps().find(x=>x.key===key); if(!d) return; const tid=transferCatId(); rv.undo=snapshot(); d.txns.forEach(t=>{ t.cat=tid; }); save(); render(); toast('Marked as transfers'); }
+function dupApply(d,tid){ d.sides.forEach(t=>{ if(catKindOf(t.cat)!=='transfer') t.cat=tid; }); }
+function dupFix(key){ const d=doubleUps().find(x=>x.key===key); if(!d) return; rv.undo=snapshot(); dupApply(d,transferCatId()); save(); render(); toast('Marked as transfer'); }
 function dupKeep(key){ state.dupOk=[...(state.dupOk||[]),key]; save(); render(); toast('Okay, left as is'); }
-function dupFixAll(){ const ds=doubleUps(); const tid=transferCatId(); rv.undo=snapshot(); ds.forEach(d=>d.txns.forEach(t=>{ t.cat=tid; })); save(); render(); toast(ds.length+' fixed'); }
+function dupFixAll(){ const ds=doubleUps(), tid=transferCatId(); rv.undo=snapshot(); ds.forEach(d=>dupApply(d,tid)); save(); render(); toast(ds.length+' fixed'); }
 let dupOpen=false, dupReviewOpen=false;
 function dupCard(compact){
   const ds=doubleUps(); if(!ds.length) return '';
-  if(compact&&!dupReviewOpen) return `<div class="banner dupbanner" onclick="dupReviewOpen=true;render()"><span>⚠️ <b>${ds.length}</b> possible double-up${ds.length>1?'s':''}</span><button class="btn ghost">Check</button></div>`;
-  const row=t=>{ const c=t.cat?catById(t.cat):null; return `<div class="duprow"><span class="dot" style="background:${acctColor(t.acct)}"></span><span class="grow"><b>${esc(titleCase(cleanDesc(t.desc)))}</b><div class="small muted">${esc(acctName(t.acct))} · ${shortDay(t.date)} · <span class="chip ${c?(c.kind==='transfer'?'':'warnchip'):'none'}">${c?esc(c.name):'To review'}</span></div></span><b class="${t.amount>0?'pos':'neg'}">${t.amount>0?'+':'−'}${money(Math.abs(t.amount))}</b></div>`; };
+  if(compact&&!dupReviewOpen) return `<div class="banner dupbanner" onclick="dupReviewOpen=true;render()"><span>⚠️ <b>${ds.length}</b> thing${ds.length>1?'s':''} to check</span><button class="btn ghost">Check</button></div>`;
+  const row=(t,label)=>{ const c=t.cat?catById(t.cat):null; return `<div class="duprow">${label?`<span class="duplab">${label}</span>`:''}<span class="grow"><b>${esc(titleCase(cleanDesc(t.desc)))}</b><div class="small muted">${esc(acctName(t.acct))} · ${shortDay(t.date)} · <span class="chip ${c?(c.kind==='transfer'?'':(label==='Bill'?'':'warnchip')):'none'}">${c?esc(c.name):'To review'}</span></div></span><b class="${t.amount>0?'pos':'neg'}">${t.amount>0?'+':'−'}${money(Math.abs(t.amount))}</b></div>`; };
   const shown=dupOpen?ds:ds.slice(0,2);
-  const counted=ds.reduce((s,d)=>s+d.txns.filter(t=>catKindOf(t.cat)==='expense').reduce((a,t)=>a-t.amount,0),0);
+  const doubles=ds.filter(d=>d.type==='double'), incs=ds.filter(d=>d.type==='income');
+  const twice=doubles.reduce((s,d)=>s-d.xfer.amount,0), extraIn=incs.reduce((s,d)=>s+d.inc.amount,0);
+  const bits=[twice?`${money(twice)} spent counted twice`:'',extraIn?`${money(extraIn)} of transfers counted as income`:''].filter(Boolean).join(' and ');
+  const item=d=>{
+    if(d.type==='double'){ const c=catById(d.bill.cat);
+      return `<div class="dupitem"><div class="duptype">Double-up</div>
+        ${d.sides.map(t=>row(t,'Transfer')).join('')}${row(d.bill,'Bill')}
+        <div class="small muted dupnote">The transfer and the real bill are both in <b>${esc(c.name)}</b>, so it's counted twice.</div>
+        <div class="dupbtns"><button class="btn" onclick="dupFix('${d.key}')">Make the transfer a Transfer</button><button class="btn ghost" onclick="dupKeep('${d.key}')">Not a double-up</button></div></div>`; }
+    const from=d.sides.length>1?d.sides[0].acct:d.other;
+    return `<div class="dupitem"><div class="duptype">Transfer counted as income</div>
+      ${d.sides.map(t=>row(t,t.amount<0?'Out':'In')).join('')}
+      <div class="small muted dupnote">This money came from your ${esc(acctName(from))} account, so it isn't new income.</div>
+      <div class="dupbtns"><button class="btn" onclick="dupFix('${d.key}')">Make it a transfer</button><button class="btn ghost" onclick="dupKeep('${d.key}')">Keep as income</button></div></div>`;
+  };
   return `<div class="card dupcard">
-    <div class="duphead"><span class="dupicon">⚠️</span><div class="grow"><h2 style="margin:0">Possible double-up${ds.length>1?'s':''} <span class="dupn">${ds.length}</span></h2>
-      <div class="small muted">${ds.length>1?'These look':'This looks'} like money moved between your own accounts${counted>0?` — ${money(counted)} may be counted as spending twice`:''}.</div></div></div>
-    ${shown.map(d=>{ const sim=d.txns.map(similarSpend).find(Boolean);
-      return `<div class="dupitem">${d.txns.map(row).join('')}
-        ${d.other?`<div class="small muted dupnote">Moved ${d.txns[0].amount<0?'to':'from'} your ${esc(acctName(d.other))} account.</div>`:''}
-        ${sim?`<div class="small muted dupnote">Also a ${money(Math.abs(sim.amount))} ${esc(catById(sim.cat).name)} payment on ${shortDay(sim.date)} — probably the real one.</div>`:''}
-        <div class="dupbtns"><button class="btn" onclick="dupFix('${d.key}')">Make ${d.txns.length>1?'both transfers':'it a transfer'}</button><button class="btn ghost" onclick="dupKeep('${d.key}')">They're fine</button></div></div>`; }).join('')}
-    ${ds.length>2?`<div class="dupfoot"><button class="link small" onclick="dupOpen=!dupOpen;render()">${dupOpen?'Show fewer':'Show all '+ds.length}</button>${ds.length>1?`<button class="link small" onclick="dupFixAll()">Make all transfers</button>`:''}</div>`:''}
+    <div class="duphead"><span class="dupicon">⚠️</span><div class="grow"><h2 style="margin:0">Worth a check <span class="dupn">${ds.length}</span></h2>
+      <div class="small muted">Looks like ${bits}.</div></div></div>
+    ${shown.map(item).join('')}
+    ${ds.length>2?`<div class="dupfoot"><button class="link small" onclick="dupOpen=!dupOpen;render()">${dupOpen?'Show fewer':'Show all '+ds.length}</button><button class="link small" onclick="dupFixAll()">Fix all</button></div>`:''}
   </div>`;
 }
 /* ============ Transactions ============ */
