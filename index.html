@@ -437,7 +437,7 @@ svg text{font-family:inherit}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.18';
+const APP_VERSION='0.19';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -863,6 +863,7 @@ function filterCat(id){ txFilter={q:'',cat:id,acct:'',period:true}; go('txns'); 
 
 /* ============ Review ============ */
 let rv={idx:0,done:0,list:false,kw:null,kwFor:null,remember:true,undo:null};
+function rvSwitch(a){ rv.acct=a; rv.idx=0; rv.done=0; rv.undo=null; animateNext('fade'); render(); window.scrollTo({top:0}); }
 function reviewQueue(all){ return state.txns.filter(t=>!t.cat&&isCounted(t)&&(all||!rv.acct||t.acct===rv.acct)).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id)); }
 function applyCategory(t,catId){
   t.cat=catId;
@@ -882,14 +883,15 @@ function snapshot(){ return {cats:state.txns.map(t=>[t.id,t.cat]),rules:JSON.par
 function restore(s){ const m=new Map(s.cats.map(x=>[x[0],x])); state.txns.forEach(t=>{const x=m.get(t.id); if(x){t.cat=x[1];}}); state.rules=s.rules; state.recent=s.recent; }
 // Categories in the order to offer them for this transaction: income first for money coming in,
 // expenses first for money going out. Within each group, the ones you use most come first.
-function rankCats(list){
-  const counts={}; for(const x of state.txns){ if(x.cat) counts[x.cat]=(counts[x.cat]||0)+1; }
+function rankCats(list,acct){
+  const all={}, mine={};
+  for(const x of state.txns){ if(!x.cat) continue; all[x.cat]=(all[x.cat]||0)+1; if(acct&&x.acct===acct) mine[x.cat]=(mine[x.cat]||0)+1; }
   const order=state.categories.map(c=>c.id);
-  return list.map(c=>c.id).sort((a,b)=>(counts[b]||0)-(counts[a]||0)||order.indexOf(a)-order.indexOf(b));
+  return list.map(c=>c.id).sort((a,b)=>(mine[b]||0)-(mine[a]||0)||(all[b]||0)-(all[a]||0)||order.indexOf(a)-order.indexOf(b));
 }
 function catGroupsFor(t){
   const credit=t.amount>0, xfer=/^(TFD|TFC)$/.test(t.type)||OWN_XFER.test(t.desc);
-  const inc={kind:'income',ids:rankCats(catsOfKind('income'))}, exp={kind:'expense',ids:rankCats(catsOfKind('expense'))}, tr={kind:'transfer',ids:catsOfKind('transfer').map(c=>c.id)};
+  const inc={kind:'income',ids:rankCats(catsOfKind('income'),t.acct)}, exp={kind:'expense',ids:rankCats(catsOfKind('expense'),t.acct)}, tr={kind:'transfer',ids:catsOfKind('transfer').map(c=>c.id)};
   return credit?[inc,exp,tr]:[exp,inc,tr];
 }
 // Quick picks: the matching group (income for money in, expenses for money out); Transfer first when it looks like one.
@@ -903,21 +905,31 @@ function groupedCatGrid(t,clickFn,selId){
   return catGroupsFor(t).map(g=>`<div class="catgroup">${KIND_LABEL[g.kind]}</div><div class="catgrid">${g.ids.map(id=>{const c=catById(id); return `<button class="${selId===id?'sel':''}" onclick="${clickFn}('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>`).join('');
 }
 function renderReview(el){
-  // If the chosen account filter has nothing left, drop back to all accounts so nothing is hidden.
-  if(rv.acct&&!reviewQueue(true).some(t=>t.acct===rv.acct)){ rv.acct=null; rv.idx=0; }
-  const q=reviewQueue();
-  if(!q.length){
-    rv.done=0;
-    el.innerHTML=`<div class="card" style="text-align:center"><div style="font-size:44px">🎉</div><h2>All caught up</h2><p class="muted">Every transaction has been reviewed.</p>
+  // Review works on one account at a time.
+  const allQ=reviewQueue(true), perAcct={}; allQ.forEach(t=>{ perAcct[t.acct]=(perAcct[t.acct]||0)+1; });
+  if(!allQ.length){
+    rv.done=0; rv.acct=null;
+    el.innerHTML=`<div class="card" style="text-align:center"><div style="font-size:44px">🎉</div><h2>All caught up</h2><p class="muted">Every transaction in every account has been reviewed.</p>
       ${rv.undo?`<button class="btn ghost" onclick="reviewUndo()">↶ Undo last</button> `:''}<button class="btn ghost" onclick="go('dashboard')">Back to dashboard</button></div>`;
     return;
   }
+  const accts=Object.keys(perAcct).sort((p,q)=>perAcct[q]-perAcct[p]);
+  if(!rv.acct||!state.accounts[rv.acct]) rv.acct=accts[0];
+  const chip=a=>`<button class="${rv.acct===a?'on':''}" onclick="rvSwitch('${a}')"><span class="dot" style="background:${acctColor(a)};margin-right:6px"></span>${esc(acctName(a))} <b>${perAcct[a]||0}</b></button>`;
+  const shown=[...new Set([rv.acct,...accts])];
+  const filter=`<div class="small muted" style="margin:0 2px 6px">Reviewing account</div><div class="acctfilter">${shown.map(chip).join('')}</div>`;
   const toggle=`<div class="seg" style="margin-bottom:12px"><button class="${!rv.list?'on':''}" onclick="rv.list=false;render()">One at a time</button><button class="${rv.list?'on':''}" onclick="rv.list=true;render()">List</button></div>`;
-  // account filter chips (only when more than one account has something to review)
-  const allQ=reviewQueue(true), perAcct={}; allQ.forEach(t=>{ perAcct[t.acct]=(perAcct[t.acct]||0)+1; });
-  const accts=Object.keys(perAcct);
-  if(rv.acct&&!perAcct[rv.acct]) rv.acct=null;
-  const filter=accts.length>1?`<div class="acctfilter"><button class="${!rv.acct?'on':''}" onclick="rv.acct=null;rv.idx=0;animateNext('fade');render()">All accounts <b>${allQ.length}</b></button>${accts.map(a=>`<button class="${rv.acct===a?'on':''}" style="--ac:${acctColor(a)}" onclick="rv.acct='${a}';rv.idx=0;animateNext('fade');render()"><span class="dot" style="background:${acctColor(a)};margin-right:6px"></span>${esc(acctName(a))} <b>${perAcct[a]}</b></button>`).join('')}</div>`:'';
+  const q=reviewQueue();
+  if(!q.length){
+    // this account is finished: offer the next one rather than mixing accounts
+    const next=accts.filter(a=>a!==rv.acct);
+    el.innerHTML=filter+`<div class="card" style="text-align:center;border-top:4px solid ${acctColor(rv.acct)}"><div style="font-size:40px">✅</div>
+      <h2>${esc(acctName(rv.acct))} is all reviewed</h2>
+      <p class="muted">${next.length?`${next.length===1?'One other account has':next.length+' other accounts have'} transactions waiting.`:''}</p>
+      ${next.map(a=>`<button class="btn" style="margin:4px" onclick="rvSwitch('${a}')">Review ${esc(acctName(a))} (${perAcct[a]}) ›</button>`).join('')}
+      ${rv.undo?`<div style="margin-top:10px"><button class="btn ghost" onclick="reviewUndo()">↶ Undo last</button></div>`:''}</div>`;
+    return;
+  }
   if(rv.list){
     el.innerHTML=toggle+filter+`<div class="card"><h2>${q.length} to review</h2><p class="small muted" style="margin-top:-6px">Tap one to choose its category.</p>${txnList(q,false)}</div>`;
     return;
@@ -928,7 +940,9 @@ function renderReview(el){
   const sugg=suggestionsFor(t);
   const sIds=sugg.map(x=>x.id);
   const groups=catGroupsFor(t);
-  const picks=quickPicks(t).filter(id=>!sIds.includes(id)).slice(0,9);
+  // Main area: every category of the matching group (Transfer up front when it looks like one).
+  const mainIds=quickPicks(t);
+  const otherGroups=groups.slice(1).map(g=>({kind:g.kind,ids:g.ids.filter(id=>!mainIds.includes(id))})).filter(g=>g.ids.length);
   const credit=t.amount>0;
   el.innerHTML=toggle+filter+`
     <div class="rvhead"><span><b>${q.length}</b> left${rv.done?` · ${rv.done} done`:''}</span>
@@ -948,11 +962,11 @@ function renderReview(el){
     ${sugg.length?`<div class="small muted" style="margin:2px 2px 6px">Suggested</div>
       <div class="suggrow">${sugg.map((x,i)=>{const c=catById(x.id); return `<button data-key="${i+1}" onclick="reviewSave('${x.id}',this)"><span class="dot" style="background:${c.color}"></span><span><b>${esc(c.name)}</b><span class="why">${esc(x.why)}</span></span></button>`;}).join('')}</div>`:''}
     </div><div class="rvright">
-    <div class="small muted" style="margin:4px 2px 6px">${credit?'Income':'Most used expenses'}</div>
-    <div class="qpgrid">${picks.map((id,i)=>{const c=catById(id); const k=sugg.length+i+1; return `<button ${k<=9?`data-key="${k}"`:''} onclick="reviewSave('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>
-    <details class="card" style="padding:12px 14px" ${(rv.allOpen??isDesktop())?'open':''} ontoggle="rv.allOpen=this.open"><summary style="cursor:pointer;font-weight:600">All categories</summary>
-      ${groupedCatGrid(t,'reviewSave')}
-      <div class="catgrid">      <button style="border-style:dashed;color:var(--accent)" onclick="openCatEditor()">✏️ Add / edit categories</button></div></details>
+    <div class="small muted" style="margin:4px 2px 6px">${credit?'Income':'Expenses'} · most used for ${esc(acctName(t.acct))} first</div>
+    <div class="qpgrid">${mainIds.map((id,i)=>{const c=catById(id); const k=sugg.length+i+1; return `<button ${k<=9?`data-key="${k}"`:''} onclick="reviewSave('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>
+    <details class="card" style="padding:12px 14px" ${rv.otherOpen?'open':''} ontoggle="rv.otherOpen=this.open"><summary style="cursor:pointer;font-weight:600">${credit?'Expenses':'Income & transfers'}</summary>
+      ${otherGroups.map(g=>`<div class="catgroup">${KIND_LABEL[g.kind]}</div><div class="catgrid">${g.ids.map(id=>{const c=catById(id); return `<button onclick="reviewSave('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>`).join('')}
+      <div class="catgrid"><button style="border-style:dashed;color:var(--accent)" onclick="openCatEditor()">✏️ Add / edit categories</button></div></details>
     </div></div>
     <p class="kbdhint small muted">Keyboard: <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>Enter</kbd> top suggestion · <kbd>→</kbd> skip · <kbd>←</kbd> back · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</p>
     </div>
