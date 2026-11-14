@@ -427,6 +427,18 @@ svg text{font-family:inherit}
   .donut{width:230px;height:230px}
   .donutwrap{gap:24px}
 }
+/* Review: categories as one panel, no box around each */
+.rvpanel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:6px;gap:2px!important;margin-bottom:12px}
+details .rvpanel{background:transparent;border:0;padding:0}
+.rvpanel{grid-template-columns:1fr 1fr!important}
+.rvpanel button{border:0!important;background:transparent!important;border-radius:11px!important;min-height:0!important;padding:9px 10px!important;font-weight:600;font-size:14.5px!important;line-height:1.25;box-shadow:none!important;align-items:center}
+.rvpanel button:hover{background:var(--card2)!important}
+.rvpanel button:active,.rvpanel button.picked{background:var(--soft)!important;transform:scale(.98)}
+.rvpanel button .dot{margin-right:8px}
+@media (min-width:1000px){ .rvpanel{grid-template-columns:repeat(3,1fr)!important} .rvpanel button{padding:12px 12px!important;font-size:16px!important} }
+.rvcathead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 2px 8px}
+.rvcathead .pill{flex:none;font-size:12.5px;padding:5px 11px}
+@media (min-width:1000px){ .rvcathead .pill{font-size:14px;padding:7px 13px} }
 </style>
 </head>
 <body>
@@ -437,7 +449,7 @@ svg text{font-family:inherit}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.19';
+const APP_VERSION='0.20';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -962,11 +974,10 @@ function renderReview(el){
     ${sugg.length?`<div class="small muted" style="margin:2px 2px 6px">Suggested</div>
       <div class="suggrow">${sugg.map((x,i)=>{const c=catById(x.id); return `<button data-key="${i+1}" onclick="reviewSave('${x.id}',this)"><span class="dot" style="background:${c.color}"></span><span><b>${esc(c.name)}</b><span class="why">${esc(x.why)}</span></span></button>`;}).join('')}</div>`:''}
     </div><div class="rvright">
-    <div class="small muted" style="margin:4px 2px 6px">${credit?'Income':'Expenses'} · most used for ${esc(acctName(t.acct))} first</div>
-    <div class="qpgrid">${mainIds.map((id,i)=>{const c=catById(id); const k=sugg.length+i+1; return `<button ${k<=9?`data-key="${k}"`:''} onclick="reviewSave('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>
+    <div class="rvcathead"><span class="small muted">${credit?'Income':'Expenses'} · most used for ${esc(acctName(t.acct))} first</span><button class="pill" onclick="openCatEditor()">✏️ Edit categories</button></div>
+    <div class="qpgrid rvpanel">${mainIds.map((id,i)=>{const c=catById(id); const k=sugg.length+i+1; return `<button ${k<=9?`data-key="${k}"`:''} onclick="reviewSave('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>
     <details class="card" style="padding:12px 14px" ${rv.otherOpen?'open':''} ontoggle="rv.otherOpen=this.open"><summary style="cursor:pointer;font-weight:600">${credit?'Expenses':'Income & transfers'}</summary>
-      ${otherGroups.map(g=>`<div class="catgroup">${KIND_LABEL[g.kind]}</div><div class="catgrid">${g.ids.map(id=>{const c=catById(id); return `<button onclick="reviewSave('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>`).join('')}
-      <div class="catgrid"><button style="border-style:dashed;color:var(--accent)" onclick="openCatEditor()">✏️ Add / edit categories</button></div></details>
+      ${otherGroups.map(g=>`${otherGroups.length>1?`<div class="catgroup">${KIND_LABEL[g.kind]}</div>`:''}<div class="catgrid rvpanel">${g.ids.map(id=>{const c=catById(id); return `<button onclick="reviewSave('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>`).join('')}</details>
     </div></div>
     <p class="kbdhint small muted">Keyboard: <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>Enter</kbd> top suggestion · <kbd>→</kbd> skip · <kbd>←</kbd> back · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</p>
     </div>
