@@ -467,6 +467,14 @@ details .rvpanel{background:transparent;border:0;padding:0}
 @media(min-width:780px){.txadv{grid-template-columns:repeat(2,1fr)}.txadv .txpair{grid-column:span 1}}
 @keyframes txadvIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .txsum{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;margin:8px 0 2px;color:var(--muted)}.txsum .link{margin-left:auto}
+.dupbanner{cursor:pointer}.dupbanner .btn{padding:6px 14px}
+.dupcard{border:1px solid color-mix(in srgb,var(--accent) 55%,transparent);background:color-mix(in srgb,var(--accent) 7%,var(--card))}
+.duphead{display:flex;gap:10px;align-items:flex-start;margin-bottom:6px}.dupicon{font-size:20px;line-height:1.2}.dupn{display:inline-block;min-width:20px;padding:1px 6px;border-radius:10px;background:var(--accent);color:#1a1300;font-size:12px;vertical-align:middle;text-align:center}
+.dupitem{border-top:1px solid var(--line);padding:10px 0 4px;margin-top:8px}.duprow{display:flex;gap:10px;align-items:center;padding:4px 0}.duprow .grow{min-width:0}.duprow b{white-space:nowrap}
+.dupnote{margin:4px 0 0 18px}.dupbtns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.dupbtns .btn{padding:8px 14px;font-size:14px}
+.dupfoot{display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
+.chip.warnchip{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.xferhint{display:flex;gap:10px;align-items:center;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--accent) 12%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);font-size:14px}.xferhint .grow{min-width:0}.xferhint .btn{padding:8px 14px;font-size:14px;flex:none}
 .periodbar{position:sticky;top:0;z-index:6;margin:0 -14px 12px;padding:10px 14px 8px;padding-top:calc(10px + env(safe-area-inset-top));
   background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
 .periodbar.stuck{border-bottom-color:var(--line);box-shadow:0 6px 18px rgba(0,0,0,.18)}
@@ -497,7 +505,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.30';
+const APP_VERSION='0.31';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -507,7 +515,7 @@ let cloud=null;                 // set once signed in: {saveMeta(meta), saveTxns
 let synced=new Map();           // transaction id -> JSON as last synced
 let lastMeta='';                // household settings JSON as last synced
 let metaDirty=false;            // local settings change not yet sent
-function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null}; }
+function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300)}; }
 function save(){
   try{ localStorage.setItem(VIEW_KEY,JSON.stringify(state.view)); }catch(e){}
   if(!cloud) return;
@@ -525,7 +533,7 @@ function applyCloudMeta(meta){
   if(metaDirty) return; // our own newer change is on its way
   if(!meta){ return; }
   state.categories=meta.categories||state.categories; state.rules=meta.rules||state.rules;
-  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null;
+  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null; state.dupOk=meta.dupOk||[];
   runMigrations();
   lastMeta=JSON.stringify(metaOf(state));
   scheduleRender();
@@ -572,7 +580,7 @@ function freshState(){
   const rules=[];
   for(const [cat,kws] of Object.entries(DEFAULT_RULES)) kws.forEach(kw=>rules.push({kw,cat,dir:'out',user:false}));
   for(const [cat,kws] of Object.entries(INCOME_RULES)) kws.forEach(kw=>rules.push({kw,cat,dir:'in',user:false}));
-  return {txns:[],accounts:{},categories:cats,rules,imports:[],view:{mode:'month',anchor:null}};
+  return {txns:[],accounts:{},categories:cats,rules,imports:[],dupOk:[],view:{mode:'month',anchor:null}};
 }
 let state = freshState();
 try{ const v=JSON.parse(localStorage.getItem(VIEW_KEY)||'null'); if(v) state.view=v; }catch(e){}
@@ -951,6 +959,7 @@ function renderDashboard(el){
   el.innerHTML=`
     ${daysSince!==null&&daysSince>=7?`<div class="banner"><span>Last import was <b>${daysSince} days ago</b></span><button class="btn" onclick="go('settings')">Import</button></div>`:''}
     ${n?`<div class="banner"><span><b>${n}</b> transaction${n>1?'s':''} to review</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
+    ${dupCard()}
     ${periodControls()}
     <div class="stats">
       <div class="stat"><div class="k">Money in</div><div class="v pos">${money0(s.moneyIn)}</div></div>
@@ -1059,7 +1068,8 @@ function renderReview(el){
   const chip=a=>`<button class="${rv.acct===a?'on':''}" onclick="rvSwitch('${a}')"><span class="dot" style="background:${acctColor(a)};margin-right:6px"></span>${esc(acctName(a))} <b>${perAcct[a]||0}</b></button>`;
   const shown=[...new Set([rv.acct,...accts])];
   const filter=`<div class="small muted" style="margin:0 2px 6px">Reviewing account</div><div class="acctfilter">${shown.map(chip).join('')}</div>`;
-  const toggle=`<div class="seg" style="margin-bottom:12px"><button class="${!rv.list?'on':''}" onclick="rv.list=false;render()">One at a time</button><button class="${rv.list?'on':''}" onclick="rv.list=true;render()">List</button></div>`;
+  const dupTop=dupCard(true)+(dupReviewOpen&&doubleUps().length?`<div style="text-align:right;margin:-6px 0 10px"><button class="link small" onclick="dupReviewOpen=false;render()">Hide</button></div>`:'');
+  const toggle=dupTop+`<div class="seg" style="margin-bottom:12px"><button class="${!rv.list?'on':''}" onclick="rv.list=false;render()">One at a time</button><button class="${rv.list?'on':''}" onclick="rv.list=true;render()">List</button></div>`;
   const q=reviewQueue();
   if(!q.length){
     // this account is finished: offer the next one rather than mixing accounts
@@ -1100,6 +1110,7 @@ function renderReview(el){
       </div>
       <div class="rvraw">${esc(t.desc)}</div>
     </div>
+    ${(()=>{ const p=transferPairs().partner.get(t.id); if(!p) return ''; const tid=transferCatId(); return `<div class="xferhint"><span>↔️</span><span class="grow">Looks like a transfer: <b>${p.amount>0?'+':'−'}${money(Math.abs(p.amount))}</b> ${p.amount>0?'arrived in':'left'} ${esc(acctName(p.acct))} on ${shortDay(p.date)}${catKindOf(p.cat)==='transfer'?' (already marked transfer)':''}.</span><button class="btn" onclick="reviewSave('${tid}',this)">Transfer</button></div>`; })()}
     ${sugg.length?`<div class="small muted" style="margin:2px 2px 6px">Suggested</div>
       <div class="suggrow">${sugg.map((x,i)=>{const c=catById(x.id); return `<button data-key="${i+1}" onclick="reviewSave('${x.id}',this)"><span class="dot" style="background:${c.color}"></span><span><b>${esc(c.name)}</b><span class="why">${esc(x.why)}</span></span></button>`;}).join('')}</div>`:''}
     </div><div class="rvright">
@@ -1137,6 +1148,75 @@ function slideOut(dir,fn){
 function reducedMotion(){ return matchMedia('(prefers-reduced-motion: reduce)').matches; }
 function reviewUndo(){ if(!rv.undo) return; restore(rv.undo); rv.undo=null; rv.done=Math.max(0,rv.done-1); save(); render(); toast('Undone'); }
 
+/* ============ Double-up checker ============ */
+// Money leaving one of your accounts and the same amount arriving in another within 3 days is a transfer.
+// If either side was put in a spending or income category, it's probably counted twice.
+function shortHash(str){ let h=0x811c9dc5; for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); } return (h>>>0).toString(36)+str.length.toString(36); }
+function transferCatId(){ return catById('transfer')?'transfer':(catsOfKind('transfer')[0]||{}).id; }
+function catKindOf(id){ const c=id?catById(id):null; return c?c.kind:null; }
+function dayGap(a,b){ return Math.abs((new Date(a+'T00:00:00')-new Date(b+'T00:00:00'))/864e5); }
+function looksXfer(t){ return /^(TFD|TFC)$/.test(t.type||'')||OWN_XFER.test(t.desc); }
+let _pairsMemo={sig:'',pairs:[],partner:new Map()};
+function transferPairs(){
+  const sig=state.txns.length+'|'+Object.keys(state.accounts).length;
+  if(_pairsMemo.sig===sig) return _pairsMemo;
+  const ins=new Map(), used=new Set(), pairs=[], partner=new Map();
+  for(const t of state.txns) if(t.amount>0&&state.accounts[t.acct]){ const k=t.amount.toFixed(2); if(!ins.has(k)) ins.set(k,[]); ins.get(k).push(t); }
+  const outs=state.txns.filter(t=>t.amount<0&&state.accounts[t.acct]).sort((a,b)=>a.date.localeCompare(b.date));
+  for(const o of outs){
+    const c=ins.get((-o.amount).toFixed(2)); if(!c) continue;
+    let best=null, bd=9;
+    for(const i of c){ if(used.has(i.id)||i.acct===o.acct) continue; const d=dayGap(o.date,i.date); if(d>3) continue;
+      const linked=looksXfer(o)||looksXfer(i)||cleanDesc(o.desc).toUpperCase()===cleanDesc(i.desc).toUpperCase(); if(!linked) continue;
+      if(d<bd){ best=i; bd=d; } }
+    if(best){ used.add(best.id); used.add(o.id); pairs.push([o,best]); partner.set(o.id,best); partner.set(best.id,o); }
+  }
+  _pairsMemo={sig,pairs,partner}; return _pairsMemo;
+}
+function doubleUps(){
+  const ok=new Set(state.dupOk||[]), out=[], {pairs,partner}=transferPairs();
+  for(const [o,i] of pairs){
+    const ko=catKindOf(o.cat), ki=catKindOf(i.cat);
+    if(!((ko&&ko!=='transfer')||(ki&&ki!=='transfer'))) continue;
+    const key='p'+shortHash(o.id+'|'+i.id); if(ok.has(key)) continue;
+    out.push({key,txns:[o,i]});
+  }
+  // A transfer to/from one of your own account numbers that was categorised as spending or income.
+  const nums=Object.keys(state.accounts);
+  for(const t of state.txns){
+    const k=catKindOf(t.cat); if(!k||k==='transfer'||partner.has(t.id)) continue;
+    const m=t.desc.match(OWN_XFER); if(!m||!nums.includes(m[2])) continue;
+    const key='s'+shortHash(t.id); if(ok.has(key)) continue;
+    out.push({key,txns:[t],other:m[2]});
+  }
+  return out;
+}
+function similarSpend(t){
+  if(catKindOf(t.cat)!=='expense') return null;
+  const a=Math.abs(t.amount);
+  return state.txns.find(x=>x.id!==t.id&&x.cat===t.cat&&x.amount<0&&dayGap(x.date,t.date)<=7&&Math.abs(Math.abs(x.amount)-a)<=Math.max(3,a*.03)&&!transferPairs().partner.has(x.id))||null;
+}
+function dupFix(key){ const d=doubleUps().find(x=>x.key===key); if(!d) return; const tid=transferCatId(); rv.undo=snapshot(); d.txns.forEach(t=>{ t.cat=tid; }); save(); render(); toast('Marked as transfers'); }
+function dupKeep(key){ state.dupOk=[...(state.dupOk||[]),key]; save(); render(); toast('Okay, left as is'); }
+function dupFixAll(){ const ds=doubleUps(); const tid=transferCatId(); rv.undo=snapshot(); ds.forEach(d=>d.txns.forEach(t=>{ t.cat=tid; })); save(); render(); toast(ds.length+' fixed'); }
+let dupOpen=false, dupReviewOpen=false;
+function dupCard(compact){
+  const ds=doubleUps(); if(!ds.length) return '';
+  if(compact&&!dupReviewOpen) return `<div class="banner dupbanner" onclick="dupReviewOpen=true;render()"><span>⚠️ <b>${ds.length}</b> possible double-up${ds.length>1?'s':''}</span><button class="btn ghost">Check</button></div>`;
+  const row=t=>{ const c=t.cat?catById(t.cat):null; return `<div class="duprow"><span class="dot" style="background:${acctColor(t.acct)}"></span><span class="grow"><b>${esc(titleCase(cleanDesc(t.desc)))}</b><div class="small muted">${esc(acctName(t.acct))} · ${shortDay(t.date)} · <span class="chip ${c?(c.kind==='transfer'?'':'warnchip'):'none'}">${c?esc(c.name):'To review'}</span></div></span><b class="${t.amount>0?'pos':'neg'}">${t.amount>0?'+':'−'}${money(Math.abs(t.amount))}</b></div>`; };
+  const shown=dupOpen?ds:ds.slice(0,2);
+  const counted=ds.reduce((s,d)=>s+d.txns.filter(t=>catKindOf(t.cat)==='expense').reduce((a,t)=>a-t.amount,0),0);
+  return `<div class="card dupcard">
+    <div class="duphead"><span class="dupicon">⚠️</span><div class="grow"><h2 style="margin:0">Possible double-up${ds.length>1?'s':''} <span class="dupn">${ds.length}</span></h2>
+      <div class="small muted">${ds.length>1?'These look':'This looks'} like money moved between your own accounts${counted>0?` — ${money(counted)} may be counted as spending twice`:''}.</div></div></div>
+    ${shown.map(d=>{ const sim=d.txns.map(similarSpend).find(Boolean);
+      return `<div class="dupitem">${d.txns.map(row).join('')}
+        ${d.other?`<div class="small muted dupnote">Moved ${d.txns[0].amount<0?'to':'from'} your ${esc(acctName(d.other))} account.</div>`:''}
+        ${sim?`<div class="small muted dupnote">Also a ${money(Math.abs(sim.amount))} ${esc(catById(sim.cat).name)} payment on ${shortDay(sim.date)} — probably the real one.</div>`:''}
+        <div class="dupbtns"><button class="btn" onclick="dupFix('${d.key}')">Make ${d.txns.length>1?'both transfers':'it a transfer'}</button><button class="btn ghost" onclick="dupKeep('${d.key}')">They're fine</button></div></div>`; }).join('')}
+    ${ds.length>2?`<div class="dupfoot"><button class="link small" onclick="dupOpen=!dupOpen;render()">${dupOpen?'Show fewer':'Show all '+ds.length}</button>${ds.length>1?`<button class="link small" onclick="dupFixAll()">Make all transfers</button>`:''}</div>`:''}
+  </div>`;
+}
 /* ============ Transactions ============ */
 const TXF0={q:'',cat:'',acct:'',period:false,dir:'',when:'',from:'',to:'',min:'',max:'',sort:'new'};
 let txFilter={...TXF0}; let txLimit=150, txAdv=false;
