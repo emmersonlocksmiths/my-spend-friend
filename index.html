@@ -446,7 +446,10 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .acctlist .acctrow{transition:transform .18s cubic-bezier(.2,.7,.2,1),box-shadow .18s}
 .acctrow.dragging{transition:none!important;z-index:5;position:relative;box-shadow:0 10px 28px var(--shadow);border-color:var(--accent)}
 .ar-handle{padding:10px 4px 10px 0;margin-left:-4px}
-.ar-meta{margin-left:78px!important}
+.implist{display:flex;flex-direction:column;gap:6px}
+.improw{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--line);border-left:4px solid var(--ac);border-radius:13px;padding:8px 12px 8px 2px;transition:transform .18s cubic-bezier(.2,.7,.2,1)}
+.improw.dragging{transition:none;z-index:5;position:relative;box-shadow:0 10px 28px var(--shadow);border-color:var(--accent)}
+.improw .grow{flex:1}
 </style>
 </head>
 <body>
@@ -457,7 +460,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.22';
+const APP_VERSION='0.23';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1537,7 +1540,7 @@ function renderAccounts(el){
   const card=a=>{ const x=state.accounts[a], n=acctTxCount(a), last=state.txns.filter(t=>t.acct===a).reduce((m,t)=>t.date>m?t.date:m,'');
     const toRev=state.txns.filter(t=>t.acct===a&&!t.cat&&isCounted(t)).length;
     return `<div class="card acctrow" data-id="${a}" style="--ac:${acctColor(a)}" onclick="openAcct('${a}')">
-      <div class="ar-top"><span class="ce-handle ar-handle" title="Drag to reorder" onpointerdown="acctDragStart(event,'${a}')" onclick="event.stopPropagation()">⋮⋮</span><span class="ar-ic">${isLoanAcct(a)?'🏠':x.type==='savings'?'💰':x.type==='credit'?'💳':'🏦'}</span>
+      <div class="ar-top"><span class="ar-ic">${isLoanAcct(a)?'🏠':x.type==='savings'?'💰':x.type==='credit'?'💳':'🏦'}</span>
         <div class="grow" style="min-width:0"><div class="ar-name">${esc(acctName(a))}</div><div class="small muted">${esc(acctTypeLabel(x))}${x.owner?' · '+esc(x.owner):''}${a.startsWith('manual-')?'':' · …'+esc(a.slice(-4))}</div></div>
         <div style="text-align:right"><div class="ar-bal ${x.bal<0?'neg':''}">${x.bal!=null?money(isLoanAcct(a)?Math.abs(x.bal):x.bal):'—'}</div><div class="small muted">${isLoanAcct(a)?'owing':x.balDate?dayLabel(x.balDate).replace(/ \d{4}$/,''):''}</div></div>
         <span class="crow-chev">›</span></div>
@@ -1568,10 +1571,11 @@ function renderAccounts(el){
     <datalist id="ownerList">${[...new Set(['Joint',...Object.values(state.accounts).map(x=>x.owner).filter(Boolean)])].map(o=>`<option value="${esc(o)}">`).join('')}</datalist>`;
 }
 // Drag accounts up and down (touch and mouse) within their section.
-function acctDragStart(e,id){
+function acctDragStart(e,id,sel){
+  sel=sel||'.acctrow';
   e.preventDefault(); e.stopPropagation();
-  const row=document.querySelector(`.acctrow[data-id="${id}"]`); if(!row) return;
-  const list=row.parentElement, rows=[...list.querySelectorAll('.acctrow')], from=rows.indexOf(row);
+  const row=document.querySelector(`${sel}[data-id="${id}"]`); if(!row) return;
+  const list=row.parentElement, rows=[...list.querySelectorAll(sel)], from=rows.indexOf(row);
   const gap=parseFloat(getComputedStyle(row).marginBottom)||0, h=row.getBoundingClientRect().height+gap, y0=e.clientY; let to=from;
   row.classList.add('dragging'); list.classList.add('sorting');
   const move=ev=>{ const dy=ev.clientY-y0; row.style.transform=`translateY(${dy}px)`;
@@ -1628,7 +1632,11 @@ let lastResult=null;
 function renderSettings(el){
   const accts=Object.keys(state.accounts);
   const withTx=accts.filter(a=>state.txns.some(t=>t.acct===a));
-  const latest=withTx.map(a=>{ const d=state.txns.filter(t=>t.acct===a).reduce((m,t)=>t.date>m?t.date:m,''); return `<tr><td>${esc(acctName(a))}<div class="small muted">${a}</div></td><td style="text-align:right" class="small">up to <b>${dayLabel(d)}</b></td></tr>`; }).join('');
+  const latest=acctSort(withTx).map(a=>{ const d=state.txns.filter(t=>t.acct===a).reduce((m,t)=>t.date>m?t.date:m,'');
+    return `<div class="improw" data-id="${a}" style="--ac:${acctColor(a)}"><span class="ce-handle" title="Drag to reorder" onpointerdown="acctDragStart(event,'${a}','.improw')">⋮⋮</span>
+      <span class="dot" style="background:${acctColor(a)};margin:0"></span>
+      <span class="grow" style="min-width:0"><b>${esc(acctName(a))}</b>${isLoanAcct(a)?' 🏠':''}<div class="small muted">${a}</div></span>
+      <span class="small" style="text-align:right">up to<br><b>${shortDay(d)}</b></span></div>`; }).join('');
   const userRules=state.rules.filter(r=>r.user), seeded=state.rules.filter(r=>!r.user);
   const ruleRow=(r)=>{ const i=state.rules.indexOf(r); const c=catById(r.cat); return `<tr><td><b>${esc(r.kw)}</b> <span class="small muted">(${r.dir==='out'?'money out':r.dir==='in'?'money in':'any'})</span></td><td class="small">${c?esc(c.name):'<i>deleted</i>'}</td><td style="text-align:right"><button class="link" onclick="delRule(${i})">Remove</button></td></tr>`; };
   el.innerHTML=`<div class="cols">
@@ -1644,7 +1652,7 @@ function renderSettings(el){
     </div>
     <input type="file" id="fileIn" accept=".csv,text/csv" multiple class="hidden" onchange="handleFiles(this.files)">
     ${lastResult?`<div class="banner ok" style="margin-top:12px">${lastResult}</div>`:''}
-    ${latest?`<table class="simple" style="margin-top:12px">${latest}</table>
+    ${latest?`<div class="small muted" style="margin:14px 2px 6px">Your accounts. Drag ⋮⋮ to match the order in your bank</div><div class="implist">${latest}</div>
       <p class="small muted" style="margin-bottom:0">Next time, export from a few days <i>before</i> these dates. Overlap is fine because duplicates are skipped.</p>`:''}
     <details style="margin-top:10px"><summary class="small" style="cursor:pointer">How to export from Bankwest</summary>
       <ol class="steps"><li>Log in to Bankwest Online Banking (easiest on a computer).</li>
