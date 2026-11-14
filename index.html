@@ -378,6 +378,8 @@ input,select{border-radius:12px}
 .sectionhead b{font-size:14px}
 nav button{font-size:10px}
 @media (max-width:999px){ nav button{padding:5px 0;letter-spacing:-.01em} nav button .ic{font-size:19px} }
+.seenrow{opacity:.85}
+.seenrow .ar-ic{background:var(--card2)}
 svg text{font-family:inherit}
 /* ---------- Desktop readability (kept last so it wins) ---------- */
 @media (min-width:1000px){
@@ -435,7 +437,7 @@ svg text{font-family:inherit}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.17';
+const APP_VERSION='0.18';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -901,6 +903,8 @@ function groupedCatGrid(t,clickFn,selId){
   return catGroupsFor(t).map(g=>`<div class="catgroup">${KIND_LABEL[g.kind]}</div><div class="catgrid">${g.ids.map(id=>{const c=catById(id); return `<button class="${selId===id?'sel':''}" onclick="${clickFn}('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>`).join('');
 }
 function renderReview(el){
+  // If the chosen account filter has nothing left, drop back to all accounts so nothing is hidden.
+  if(rv.acct&&!reviewQueue(true).some(t=>t.acct===rv.acct)){ rv.acct=null; rv.idx=0; }
   const q=reviewQueue();
   if(!q.length){
     rv.done=0;
@@ -1498,12 +1502,24 @@ function renderAccounts(el){
       <p class="small muted" style="margin:2px 0 8px">Add the number for Bankwest accounts, so their CSV imports land on this account and transfers to it are recognised.</p>
       <div style="display:flex;gap:8px"><button class="btn" onclick="acctAdd()">Add account</button><button class="btn ghost" onclick="acctForm=false;render()">Cancel</button></div>`
       :`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span class="small muted">Accounts are added automatically when you import their CSV.</span><button class="btn ghost" style="flex:none" onclick="acctForm=true;render();setTimeout(()=>document.getElementById('naName')?.focus(),30)">＋ Add</button></div>`}</div>
-    ${seen.length?`<details class="card" style="padding:12px 14px"><summary style="cursor:pointer;font-weight:600">Other accounts seen in transfers (${seen.length})</summary>
-      <p class="small muted">These have sent money to or received money from your accounts. Name them so you know who they are, or import their CSV to track them fully.</p>${seen.map(acctCard).join('')}</details>`:''}
+    ${seen.length?`<div class="sectionhead"><span>Seen in transfers</span></div>
+      <p class="small muted" style="margin:-4px 2px 10px">Accounts that have sent or received money from yours. Money moving to and from them counts as a transfer. Import their CSV to see their transactions.</p>
+      ${seen.map(a=>{ const x=state.accounts[a]; const n=state.txns.filter(t=>t.desc.includes(a)).length;
+        return `<div class="card acctrow seenrow" style="--ac:${x.color||'#868e96'}" onclick="openAcct('${a}')"><div class="ar-top"><span class="ar-ic">🔁</span>
+          <div class="grow" style="min-width:0"><div class="ar-name">${x.name?esc(x.name):'Unnamed account'}</div><div class="small muted">${esc(a)}</div></div>
+          <div style="text-align:right"><div class="small muted">${n} transfer${n===1?'':'s'}</div><div class="small muted">not imported</div></div><span class="crow-chev">›</span></div></div>`; }).join('')}`:''}
     <datalist id="ownerList">${[...new Set(['Joint',...Object.values(state.accounts).map(x=>x.owner).filter(Boolean)])].map(o=>`<option value="${esc(o)}">`).join('')}</datalist>`;
 }
 function renderAcctDetail(el,a){
   const x=state.accounts[a], col=acctColor(a), pr=periodRange(), loan=isLoanAcct(a);
+  if(!acctTxCount(a)&&!x.manual){
+    const mentions=state.txns.filter(t=>t.desc.includes(a)).sort((p,r)=>r.date.localeCompare(p.date));
+    el.innerHTML=`<div class="loanback"><button class="pill" onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button></div>
+      <div class="card loanhero" style="border-top:4px solid ${col}"><div style="font-size:30px">🔁</div><h2 style="margin:6px 0 2px">${x.name?esc(x.name):'Unnamed account'}</h2><div class="small muted">${esc(a)} · seen in transfers, not imported</div></div>
+      <div class="card"><h2>Name this account</h2><p class="small muted" style="margin-top:-6px">Give it a name so you know who it is (e.g. "Larissa's account" or "Offset").</p>${acctCard(a)}</div>
+      <div class="card"><h2>Transfers with your accounts</h2>${mentions.length?txnList(mentions,true):'<p class="muted small">None.</p>'}</div>`;
+    return;
+  }
   const inP=state.txns.filter(t=>t.acct===a&&t.date>=pr.from&&t.date<=pr.to);
   const moneyIn=inP.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0), moneyOut=inP.filter(t=>t.amount<0).reduce((s,t)=>s-t.amount,0);
   const q=acctQ.toUpperCase();
