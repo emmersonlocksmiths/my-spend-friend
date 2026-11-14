@@ -345,6 +345,27 @@ input,select{border-radius:12px}
 .ce-swatch.sel{border-color:var(--ink);box-shadow:0 0 0 2px var(--bg) inset}
 .ce-custom{display:inline-flex;align-items:center;justify-content:center;background:var(--bg);color:var(--muted);font-size:16px;border:1px dashed var(--muted)}
 .ce-custom input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.acctag{display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;color:var(--ac);background:color-mix(in srgb,var(--ac) 16%,transparent);border:1px solid color-mix(in srgb,var(--ac) 35%,transparent);white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.rvcard{border-left:4px solid var(--ac)!important}
+.rvacct{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.rvacct .acctag{font-size:12.5px;padding:3px 10px}
+.acctfilter{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px;scrollbar-width:none}
+.acctfilter::-webkit-scrollbar{display:none}
+.acctfilter button{flex:none;display:flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap}
+.acctfilter button b{color:var(--muted);font-weight:700}
+.acctfilter button.on{border-color:var(--accent);background:var(--soft)}
+.acctcols{display:flex;align-items:center;gap:6px;margin:4px 0 8px}
+.navdesk{display:none!important}
+@media (min-width:1000px){ .navdesk{display:flex!important} }
+.loancard{cursor:pointer}
+.loancard:active{transform:scale(.99)}
+.loanbig{font-size:26px;font-weight:800;letter-spacing:-.025em;margin-top:2px}
+.loanhero{text-align:center;padding:22px}
+.loanback{display:flex;align-items:center;gap:10px;margin-bottom:12px;overflow-x:auto}
+.sectionhead{display:flex;justify-content:space-between;align-items:center;margin:22px 2px 10px;padding-top:16px;border-top:1px solid var(--line)}
+.sectionhead span{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.loangrid{display:grid;grid-template-columns:1fr;gap:0}
+@media (min-width:1000px){ .loangrid{grid-template-columns:repeat(2,1fr);gap:16px} .chartsmode{max-width:420px} }
 svg text{font-family:inherit}
 </style>
 </head>
@@ -356,7 +377,7 @@ svg text{font-family:inherit}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.14';
+const APP_VERSION='0.15';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -463,6 +484,10 @@ const MONTHS_L=['January','February','March','April','May','June','July','August
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function catById(id){ return state.categories.find(c=>c.id===id); }
 function acctName(a){ const x=state.accounts[a]; return (x&&x.name)||('…'+a.slice(-4)); }
+const ACCT_COLOURS=['#4dabf7','#da77f2','#38d9a9','#ff922b','#f783ac','#a9e34b','#748ffc','#ffd43b'];
+function acctColor(a){ const x=state.accounts[a]; if(x&&x.color) return x.color; const keys=Object.keys(state.accounts).filter(k=>acctTxCount(k)||state.accounts[k].manual); const i=keys.indexOf(a); return ACCT_COLOURS[(i<0?0:i)%ACCT_COLOURS.length]; }
+function isLoanAcct(a){ const x=state.accounts[a]; return !!(x&&x.type==='loan'); }
+function acctTag(a){ return `<span class="acctag" style="--ac:${acctColor(a)}">${esc(acctName(a))}</span>`; }
 function ymAdd(ym,n){ let [y,m]=ym.split('-').map(Number); m+=n; while(m<1){m+=12;y--} while(m>12){m-=12;y++} return y+'-'+String(m).padStart(2,'0'); }
 function ymLabel(ym){ const [y,m]=ym.split('-').map(Number); return MONTHS_L[m-1]+' '+y; }
 function dayLabel(d){ const dt=new Date(d+'T00:00:00'); return DAYS[dt.getDay()]+' '+dt.getDate()+' '+MONTHS[dt.getMonth()]+' '+dt.getFullYear(); }
@@ -551,7 +576,7 @@ function importBankwest(text){
     deb:col('debit'),cred:col('credit'),bal:col('balance'),type:col('transaction type')};
   if(ix.date<0||ix.desc<0||(ix.deb<0&&ix.cred<0)) throw new Error("This doesn't look like a Bankwest transaction CSV");
   const existing=new Set(state.txns.map(t=>t.id));
-  let added=0,dupes=0,pending=0,skipped=0; const newOnes=[]; const balSeen=new Set();
+  let added=0,dupes=0,pending=0,skipped=0,loansFound=0; const newOnes=[]; const balSeen=new Set();
   for(const r of rows.slice(1)){
     { // latest balance = first row for each account in the file (Bankwest lists newest first)
       const bm=(r[ix.date]||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); const bb=parseFloat(String(r[ix.bal]||'').replace(/[$,]/g,''));
@@ -579,8 +604,13 @@ function importBankwest(text){
     t.sug=autoCat(t); // a suggestion only: every transaction is confirmed in Review
     newOnes.push(t); added++;
   }
+  // A new account with interest charges or a large negative balance is set up as a home loan.
+  const fresh=new Set(newOnes.map(t=>t.acct).filter(a=>!state.txns.some(t=>t.acct===a)));
+  fresh.forEach(a=>{ const mine=newOnes.filter(t=>t.acct===a); const A=state.accounts[a];
+    if(A&&(!A.type||A.type==='everyday')&&mine.some(t=>t.type==='DRI'||(t.balance!=null&&t.balance<-20000))){ A.type='loan'; if(!A.name) A.name='Home loan'; loansFound++; } });
   state.txns.push(...newOnes);
-  return {added,dupes,pending,skipped,auto:newOnes.filter(t=>t.sug).length};
+  const rev=newOnes.filter(isCounted);
+  return {added,dupes,pending,skipped,loansFound,review:rev.length,loanTx:newOnes.filter(t=>isLoanAcct(t.acct)).length,auto:rev.filter(t=>t.sug).length};
 }
 
 /* ============ Period & maths ============ */
@@ -595,7 +625,7 @@ function summarise(from,to){
     const c=t.cat?catById(t.cat):null;
     if(c&&c.kind==='transfer') continue;
     if(c&&c.kind==='income'){ moneyIn+=t.amount; continue; }
-    if(!c){ if(t.amount>0) moneyIn+=t.amount; else { uncatOut+=-t.amount; spend+=-t.amount; } continue; }
+    if(!c){ if(t.sug==='transfer'&&OWN_XFER.test(t.desc)) continue; /* clearly between your own accounts */ if(t.amount>0) moneyIn+=t.amount; else { uncatOut+=-t.amount; spend+=-t.amount; } continue; }
     byCat[c.id]=(byCat[c.id]||0)+(-t.amount); spend+=-t.amount;
   }
   return {byCat,moneyIn,spend,uncatOut};
@@ -607,15 +637,17 @@ let tab='dashboard';
 const TABS=[['dashboard','📊','Dashboard'],['cats','📈','Charts'],['txns','📋','Transactions'],['review','✅','Review'],['settings','⚙️','Settings']];
 function renderNav(){
   const nav=document.getElementById('nav'), n=uncatCount();
-  if(!nav.querySelector('button')){
-    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div>'+TABS.map(([id,ic,l])=>`<button data-tab="${id}" onclick="go('${id}')"><span class="ic">${ic}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
+  const hasLoan=loanAccts().length>0?'1':'0';
+  if(!nav.querySelector('button')||nav.dataset.loan!==hasLoan){
+    nav.dataset.loan=hasLoan;
+    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div>'+[...TABS,...(hasLoan==='1'?[['loan','🏠','Home loan']]:[])].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='loan'?'navdesk':''}" onclick="go('${id}')"><span class="ic">${ic}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
   }
   nav.querySelectorAll('button').forEach(b=>{
     b.classList.toggle('on',b.dataset.tab===tab);
     const bd=b.querySelector('.badge'); const show=b.dataset.tab==='review'&&n>0;
     if(bd){ if(show&&bd.textContent!==String(n)){ bd.textContent=n; bd.classList.remove('bump'); void bd.offsetWidth; bd.classList.add('bump'); } bd.style.display=show?'':'none'; }
   });
-  nav.style.setProperty('--i',TABS.findIndex(t=>t[0]===tab));
+  nav.style.setProperty('--i',Math.max(0,TABS.findIndex(t=>t[0]===tab)));
   const onBtn=nav.querySelector('button.on'); if(onBtn) nav.style.setProperty('--top',(onBtn.offsetTop+onBtn.offsetHeight/2-15)+'px');
   nav.style.setProperty('--n',TABS.length);
 }
@@ -627,7 +659,7 @@ function render(){
   if(appScreen!=='app') return;
   renderNav();
   const el=document.getElementById('app');
-  ({dashboard:renderDashboard,review:renderReview,txns:renderTxns,cats:renderCharts,settings:renderSettings})[tab](el);
+  ({dashboard:renderDashboard,review:renderReview,txns:renderTxns,cats:renderCharts,settings:renderSettings,loan:renderLoan})[tab](el);
   if(nextAnim){
     const target=nextAnim==='left'||nextAnim==='right'?(el.querySelector('.rvanim')||el):el;
     const cls='anim-'+nextAnim; target.classList.remove('anim-tab','anim-fade','anim-left','anim-right'); void target.offsetWidth; target.classList.add(cls);
@@ -653,7 +685,7 @@ function coversFrom(from){
   return earliest<=lim.toISOString().slice(0,10);
 }
 function hasData(from,to){ return state.txns.some(t=>t.date>=from&&t.date<=to); }
-function spendTxns(from,to){ return state.txns.filter(t=>t.date>=from&&t.date<=to&&t.amount<0&&isCounted(t)&&!(t.cat&&['transfer','income'].includes(catById(t.cat)?.kind))); }
+function spendTxns(from,to){ return state.txns.filter(t=>t.date>=from&&t.date<=to&&t.amount<0&&isCounted(t)&&!(!t.cat&&t.sug==='transfer'&&OWN_XFER.test(t.desc))&&!(t.cat&&['transfer','income'].includes(catById(t.cat)?.kind))); }
 function merchantKey(t){ return suggestKeyword(t.desc)||cleanDesc(t.desc); }
 function titleCase(s){ return s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); }
 function changeTag(now,before,label){
@@ -737,10 +769,11 @@ function renderDashboard(el){
     <div class="card"><h2>Biggest purchases</h2>${bigHtml}</div>
     <div class="card"><h2>Regular bills & subscriptions</h2>${regHtml}</div>
     </div>
+    ${loanDashSection()}
     <p class="muted small" style="text-align:center">Transfers between your own accounts are left out of these totals.</p>`;
 }
 function balancesCard(){
-  const list=Object.entries(state.accounts).filter(([a,x])=>x.bal!=null&&x.counted!==false);
+  const list=Object.entries(state.accounts).filter(([a,x])=>x.bal!=null&&x.counted!==false&&x.type!=='loan');
   if(!list.length) return '';
   const tot=list.reduce((s,[,x])=>s+x.bal,0);
   return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Account balances</h2><b class="${tot<0?'neg':''}">${money(tot)}</b></div>
@@ -770,7 +803,7 @@ function filterCat(id){ txFilter={q:'',cat:id,acct:'',period:true}; go('txns'); 
 
 /* ============ Review ============ */
 let rv={idx:0,done:0,list:false,kw:null,kwFor:null,remember:true,undo:null};
-function reviewQueue(){ return state.txns.filter(t=>!t.cat&&isCounted(t)).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id)); }
+function reviewQueue(all){ return state.txns.filter(t=>!t.cat&&isCounted(t)&&(all||!rv.acct||t.acct===rv.acct)).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id)); }
 function applyCategory(t,catId){
   t.cat=catId;
   state.recent=[catId,...(state.recent||[]).filter(x=>x!==catId)].slice(0,8);
@@ -818,8 +851,13 @@ function renderReview(el){
     return;
   }
   const toggle=`<div class="seg" style="margin-bottom:12px"><button class="${!rv.list?'on':''}" onclick="rv.list=false;render()">One at a time</button><button class="${rv.list?'on':''}" onclick="rv.list=true;render()">List</button></div>`;
+  // account filter chips (only when more than one account has something to review)
+  const allQ=reviewQueue(true), perAcct={}; allQ.forEach(t=>{ perAcct[t.acct]=(perAcct[t.acct]||0)+1; });
+  const accts=Object.keys(perAcct);
+  if(rv.acct&&!perAcct[rv.acct]) rv.acct=null;
+  const filter=accts.length>1?`<div class="acctfilter"><button class="${!rv.acct?'on':''}" onclick="rv.acct=null;rv.idx=0;animateNext('fade');render()">All accounts <b>${allQ.length}</b></button>${accts.map(a=>`<button class="${rv.acct===a?'on':''}" style="--ac:${acctColor(a)}" onclick="rv.acct='${a}';rv.idx=0;animateNext('fade');render()"><span class="dot" style="background:${acctColor(a)};margin-right:6px"></span>${esc(acctName(a))} <b>${perAcct[a]}</b></button>`).join('')}</div>`:'';
   if(rv.list){
-    el.innerHTML=toggle+`<div class="card"><h2>${q.length} to review</h2><p class="small muted" style="margin-top:-6px">Tap one to choose its category.</p>${txnList(q,false)}</div>`;
+    el.innerHTML=toggle+filter+`<div class="card"><h2>${q.length} to review</h2><p class="small muted" style="margin-top:-6px">Tap one to choose its category.</p>${txnList(q,false)}</div>`;
     return;
   }
   if(rv.idx>=q.length) rv.idx=0;
@@ -830,16 +868,17 @@ function renderReview(el){
   const groups=catGroupsFor(t);
   const picks=quickPicks(t).filter(id=>!sIds.includes(id)).slice(0,9);
   const credit=t.amount>0;
-  el.innerHTML=toggle+`
+  el.innerHTML=toggle+filter+`
     <div class="rvhead"><span><b>${q.length}</b> left${rv.done?` · ${rv.done} done`:''}</span>
       <span class="rvctl">${rv.undo?`<button class="pill" onclick="reviewUndo()">↶ Undo</button>`:''}
         <button class="pill" ${q.length<2?'disabled':''} onclick="reviewStep(-1)" aria-label="Back">‹</button>
         <button class="pill" ${q.length<2?'disabled':''} onclick="reviewStep(1)">Skip ›</button></span></div>
     <div class="bar" style="margin:0 0 12px"><i style="width:${pct}%;background:var(--accent)"></i></div>
-    <div class="rvanim"><div class="rvgrid"><div class="rvleft"><div class="card rvcard">
+    <div class="rvanim"><div class="rvgrid"><div class="rvleft"><div class="card rvcard" style="--ac:${acctColor(t.acct)}">
+      <div class="rvacct">${acctTag(t.acct)}<span class="small muted">${dayLabel(t.date).replace(/ \d{4}$/,'')}</span></div>
       <div class="rvtop">
         <div style="min-width:0;flex:1"><div class="rvname">${esc(titleCase(cleanDesc(t.desc)))}</div>
-          <div class="small muted">${dayLabel(t.date).replace(/ \d{4}$/,'')} · ${esc(acctName(t.acct))}</div></div>
+          </div>
         <div class="rvamt ${t.amount>0?'pos':'neg'}">${t.amount>0?'+':'−'}${money(Math.abs(t.amount))}</div>
       </div>
       <div class="rvraw">${esc(t.desc)}</div>
@@ -918,7 +957,7 @@ function txnList(list,groupDays){
     const chip=c?`<span class="chip">${esc(c.name)}</span>`:`<span class="chip none">To review${t.sug&&catById(t.sug)?' · '+esc(catById(t.sug).name)+'?':''}</span>`;
     html+=`<div class="txn" onclick="openPicker('${encodeURIComponent(t.id)}')">
       <span class="dot" style="background:${c?c.color:'#f5b301'};margin:0"></span>
-      <div class="mid"><div class="d">${esc(cleanDesc(t.desc))}</div><div class="s">${chip}${groupDays?'':dayLabel(t.date)+' · '}${esc(acctName(t.acct))}</div></div>
+      <div class="mid"><div class="d">${esc(cleanDesc(t.desc))}</div><div class="s">${chip}${groupDays?'':dayLabel(t.date)+' · '}${acctTag(t.acct)}</div></div>
       <div class="amt ${c&&c.kind==='transfer'?'muted':t.amount>0?'pos':'neg'}">${t.amount>0?'+':''}${money(t.amount)}</div></div>`;
   }
   return html;
@@ -1003,6 +1042,10 @@ function monthsBack(end,n){ const a=[]; for(let i=n-1;i>=0;i--) a.push(ymAdd(end
 
 /* ============ Charts tab ============ */
 function renderCharts(el){
+  const hasLoan=loanAccts().length>0;
+  if(!hasLoan) chartsMode='spend';
+  const toggle=hasLoan?`<div class="seg chartsmode"><button class="${chartsMode==='spend'?'on':''}" onclick="chartsMode='spend';animateNext('fade');render()">📈 Spending</button><button class="${chartsMode==='loan'?'on':''}" onclick="chartsMode='loan';animateNext('fade');render()">🏠 Home loan</button></div>`:'';
+  if(chartsMode==='loan'){ renderLoanCharts(el,toggle); return; }
   const pr=periodRange(), s=summarise(pr.from,pr.to);
   const pv=prevRange(); const ps=pv&&coversFrom(pv.from)?summarise(pv.from,pv.to):null;
   const total=Math.max(s.spend,0.01);
@@ -1069,7 +1112,7 @@ function renderCharts(el){
   const topVisits=Object.entries(visits).sort((a,b)=>b[1].n-a[1].n||b[1].a-a[1].a).slice(0,6);
   const incomeAmt=inP.filter(t=>catById(t.cat)?.kind==='income').reduce((a,t)=>a+t.amount,0);
   const xfer=inP.filter(t=>catById(t.cat)?.kind==='transfer');
-  el.innerHTML=`${periodControls()}
+  el.innerHTML=`${toggle}${periodControls()}
     ${s.uncatOut>0?`<div class="banner"><span>${money(s.uncatOut)} not reviewed yet</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
     <div class="cols">
     <div class="card"><h2>At a glance</h2>
@@ -1102,15 +1145,192 @@ function renderCharts(el){
     </div>`;
 }
 
+/* ============ Home loan ============ */
+function loanAccts(){ return Object.keys(state.accounts).filter(a=>isLoanAcct(a)&&acctTxCount(a)); }
+// What each loan transaction is, from Bankwest's transaction code and description.
+function loanKind(t){
+  if(t.type==='DRI'||/DEBIT INTEREST/i.test(t.desc)) return 'interest';
+  if(t.type==='FEE'||/\bFEE\b/i.test(t.desc)) return 'fee';
+  if(t.amount>0&&(t.type==='DEP')) return 'deposit';
+  if(t.amount>0) return 'repayment';
+  return 'other';
+}
+const LOAN_LABEL={interest:'Interest',fee:'Fees',deposit:'Deposits',repayment:'Repayments',other:'Other'};
+function offsetSaving(t){ const m=t.desc.match(/OFFSET SAVING OF\s*\$?([\d,]+\.\d{2})/i); return m?parseFloat(m[1].replace(/,/g,'')):0; }
+// End-of-day balance owing (positive number) for each date, worked out from the running balances.
+function loanDaily(a){
+  const byDate={};
+  state.txns.filter(t=>t.acct===a&&t.balance!=null).forEach(t=>{ (byDate[t.date]=byDate[t.date]||[]).push(t); });
+  return Object.keys(byDate).sort().map(d=>{
+    const rows=byDate[d], befores=new Set(rows.map(t=>Math.round((t.balance-t.amount)*100)));
+    const end=rows.find(t=>!befores.has(Math.round(t.balance*100)))||rows[0];
+    return {d,owing:-end.balance};
+  });
+}
+function loanSummary(a,from,to){
+  const tx=state.txns.filter(t=>t.acct===a&&t.date>=from&&t.date<=to);
+  const sum=k=>tx.filter(t=>loanKind(t)===k).reduce((s,t)=>s+Math.abs(t.amount),0);
+  const interest=sum('interest'), fees=sum('fee'), deposits=sum('deposit'), repay=sum('repayment');
+  const saved=tx.reduce((s,t)=>s+offsetSaving(t),0);
+  return {tx,interest,fees,deposits,repay,paidIn:deposits+repay,principal:deposits+repay-interest-fees,saved};
+}
+
+function loanLineSVG(a,opts={}){
+  const daily=loanDaily(a); if(daily.length<2) return '';
+  const W=600,H=opts.h||200,pl=8,pb=opts.mini?4:24,pt=opts.mini?4:24, min=Math.min(...daily.map(p=>p.owing)), max=Math.max(...daily.map(p=>p.owing));
+  const t0=new Date(daily[0].d).getTime(), t1=new Date(daily[daily.length-1].d).getTime();
+  const X=d=>pl+(new Date(d).getTime()-t0)/(Math.max(t1-t0,1))*(W-pl*2), Y=v=>pt+(max===min?0.5:(max-v)/(max-min))*(H-pt-pb);
+  const pts=daily.map(p=>`${X(p.d).toFixed(1)},${Y(p.owing).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none" ${opts.mini?`style="height:${opts.px||46}px"`:''}><polyline points="${pl},${H-pb} ${pts} ${W-pl},${H-pb}" style="fill:var(--soft);stroke:none"/>
+    <polyline points="${pts}" fill="none" style="stroke:var(--accent)" stroke-width="${opts.mini?3:2.5}" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    ${opts.mini?'':daily.map(p=>`<circle cx="${X(p.d)}" cy="${Y(p.owing)}" r="3" style="fill:var(--accent)"/>`).join('')+`
+    <text x="${pl}" y="14" font-size="11" style="fill:var(--muted)">${money0(max)}</text>
+    <text x="${W-pl}" y="${H-6}" text-anchor="end" font-size="11" style="fill:var(--muted)">${dayLabel(daily[daily.length-1].d).replace(/ \d{4}$/,'')}</text>
+    <text x="${pl}" y="${H-6}" font-size="11" style="fill:var(--muted)">${dayLabel(daily[0].d).replace(/ \d{4}$/,'')}</text>`}</svg>`;
+}
+// Approximate yearly rate from the latest interest charge: (interest + offset saving) / balance x 12.
+function loanRate(a){
+  const it=state.txns.filter(t=>t.acct===a&&loanKind(t)==='interest'&&t.balance!=null).sort((p,q)=>q.date.localeCompare(p.date))[0];
+  if(!it) return null; const owing=-(it.balance-it.amount); if(owing<=0) return null;
+  return (Math.abs(it.amount)+offsetSaving(it))/owing*12*100;
+}
+function loanDashSection(){
+  const L=loanAccts(); if(!L.length) return '';
+  const pr=periodRange();
+  return `<div class="sectionhead"><span>🏠 Home loan${L.length>1?'s':''}</span><button class="link small" onclick="chartsMode='loan';go('cats')">Loan charts ›</button></div>
+  <div class="loangrid">${L.map(a=>{
+    const x=state.accounts[a], s=loanSummary(a,pr.from,pr.to), r=loanRate(a);
+    return `<div class="card loancard" onclick="openLoan('${a}')">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>${esc(acctName(a))}</h2><span class="link small">Details ›</span></div>
+      <div class="loanbig">${money(Math.abs(x.bal||0))}<span class="small muted"> owing${x.balDate?' · '+dayLabel(x.balDate).replace(/ \d{4}$/,''):''}</span></div>
+      <div style="margin:8px 0 4px">${loanLineSVG(a,{mini:true,h:80})}</div>
+      <div class="mini3" style="margin-top:6px">
+        <div><div class="k">Paid in</div><div class="v pos" style="font-size:16px">${money0(s.paidIn)}</div></div>
+        <div><div class="k">Interest</div><div class="v neg" style="font-size:16px">${money0(s.interest)}</div></div>
+        <div><div class="k">Off the loan</div><div class="v ${s.principal<0?'neg':'pos'}" style="font-size:16px">${s.principal<0?'−':''}${money0(Math.abs(s.principal))}</div></div>
+      </div>
+      <p class="small muted" style="margin:6px 0 0">${pr.label}${r?` · approx. rate ${r.toFixed(2)}%`:''}</p>
+    </div>`; }).join('')}</div>`;
+}
+/* ---- Charts tab: Home loan view ---- */
+let chartsMode='spend', loanChartSel=null;
+function renderLoanCharts(el,toggle){
+  const L=loanAccts(); if(!loanChartSel||!L.includes(loanChartSel)) loanChartSel=L[0];
+  const a=loanChartSel, x=state.accounts[a], pr=periodRange(), s=loanSummary(a,pr.from,pr.to), r=loanRate(a);
+  const end=state.view.anchor||latestYM(), m12=monthsBack(end,12), m6=monthsBack(end,6);
+  const s12=m12.map(m=>loanSummary(a,m+'-01',m+'-31')), s6=m6.map(m=>loanSummary(a,m+'-01',m+'-31'));
+  const intMonths=s12.filter(z=>z.interest>0), avgInt=intMonths.length?intMonths.reduce((p,z)=>p+z.interest,0)/intMonths.length:0;
+  const src={}; s.tx.filter(t=>t.amount>0).forEach(t=>{ const k=/^IB TRANSFER/i.test(t.desc)?('From '+acctName((t.desc.match(OWN_XFER)||[])[2]||'another account')):titleCase(cleanDesc(t.desc)); src[k]=(src[k]||0)+t.amount; });
+  const srcCols=['#4cd964','#4dabf7','#38d9a9','#da77f2','#ffd43b','#ff922b'];
+  const parts=Object.entries(src).sort((p,q)=>q[1]-p[1]).map(([n,v],i)=>({n,v,c:srcCols[i%srcCols.length]}));
+  const paidTot=parts.reduce((p,q)=>p+q.v,0);
+  const donut=parts.length?donutSVG(parts,paidTot).replace('>Spent<','>Paid in<'):'';
+  el.innerHTML=`${toggle}${periodControls()}
+    ${L.length>1?`<div class="acctfilter">${L.map(k=>`<button class="${k===a?'on':''}" onclick="loanChartSel='${k}';animateNext('fade');render()">${esc(acctName(k))}</button>`).join('')}</div>`:''}
+    <div class="cols">
+    <div class="card"><h2>🏠 ${esc(acctName(a))} at a glance</h2>
+      <div class="mini3">
+        <div><div class="k">Balance owing</div><div class="v" style="font-size:16px">${money0(Math.abs(x.bal||0))}</div></div>
+        <div><div class="k">Approx. rate</div><div class="v">${r?r.toFixed(2)+'%':'—'}</div></div>
+        <div><div class="k">Avg interest / month</div><div class="v neg">${avgInt?money0(avgInt):'—'}</div></div>
+        <div><div class="k">Paid in</div><div class="v pos">${money0(s.paidIn)}</div></div>
+        <div><div class="k">Interest & fees</div><div class="v neg">${money0(s.interest+s.fees)}</div></div>
+        <div><div class="k">Off the loan</div><div class="v ${s.principal<0?'neg':'pos'}">${s.principal<0?'−':''}${money0(Math.abs(s.principal))}</div></div>
+      </div>
+      <p class="small muted" style="margin:6px 0 0">${esc(pr.label)}. The rate is estimated from your latest interest charge plus what your offset saved.</p>
+    </div>
+    <div class="card"><h2>Balance owing</h2>${loanLineSVG(a)||'<p class="muted small">Appears once there are a few weeks of loan transactions.</p>'}</div>
+    <div class="card"><h2>Interest charged by month</h2>${barChartSVG(m12.map(m=>MONTHS[+m.slice(5)-1]),[{vals:s12.map(z=>z.interest),color:'var(--bad)'}],{avg:avgInt||0,h:180})}</div>
+    <div class="card"><h2>Paid in vs interest & fees</h2>${barChartSVG(m6.map(m=>MONTHS[+m.slice(5)-1]),[{vals:s6.map(z=>z.paidIn),color:'var(--good)'},{vals:s6.map(z=>z.interest+z.fees),color:'var(--bad)'}],{h:180})}
+      <div class="small muted" style="display:flex;gap:14px;margin-top:4px"><span><span class="dot" style="background:var(--good)"></span>Paid in</span><span><span class="dot" style="background:var(--bad)"></span>Interest & fees</span></div></div>
+    <div class="card"><h2>Off the loan by month</h2>${barChartSVG(m6.map(m=>MONTHS[+m.slice(5)-1]),[{vals:s6.map(z=>Math.max(0,z.principal)),color:'var(--accent)'}],{h:170,values:true})}
+      <p class="small muted" style="margin:4px 0 0">What came off the balance each month after interest and fees.</p></div>
+    <div class="card"><h2>Offset savings by month</h2>${barChartSVG(m6.map(m=>MONTHS[+m.slice(5)-1]),[{vals:s6.map(z=>z.saved),color:'var(--good)'}],{h:160,values:true})}
+      <p class="small muted" style="margin:4px 0 0">Interest your offset account saved you, from Bankwest's interest line.</p></div>
+    <div class="card"><h2>Where payments came from</h2>${parts.length?`<div class="donutwrap">${donut}<div class="legend">${parts.map(p=>`<div class="lg"><span class="dot" style="background:${p.c}"></span><span class="grow">${esc(p.n)}</span><b>${money0(p.v)}</b></div>`).join('')}</div></div>`:'<p class="muted small">No payments in this period.</p>'}</div>
+    </div>
+    <div style="text-align:center;margin:6px 0 14px"><button class="btn ghost" onclick="openLoan('${a}')">Loan details & transactions ›</button></div>`;
+}
+function loanDashCard(){
+  const L=loanAccts(); if(!L.length) return '';
+  const pr=periodRange();
+  return L.map(a=>{
+    const x=state.accounts[a], s=loanSummary(a,pr.from,pr.to);
+    return `<div class="card loancard" onclick="openLoan('${a}')">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>🏠 ${esc(acctName(a))}</h2><span class="link small">View ›</span></div>
+      <div class="loanbig">${money(Math.abs(x.bal||0))}<span class="small muted"> owing${x.balDate?' · '+dayLabel(x.balDate).replace(/ \d{4}$/,''):''}</span></div>
+      <div class="mini3" style="margin-top:10px">
+        <div><div class="k">Paid in</div><div class="v pos" style="font-size:16px">${money0(s.paidIn)}</div></div>
+        <div><div class="k">Interest</div><div class="v neg" style="font-size:16px">${money0(s.interest)}</div></div>
+        <div><div class="k">Off the loan</div><div class="v ${s.principal<0?'neg':'pos'}" style="font-size:16px">${s.principal<0?'−':''}${money0(Math.abs(s.principal))}</div></div>
+      </div>
+      <p class="small muted" style="margin:6px 0 0">${pr.label}. Kept separate from your spending.</p>
+    </div>`;
+  }).join('');
+}
+let loanSel=null;
+function openLoan(a){ loanSel=a; go('loan'); }
+function renderLoan(el){
+  const L=loanAccts();
+  if(!L.length){ el.innerHTML=`<div class="card"><h2>🏠 Home loan</h2><p class="muted">No home loan account yet. Import your loan's Bankwest CSV, then set its type to <b>Home loan</b> in Settings → Accounts.</p><button class="btn" onclick="go('settings')">Go to Settings</button></div>`; return; }
+  if(!loanSel||!L.includes(loanSel)) loanSel=L[0];
+  const a=loanSel, x=state.accounts[a], pr=periodRange(), s=loanSummary(a,pr.from,pr.to), all=loanSummary(a,'0000','9999');
+  const daily=loanDaily(a);
+  const line=loanLineSVG(a);
+  // monthly paid-in vs interest
+  const end=state.view.anchor||latestYM(), m6=monthsBack(end,6), ms=m6.map(m=>loanSummary(a,m+'-01',m+'-31'));
+  const tx=[...s.tx].sort((p,q)=>q.date.localeCompare(p.date));
+  const kindDot={interest:'var(--bad)',fee:'var(--bad)',deposit:'var(--good)',repayment:'var(--good)',other:'var(--muted)'};
+  const firstDate=daily.length?daily[0].d:null, drop=daily.length>1?daily[0].owing-daily[daily.length-1].owing:0;
+  el.innerHTML=`
+    <div class="loanback"><button class="pill" onclick="go('dashboard')">‹ Dashboard</button>
+      ${L.length>1?`<div class="acctfilter" style="margin:0">${L.map(k=>`<button class="${k===a?'on':''}" onclick="loanSel='${k}';animateNext('fade');render()">${esc(acctName(k))}</button>`).join('')}</div>`:''}</div>
+    <div class="card loanhero">
+      <div class="small muted">🏠 ${esc(acctName(a))} · ${esc(a)}</div>
+      <div class="loanbig" style="font-size:34px">${money(Math.abs(x.bal||0))}</div>
+      <div class="small muted">owing as of ${x.balDate?dayLabel(x.balDate):'latest import'}</div>
+      ${drop?`<div class="small ${drop>0?'pos':'neg'}" style="margin-top:6px">${drop>0?'▼':'▲'} ${money(Math.abs(drop))} since ${dayLabel(firstDate)}</div>`:''}
+    </div>
+    ${periodControls()}
+    <div class="cols">
+    <div class="card"><h2>${esc(pr.label)}</h2>
+      <div class="mini3">
+        <div><div class="k">Paid in</div><div class="v pos">${money0(s.paidIn)}</div></div>
+        <div><div class="k">Interest</div><div class="v neg">${money0(s.interest)}</div></div>
+        <div><div class="k">Fees</div><div class="v neg">${money0(s.fees)}</div></div>
+        <div><div class="k">Off the loan</div><div class="v ${s.principal<0?'neg':'pos'}">${s.principal<0?'−':''}${money0(Math.abs(s.principal))}</div></div>
+        <div><div class="k">Offset saved you</div><div class="v pos">${money0(s.saved)}</div></div>
+        <div><div class="k">Interest share</div><div class="v">${s.paidIn?Math.round((s.interest+s.fees)/s.paidIn*100)+'%':'—'}</div></div>
+      </div>
+      <p class="small muted" style="margin:6px 0 0">"Off the loan" is what you paid in minus interest and fees. "Interest share" is how much of what you paid in went to interest and fees.</p>
+    </div>
+    <div class="card"><h2>Where the money came from</h2>
+      ${[['deposit','Deposits (e.g. rent)'],['repayment','Repayments & transfers in']].map(([k,l])=>{ const v=k==='deposit'?s.deposits:s.repay; return `<div class="lrow"><span class="grow"><span class="dot" style="background:var(--good)"></span>${l}</span><b class="pos">${money(v)}</b></div>`; }).join('')}
+      ${(()=>{ const src={}; s.tx.filter(t=>t.amount>0).forEach(t=>{ const k=/^IB TRANSFER/i.test(t.desc)?('From '+acctName((t.desc.match(OWN_XFER)||[])[2]||'another account')):titleCase(cleanDesc(t.desc)); src[k]=(src[k]||0)+t.amount; });
+        const e=Object.entries(src).sort((p,q)=>q[1]-p[1]); return e.length?`<div class="small muted" style="margin:10px 0 2px">By source</div>`+e.map(([k,v])=>`<div class="lrow"><span class="grow">${esc(k)}</span><b>${money(v)}</b></div>`).join(''):''; })()}
+    </div>
+    <div class="card"><h2>Balance owing</h2>${line||'<p class="muted small">The balance chart appears once there are a few weeks of loan transactions.</p>'}</div>
+    <div class="card"><h2>Paid in vs interest</h2>${barChartSVG(m6.map(m=>MONTHS[+m.slice(5)-1]),[{vals:ms.map(z=>z.paidIn),color:'var(--good)'},{vals:ms.map(z=>z.interest+z.fees),color:'var(--bad)'}],{h:180})}
+      <div class="small muted" style="display:flex;gap:14px;margin-top:4px"><span><span class="dot" style="background:var(--good)"></span>Paid in</span><span><span class="dot" style="background:var(--bad)"></span>Interest & fees</span></div></div>
+    <div class="card"><h2>All time (imported)</h2>
+      <div class="lrow"><span class="grow">Interest charged</span><b class="neg">${money(all.interest)}</b></div>
+      <div class="lrow"><span class="grow">Fees</span><b class="neg">${money(all.fees)}</b></div>
+      <div class="lrow"><span class="grow">Paid in</span><b class="pos">${money(all.paidIn)}</b></div>
+      <div class="lrow"><span class="grow">Offset savings</span><b class="pos">${money(all.saved)}</b></div>
+    </div>
+    <div class="card"><h2>Loan transactions</h2>${tx.length?tx.map(t=>{ const k=loanKind(t); return `<div class="lrow"><span class="dot" style="background:${kindDot[k]};margin:0"></span><span class="grow">${esc(k==='interest'?'Interest charged':titleCase(cleanDesc(t.desc)))}<div class="small muted">${dayLabel(t.date).replace(/ \d{4}$/,'')} · ${LOAN_LABEL[k]}${offsetSaving(t)?` · offset saved ${money(offsetSaving(t))}`:''}</div></span><b class="${t.amount>0?'pos':'neg'}">${t.amount>0?'+':''}${money(t.amount)}</b></div>`; }).join(''):'<p class="muted small">No loan transactions in this period.</p>'}</div>
+    </div>`;
+}
+
 /* ============ Accounts ============ */
-const ACCT_TYPES=[['everyday','Everyday'],['savings','Savings'],['credit','Credit card'],['offset','Offset'],['loan','Loan / mortgage'],['otherbank','Other bank'],['cash','Cash'],['other','Other']];
+const ACCT_TYPES=[['everyday','Everyday'],['savings','Savings'],['credit','Credit card'],['offset','Offset'],['loan','Home loan'],['otherbank','Other bank'],['cash','Cash'],['other','Other']];
 let acctForm=false;
 function normAcct(s){
   const d=String(s||'').replace(/\D/g,'');
   if(d.length>=9) return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6);
   return d;
 }
-function isCounted(t){ const a=state.accounts[t.acct]; return !a||a.counted!==false; }
+function isCounted(t){ const a=state.accounts[t.acct]; if(a&&a.type==='loan') return false; return !a||a.counted!==false; }
 function acctTxCount(a){ return state.txns.filter(t=>t.acct===a).length; }
 function acctCard(a){
   const x=state.accounts[a]; const n=acctTxCount(a);
@@ -1123,8 +1343,10 @@ function acctCard(a){
       <select onchange="acctSet('${a}','type',this.value)">${typeOpts}</select>
       <input list="ownerList" placeholder="Whose? e.g. Joint" value="${esc(x.owner||'')}" onchange="acctSet('${a}','owner',this.value)">
     </div>
+    <div class="acctcols">${ACCT_COLOURS.map(col=>`<button class="ce-swatch ${acctColor(a).toLowerCase()===col.toLowerCase()?'sel':''}" style="background:${col};width:24px;height:24px" onclick="acctSet('${a}','color','${col}');render()" aria-label="Account colour"></button>`).join('')}<span class="small muted" style="margin-left:4px">Tag colour</span></div>
+    ${x.type==='loan'?`<p class="small muted" style="margin:6px 0">🏠 Home loan accounts are kept out of Review and your spending totals.</p>`:''}
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <label class="small" style="display:flex;gap:7px;align-items:center"><input type="checkbox" style="width:auto" ${x.counted!==false?'checked':''} onchange="acctSet('${a}','counted',this.checked)"> Include in totals</label>
+      ${x.type==='loan'?'<span></span>':`<label class="small" style="display:flex;gap:7px;align-items:center"><input type="checkbox" style="width:auto" ${x.counted!==false?'checked':''} onchange="acctSet('${a}','counted',this.checked)"> Include in totals</label>`}
       <button class="link small" style="color:var(--bad)" onclick="acctRemove('${a}')">Remove</button>
     </div>
   </div>`;
@@ -1150,7 +1372,7 @@ function accountsSection(){
     <datalist id="ownerList">${[...new Set(['Joint',...Object.values(state.accounts).map(x=>x.owner).filter(Boolean)])].map(o=>`<option value="${esc(o)}">`).join('')}</datalist>
   </div>`;
 }
-function acctSet(a,k,v){ state.accounts[a][k]=v; save(); if(k==='counted') render(); }
+function acctSet(a,k,v){ state.accounts[a][k]=v; save(); if(k==='counted'||k==='type') render(); }
 function acctAdd(){
   const name=document.getElementById('naName').value.trim();
   const num=normAcct(document.getElementById('naNum').value);
@@ -1223,7 +1445,7 @@ function renderSettings(el){
   d.addEventListener('drop',ev=>handleFiles(ev.dataTransfer.files));
 }
 async function handleFiles(files){
-  const tot={added:0,dupes:0,pending:0,auto:0}; const errs=[];
+  const tot={added:0,dupes:0,pending:0,auto:0,loansFound:0,review:0,loanTx:0}; const errs=[];
   for(const f of files){
     try{ const r=importBankwest(await f.text()); for(const k in tot) tot[k]+=r[k]; }
     catch(e){ errs.push(f.name+': '+e.message); }
@@ -1231,10 +1453,11 @@ async function handleFiles(files){
   state.imports.push({at:new Date().toISOString(),files:files.length,...tot});
   if(tot.added) state.view.anchor=latestYM();
   save();
-  lastResult=`<b>${tot.added} new transaction${tot.added===1?'':'s'} ready to review</b>${tot.added?` · ${tot.auto} with a suggestion`:''}<br>
+  lastResult=`<b>${tot.review} new transaction${tot.review===1?'':'s'} ready to review</b>${tot.review?` · ${tot.auto} with a suggestion`:''}${tot.loanTx?` · ${tot.loanTx} home loan transaction${tot.loanTx===1?'':'s'} added`:''}<br>
     <span class="small">${tot.dupes} already imported (skipped) · ${tot.pending} pending (skipped)</span>
+    ${tot.loansFound?`<div class="small" style="margin-top:6px">🏠 Found a home loan account. It's kept out of Review and spending; see it on the Dashboard.</div>`:''}
     ${errs.length?`<div class="small over" style="margin-top:6px">${errs.map(esc).join('<br>')}</div>`:''}
-    ${tot.added?`<div style="margin-top:8px"><button class="btn" onclick="go('review')">Start reviewing</button></div>`:''}`;
+    ${tot.review?`<div style="margin-top:8px"><button class="btn" onclick="go('review')">Start reviewing</button></div>`:''}${tot.loanTx&&!tot.review?`<div style="margin-top:8px"><button class="btn" onclick="go('loan')">🏠 View home loan</button></div>`:''}`;
   render();
 }
 function delRule(i){ state.rules.splice(i,1); save(); render(); toast('Rule removed'); }
