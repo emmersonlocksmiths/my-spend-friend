@@ -451,6 +451,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .improw.dragging{transition:none;z-index:5;position:relative;box-shadow:0 10px 28px var(--shadow);border-color:var(--accent)}
 .improw .grow{flex:1}
 /* ---------- Sticky period bar ---------- */
+.fresh{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;margin-top:6px}.fdot{width:8px;height:8px;border-radius:50%;flex:none;background:currentColor}.fresh-ok{color:var(--good)}.fresh-mid{color:var(--accent)}.fresh-old{color:var(--bad)}
 .periodbar{position:sticky;top:0;z-index:6;margin:0 -14px 12px;padding:10px 14px 8px;padding-top:calc(10px + env(safe-area-inset-top));
   background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
 .periodbar.stuck{border-bottom-color:var(--line);box-shadow:0 6px 18px rgba(0,0,0,.18)}
@@ -481,7 +482,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.25';
+const APP_VERSION='0.26';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -685,7 +686,7 @@ function importBankwest(text){
     { // latest balance = first row for each account in the file (Bankwest lists newest first)
       const bm=(r[ix.date]||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); const bb=parseFloat(String(r[ix.bal]||'').replace(/[$,]/g,''));
       const ba=normAcct((r[ix.bsb]||'')+(r[ix.acc]||''))||'unknown';
-      if(bm&&!isNaN(bb)&&!balSeen.has(ba)){ balSeen.add(ba); ensureAccount(ba); const bd=`${bm[3]}-${bm[2].padStart(2,'0')}-${bm[1].padStart(2,'0')}`; const A=state.accounts[ba]; if(!A.balDate||bd>=A.balDate){ A.bal=bb; A.balDate=bd; } }
+      if(bm&&!isNaN(bb)&&!balSeen.has(ba)){ balSeen.add(ba); ensureAccount(ba); state.accounts[ba].uploaded=new Date().toISOString(); const bd=`${bm[3]}-${bm[2].padStart(2,'0')}-${bm[1].padStart(2,'0')}`; const A=state.accounts[ba]; if(!A.balDate||bd>=A.balDate){ A.bal=bb; A.balDate=bd; } }
     }
     const desc=(r[ix.desc]||'').trim().replace(/\s+/g,' ');
     const type=(r[ix.type]||'').trim().toUpperCase();
@@ -844,6 +845,14 @@ function isoAdd(d,n){ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n);
 function payRef(){ return (state.payCycle&&state.payCycle.start)||'2026-01-05'; } // default: fortnights starting Mondays
 function fortStartFor(d){ const ref=payRef(); const diff=Math.round((new Date(d+'T00:00:00')-new Date(ref+'T00:00:00'))/DAY); return isoAdd(ref,Math.floor(diff/14)*14); }
 function latestDate(){ return state.txns.length?state.txns.reduce((m,t)=>t.date>m?t.date:m,''):new Date().toISOString().slice(0,10); }
+function daysAgo(iso){ const t=new Date(); t.setHours(0,0,0,0); const d=new Date(iso.slice(0,10)+'T00:00:00'); return Math.max(0,Math.round((t-d)/864e5)); }
+function agoTxt(n){ return n===0?'today':n===1?'yesterday':n+' days ago'; }
+function freshLine(a){
+  const x=state.accounts[a]; const last=state.txns.filter(t=>t.acct===a).reduce((m,t)=>t.date>m?t.date:m,'');
+  if(!last) return '';
+  const n=daysAgo(last), lvl=n<=3?'ok':n<=7?'mid':'old';
+  return `<div class="fresh fresh-${lvl}"><span class="fdot"></span>Last updated ${agoTxt(n)}</div>`;
+}
 function shortDay(d){ const x=new Date(d+'T00:00:00'); return DAYS[x.getDay()]+' '+x.getDate()+' '+MONTHS[x.getMonth()]; }
 function rangeFor(mode,a){
   if(mode==='fortnight'){ const f=a, t=isoAdd(f,13); return {from:f,to:t,months:12/26,label:shortDay(f)+' – '+shortDay(t),short:'previous fortnight'}; }
@@ -1631,6 +1640,7 @@ function renderAccounts(el){
         <div style="text-align:right"><div class="ar-bal ${x.bal<0?'neg':''}">${x.bal!=null?money(isLoanAcct(a)?Math.abs(x.bal):x.bal):'—'}</div><div class="small muted">${isLoanAcct(a)?'owing':x.balDate?dayLabel(x.balDate).replace(/ \d{4}$/,''):''}</div></div>
         <span class="crow-chev">›</span></div>
       <div class="ar-meta small muted">${n} transaction${n===1?'':'s'}${last?` · latest ${dayLabel(last).replace(/ \d{4}$/,'')}`:''}${toRev?` · <span style="color:var(--accent)">${toRev} to review</span>`:''}${x.counted===false&&!isLoanAcct(a)?' · not in totals':''}</div>
+      ${freshLine(a)}
     </div>`; };
   const tot=everyday.filter(a=>state.accounts[a].counted!==false&&state.accounts[a].bal!=null).reduce((s,a)=>s+state.accounts[a].bal,0);
   const nAll=state.txns.length;
@@ -1709,7 +1719,7 @@ function renderAcctDetail(el,a){
     <div class="loanback"><button class="pill" onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button>${loan?`<button class="pill" onclick="openLoan('${a}')">🏠 Loan view</button>`:''}</div>
     <div class="card loanhero" style="--ac:${col};border-top:4px solid ${col}">
       ${acctTag(a)}
-      <div class="loanbig" style="font-size:32px;margin-top:8px">${x.bal!=null?money(loan?Math.abs(x.bal):x.bal):'—'}</div>
+      <div class="loanbig" style="font-size:32px;margin-top:8px">${x.bal!=null?money(loan?Math.abs(x.bal):x.bal):'—'}</div>${freshLine(a)}
       <div class="small muted">${loan?'owing':'balance'}${x.balDate?' as of '+dayLabel(x.balDate):''}</div>
       <div class="small muted" style="margin-top:4px">${esc(acctTypeLabel(x))}${x.owner?' · '+esc(x.owner):''} · ${a.startsWith('manual-')?'no account number':esc(a)}</div>
       ${!loan&&x.goal?`<div style="margin-top:14px;text-align:left"><div style="display:flex;justify-content:space-between" class="small"><span>🎯 Goal ${money0(x.goal)}</span><b>${Math.min(100,Math.round(Math.max(0,x.bal||0)/x.goal*100))}%</b></div>
