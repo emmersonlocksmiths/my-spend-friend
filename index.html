@@ -366,6 +366,18 @@ input,select{border-radius:12px}
 .sectionhead span{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .loangrid{display:grid;grid-template-columns:1fr;gap:0}
 @media (min-width:1000px){ .loangrid{grid-template-columns:repeat(2,1fr);gap:16px} .chartsmode{max-width:420px} }
+.acctrow{cursor:pointer;padding:14px;border-left:4px solid var(--ac)!important}
+.acctrow:active{transform:scale(.99)}
+.ar-top{display:flex;align-items:center;gap:12px}
+.ar-top .grow{flex:1}
+.inacct .txn .acctag{display:none}
+.ar-ic{width:38px;height:38px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:19px;background:color-mix(in srgb,var(--ac) 16%,transparent);flex:none}
+.ar-name{font-weight:700;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ar-bal{font-weight:800;font-size:16px;letter-spacing:-.02em;white-space:nowrap}
+.ar-meta{margin:8px 0 0 50px}
+.sectionhead b{font-size:14px}
+nav button{font-size:10px}
+@media (max-width:999px){ nav button{padding:5px 0;letter-spacing:-.01em} nav button .ic{font-size:19px} }
 svg text{font-family:inherit}
 </style>
 </head>
@@ -377,7 +389,7 @@ svg text{font-family:inherit}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.15';
+const APP_VERSION='0.16';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -634,7 +646,7 @@ function uncatCount(){ return state.txns.filter(t=>!t.cat&&isCounted(t)).length;
 
 /* ============ Navigation ============ */
 let tab='dashboard';
-const TABS=[['dashboard','📊','Dashboard'],['cats','📈','Charts'],['txns','📋','Transactions'],['review','✅','Review'],['settings','⚙️','Settings']];
+const TABS=[['dashboard','📊','Dashboard'],['cats','📈','Charts'],['accounts','🏦','Accounts'],['txns','📋','Transactions'],['review','✅','Review'],['settings','⚙️','Settings']];
 function renderNav(){
   const nav=document.getElementById('nav'), n=uncatCount();
   const hasLoan=loanAccts().length>0?'1':'0';
@@ -654,12 +666,12 @@ function renderNav(){
 // Transitions: the next render plays this animation on the page ('tab', 'fade', 'left', 'right').
 let nextAnim=null;
 function animateNext(kind){ nextAnim=kind; }
-function go(t){ if(t!==tab) animateNext('tab'); tab=t; render(); window.scrollTo({top:0}); }
+function go(t){ if(t!==tab) animateNext('tab'); if(t==='accounts'&&(tab==='accounts'||tab!=='accounts')) acctSel=null; tab=t; render(); window.scrollTo({top:0}); }
 function render(){
   if(appScreen!=='app') return;
   renderNav();
   const el=document.getElementById('app');
-  ({dashboard:renderDashboard,review:renderReview,txns:renderTxns,cats:renderCharts,settings:renderSettings,loan:renderLoan})[tab](el);
+  ({dashboard:renderDashboard,review:renderReview,txns:renderTxns,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
   if(nextAnim){
     const target=nextAnim==='left'||nextAnim==='right'?(el.querySelector('.rvanim')||el):el;
     const cls='anim-'+nextAnim; target.classList.remove('anim-tab','anim-fade','anim-left','anim-right'); void target.offsetWidth; target.classList.add(cls);
@@ -777,7 +789,7 @@ function balancesCard(){
   if(!list.length) return '';
   const tot=list.reduce((s,[,x])=>s+x.bal,0);
   return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Account balances</h2><b class="${tot<0?'neg':''}">${money(tot)}</b></div>
-    ${list.map(([a,x])=>`<div class="lrow"><span class="grow">${esc(acctName(a))}<div class="small muted">${esc((ACCT_TYPES.find(t=>t[0]===x.type)||['','Account'])[1])}${x.owner?' · '+esc(x.owner):''} · as of ${dayLabel(x.balDate).replace(/ \d{4}$/,'')}</div></span><b class="${x.bal<0?'neg':''}">${money(x.bal)}</b></div>`).join('')}
+    ${list.map(([a,x])=>`<div class="lrow" style="cursor:pointer" onclick="openAcct('${a}')"><span class="grow">${esc(acctName(a))}<div class="small muted">${esc((ACCT_TYPES.find(t=>t[0]===x.type)||['','Account'])[1])}${x.owner?' · '+esc(x.owner):''} · as of ${dayLabel(x.balDate).replace(/ \d{4}$/,'')}</div></span><b class="${x.bal<0?'neg':''}">${money(x.bal)}</b></div>`).join('')}
     <p class="small muted" style="margin:6px 0 0">Balances are from your latest import for each account.</p></div>`;
 }
 function trendSVG(){
@@ -1388,6 +1400,94 @@ function acctRemove(a){
   state.txns=state.txns.filter(t=>t.acct!==a); delete state.accounts[a]; save(); render(); toast('Account removed');
 }
 
+/* ============ Accounts tab ============ */
+let acctSel=null, acctQ='', acctLimit=150;
+function acctDaily(a){
+  const byDate={};
+  state.txns.filter(t=>t.acct===a&&t.balance!=null).forEach(t=>{ (byDate[t.date]=byDate[t.date]||[]).push(t); });
+  return Object.keys(byDate).sort().map(d=>{
+    const rows=byDate[d], befores=new Set(rows.map(t=>Math.round((t.balance-t.amount)*100)));
+    const end=rows.find(t=>!befores.has(Math.round(t.balance*100)))||rows[0];
+    return {d,bal:end.balance};
+  });
+}
+function acctLineSVG(a,col){
+  const pts0=acctDaily(a); if(pts0.length<2) return '';
+  const W=600,H=170,pl=8,pb=22,pt=20, vals=pts0.map(p=>p.bal), min=Math.min(...vals), max=Math.max(...vals);
+  const t0=new Date(pts0[0].d).getTime(), t1=new Date(pts0[pts0.length-1].d).getTime();
+  const X=d=>pl+(new Date(d).getTime()-t0)/Math.max(t1-t0,1)*(W-pl*2), Y=v=>pt+(max===min?.5:(max-v)/(max-min))*(H-pt-pb);
+  const pts=pts0.map(p=>`${X(p.d).toFixed(1)},${Y(p.bal).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%"><polyline points="${pl},${H-pb} ${pts} ${W-pl},${H-pb}" style="fill:color-mix(in srgb,${col} 14%,transparent);stroke:none"/>
+    <polyline points="${pts}" fill="none" style="stroke:${col}" stroke-width="2.5" stroke-linejoin="round"/>
+    <text x="${pl}" y="13" font-size="11" style="fill:var(--muted)">${money0(max)}</text><text x="${pl}" y="${H-6}" font-size="11" style="fill:var(--muted)">${dayLabel(pts0[0].d).replace(/ \d{4}$/,'')}</text>
+    <text x="${W-pl}" y="${H-6}" text-anchor="end" font-size="11" style="fill:var(--muted)">${dayLabel(pts0[pts0.length-1].d).replace(/ \d{4}$/,'')}</text></svg>`;
+}
+function acctTypeLabel(x){ return (ACCT_TYPES.find(t=>t[0]===x.type)||['','Account'])[1]; }
+function openAcct(a){ acctSel=a; acctQ=''; acctLimit=150; animateNext('left'); tab='accounts'; render(); window.scrollTo({top:0}); }
+function renderAccounts(el){
+  if(acctSel&&state.accounts[acctSel]) return renderAcctDetail(el,acctSel);
+  acctSel=null;
+  const keys=Object.keys(state.accounts);
+  const main=keys.filter(a=>acctTxCount(a)||state.accounts[a].manual);
+  const seen=keys.filter(a=>!main.includes(a));
+  const everyday=main.filter(a=>!isLoanAcct(a)), loans=main.filter(isLoanAcct);
+  const card=a=>{ const x=state.accounts[a], n=acctTxCount(a), last=state.txns.filter(t=>t.acct===a).reduce((m,t)=>t.date>m?t.date:m,'');
+    const toRev=state.txns.filter(t=>t.acct===a&&!t.cat&&isCounted(t)).length;
+    return `<div class="card acctrow" style="--ac:${acctColor(a)}" onclick="openAcct('${a}')">
+      <div class="ar-top"><span class="ar-ic">${isLoanAcct(a)?'🏠':x.type==='savings'?'💰':x.type==='credit'?'💳':'🏦'}</span>
+        <div class="grow" style="min-width:0"><div class="ar-name">${esc(acctName(a))}</div><div class="small muted">${esc(acctTypeLabel(x))}${x.owner?' · '+esc(x.owner):''}${a.startsWith('manual-')?'':' · …'+esc(a.slice(-4))}</div></div>
+        <div style="text-align:right"><div class="ar-bal ${x.bal<0?'neg':''}">${x.bal!=null?money(isLoanAcct(a)?Math.abs(x.bal):x.bal):'—'}</div><div class="small muted">${isLoanAcct(a)?'owing':x.balDate?dayLabel(x.balDate).replace(/ \d{4}$/,''):''}</div></div>
+        <span class="crow-chev">›</span></div>
+      <div class="ar-meta small muted">${n} transaction${n===1?'':'s'}${last?` · latest ${dayLabel(last).replace(/ \d{4}$/,'')}`:''}${toRev?` · <span style="color:var(--accent)">${toRev} to review</span>`:''}${x.counted===false&&!isLoanAcct(a)?' · not in totals':''}</div>
+    </div>`; };
+  const tot=everyday.filter(a=>state.accounts[a].counted!==false&&state.accounts[a].bal!=null).reduce((s,a)=>s+state.accounts[a].bal,0);
+  el.innerHTML=`
+    ${everyday.length?`<div class="sectionhead" style="border:0;padding:0;margin-top:4px"><span>Bank accounts</span><b>${money(tot)}</b></div>${everyday.map(card).join('')}`:''}
+    ${loans.length?`<div class="sectionhead"><span>🏠 Home loans</span><b>${money(Math.abs(loans.reduce((s,a)=>s+(state.accounts[a].bal||0),0)))} owing</b></div>${loans.map(card).join('')}`:''}
+    ${!main.length?`<div class="card"><h2>No accounts yet</h2><p class="muted">Import a Bankwest CSV in Settings and its account appears here automatically.</p><button class="btn" onclick="go('settings')">Import</button></div>`:''}
+    <div class="card">${acctForm?`<h2>Add an account</h2>
+      <input id="naName" placeholder="Nickname e.g. Joint savings" style="margin-bottom:6px">
+      <input id="naNum" placeholder="BSB + account number (optional) e.g. 305-122-1234567" inputmode="numeric" style="margin-bottom:6px">
+      <div class="row"><select id="naType">${ACCT_TYPES.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select><input id="naOwner" list="ownerList" placeholder="Whose? e.g. Joint"></div>
+      <p class="small muted" style="margin:2px 0 8px">Add the number for Bankwest accounts, so their CSV imports land on this account and transfers to it are recognised.</p>
+      <div style="display:flex;gap:8px"><button class="btn" onclick="acctAdd()">Add account</button><button class="btn ghost" onclick="acctForm=false;render()">Cancel</button></div>`
+      :`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span class="small muted">Accounts are added automatically when you import their CSV.</span><button class="btn ghost" style="flex:none" onclick="acctForm=true;render();setTimeout(()=>document.getElementById('naName')?.focus(),30)">＋ Add</button></div>`}</div>
+    ${seen.length?`<details class="card" style="padding:12px 14px"><summary style="cursor:pointer;font-weight:600">Other accounts seen in transfers (${seen.length})</summary>
+      <p class="small muted">These have sent money to or received money from your accounts. Name them so you know who they are, or import their CSV to track them fully.</p>${seen.map(acctCard).join('')}</details>`:''}
+    <datalist id="ownerList">${[...new Set(['Joint',...Object.values(state.accounts).map(x=>x.owner).filter(Boolean)])].map(o=>`<option value="${esc(o)}">`).join('')}</datalist>`;
+}
+function renderAcctDetail(el,a){
+  const x=state.accounts[a], col=acctColor(a), pr=periodRange(), loan=isLoanAcct(a);
+  const inP=state.txns.filter(t=>t.acct===a&&t.date>=pr.from&&t.date<=pr.to);
+  const moneyIn=inP.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0), moneyOut=inP.filter(t=>t.amount<0).reduce((s,t)=>s-t.amount,0);
+  const q=acctQ.toUpperCase();
+  const list=state.txns.filter(t=>t.acct===a&&(!q||t.desc.toUpperCase().includes(q))).sort((p,r)=>r.date.localeCompare(p.date)||p.id.localeCompare(r.id));
+  el.innerHTML=`
+    <div class="loanback"><button class="pill" onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button>${loan?`<button class="pill" onclick="openLoan('${a}')">🏠 Loan view</button>`:''}</div>
+    <div class="card loanhero" style="--ac:${col};border-top:4px solid ${col}">
+      ${acctTag(a)}
+      <div class="loanbig" style="font-size:32px;margin-top:8px">${x.bal!=null?money(loan?Math.abs(x.bal):x.bal):'—'}</div>
+      <div class="small muted">${loan?'owing':'balance'}${x.balDate?' as of '+dayLabel(x.balDate):''}</div>
+      <div class="small muted" style="margin-top:4px">${esc(acctTypeLabel(x))}${x.owner?' · '+esc(x.owner):''} · ${a.startsWith('manual-')?'no account number':esc(a)}</div>
+    </div>
+    ${periodControls()}
+    <div class="stats">
+      <div class="stat"><div class="k">In</div><div class="v pos">${money0(moneyIn)}</div></div>
+      <div class="stat"><div class="k">Out</div><div class="v neg">${money0(moneyOut)}</div></div>
+      <div class="stat"><div class="k">Net</div><div class="v ${moneyIn-moneyOut<0?'neg':'pos'}">${moneyIn-moneyOut<0?'−':''}${money0(Math.abs(moneyIn-moneyOut))}</div></div>
+    </div>
+    <p class="small muted" style="margin:-6px 2px 12px">Everything in and out of this account in ${esc(pr.label)}, including transfers.</p>
+    <div class="cols">
+    <div class="card"><h2>${loan?'Balance':'Balance'} over time</h2>${acctLineSVG(a,col)||'<p class="muted small">The chart appears once there are a few days of transactions.</p>'}</div>
+    <div class="card"><h2>Account settings</h2>${acctCard(a)}</div>
+    </div>
+    <div class="card inacct"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h2>Transactions</h2><span class="small muted">${list.length}</span></div>
+      <input placeholder="Search this account…" value="${esc(acctQ)}" oninput="acctQ=this.value;acctLimit=150;render();const i=document.querySelector('#app input[placeholder^=Search]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}" style="margin-bottom:6px">
+      ${list.length?txnList(list.slice(0,acctLimit),true):'<p class="muted small">No transactions.</p>'}
+      ${list.length>acctLimit?`<div style="text-align:center;margin-top:10px"><button class="btn ghost" onclick="acctLimit+=150;render()">Show more</button></div>`:''}
+    </div>`;
+}
+
 /* ============ Settings (incl. Import) ============ */
 let lastResult=null;
 function renderSettings(el){
@@ -1416,7 +1516,7 @@ function renderSettings(el){
       <li>Choose <b>Export</b> and pick <b>CSV</b>.</li><li>Repeat for each account, then import all the files here.</li></ol>
       <p class="small muted">Pending ("Authorisation only") transactions are skipped. They come through once they settle, in your next export.</p></details>
   </div>
-  ${accountsSection()}
+  <div class="card"><h2>Accounts</h2><p class="small muted" style="margin-top:-6px">Nicknames, types, colours and each account's transactions are now in the Accounts tab.</p><button class="btn ghost" onclick="go('accounts')">🏦 Open Accounts</button></div>
   <div class="card"><h2>Categories & monthly budgets</h2>
     <p class="small muted" style="margin-top:-6px">Add, rename, recolour, reorder or delete categories, and set a monthly budget for each.</p>
     ${['income','expense'].map(k=>`<div class="catgroup">${KIND_LABEL[k]}</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${catsOfKind(k).map(c=>`<span class="chip"><span class="dot" style="background:${c.color};width:8px;height:8px;margin-right:5px"></span>${esc(c.name)}${c.budget?` · ${money0(c.budget)}`:''}</span>`).join('')}</div>`).join('')}
