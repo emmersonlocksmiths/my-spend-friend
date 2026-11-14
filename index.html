@@ -460,7 +460,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.23';
+const APP_VERSION='0.24';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1455,7 +1455,8 @@ function acctCard(a){
       <input list="ownerList" placeholder="Whose? e.g. Joint" value="${esc(x.owner||'')}" onchange="acctSet('${a}','owner',this.value)">
     </div>
     <div class="acctcols">${ACCT_COLOURS.map(col=>`<button class="ce-swatch ${acctColor(a).toLowerCase()===col.toLowerCase()?'sel':''}" style="background:${col};width:24px;height:24px" onclick="acctSet('${a}','color','${col}');render()" aria-label="Account colour"></button>`).join('')}<span class="small muted" style="margin-left:4px">Tag colour</span></div>
-    ${x.type==='loan'?`<p class="small muted" style="margin:6px 0">🏠 Home loan accounts are kept out of Review and your spending totals.</p>`:''}
+    ${x.type==='loan'?`<p class="small muted" style="margin:6px 0">🏠 Home loan accounts are kept out of Review and your spending totals.</p>`
+      :`<div class="row" style="margin:6px 0 8px"><span class="small muted" style="flex:none">🎯 Savings goal $</span><input type="number" inputmode="decimal" min="0" step="50" placeholder="None" value="${x.goal||''}" onchange="acctSet('${a}','goal',parseFloat(this.value)||0);render()"></div>`}
     <div style="display:flex;justify-content:space-between;align-items:center">
       ${x.type==='loan'?'<span></span>':`<label class="small" style="display:flex;gap:7px;align-items:center"><input type="checkbox" style="width:auto" ${x.counted!==false?'checked':''} onchange="acctSet('${a}','counted',this.checked)"> Include in totals</label>`}
       <button class="link small" style="color:var(--bad)" onclick="acctRemove('${a}')">Remove</button>
@@ -1591,6 +1592,20 @@ function acctDragStart(e,id,sel){
     render(); };
   document.addEventListener('pointermove',move); document.addEventListener('pointerup',up); document.addEventListener('pointercancel',up);
 }
+// How money moved through one account: put in, spent (real spending), moved out (transfers to your other accounts).
+function isXferTx(t){ const c=t.cat?catById(t.cat):null; return (c&&c.kind==='transfer')||(!t.cat&&t.sug==='transfer'); }
+function acctFlow(a,from,to){
+  const tx=state.txns.filter(t=>t.acct===a&&t.date>=from&&t.date<=to);
+  let putIn=0,spent=0,movedOut=0; const byCat={};
+  tx.forEach(t=>{ if(t.amount>0){ putIn+=t.amount; return; } if(isXferTx(t)){ movedOut+=-t.amount; return; } spent+=-t.amount; const k=t.cat||'_none'; byCat[k]=(byCat[k]||0)-t.amount; });
+  return {putIn,spent,movedOut,net:putIn-spent-movedOut,byCat,n:tx.length};
+}
+function recentPeriods(n){
+  const v=state.view, out=[];
+  if(v.mode==='fortnight'){ const cur=v.fAnchor||fortStartFor(latestDate()); for(let i=n-1;i>=0;i--){ const f=isoAdd(cur,-14*i); out.push({from:f,to:isoAdd(f,13),lab:new Date(f+'T00:00:00').getDate()+' '+MONTHS[new Date(f+'T00:00:00').getMonth()]}); } }
+  else { const end=v.anchor||latestYM(); for(let i=n-1;i>=0;i--){ const m=ymAdd(end,-i); out.push({from:m+'-01',to:m+'-31',lab:MONTHS[+m.slice(5)-1]}); } }
+  return out;
+}
 function renderAcctDetail(el,a){
   const x=state.accounts[a], col=acctColor(a), pr=periodRange(), loan=isLoanAcct(a);
   if(!acctTxCount(a)&&!x.manual){
@@ -1612,17 +1627,31 @@ function renderAcctDetail(el,a){
       <div class="loanbig" style="font-size:32px;margin-top:8px">${x.bal!=null?money(loan?Math.abs(x.bal):x.bal):'—'}</div>
       <div class="small muted">${loan?'owing':'balance'}${x.balDate?' as of '+dayLabel(x.balDate):''}</div>
       <div class="small muted" style="margin-top:4px">${esc(acctTypeLabel(x))}${x.owner?' · '+esc(x.owner):''} · ${a.startsWith('manual-')?'no account number':esc(a)}</div>
+      ${!loan&&x.goal?`<div style="margin-top:14px;text-align:left"><div style="display:flex;justify-content:space-between" class="small"><span>🎯 Goal ${money0(x.goal)}</span><b>${Math.min(100,Math.round(Math.max(0,x.bal||0)/x.goal*100))}%</b></div>
+        <div class="bar" style="height:10px"><i style="width:${Math.min(100,Math.max(0,x.bal||0)/x.goal*100)}%;background:${col}"></i></div>
+        <div class="small muted" style="margin-top:4px">${(x.bal||0)>=x.goal?'Goal reached 🎉':money(x.goal-(x.bal||0))+' to go'}</div></div>`:''}
     </div>
     ${periodControls()}
-    <div class="stats">
-      <div class="stat"><div class="k">In</div><div class="v pos">${money0(moneyIn)}</div></div>
-      <div class="stat"><div class="k">Out</div><div class="v neg">${money0(moneyOut)}</div></div>
-      <div class="stat"><div class="k">Net</div><div class="v ${moneyIn-moneyOut<0?'neg':'pos'}">${moneyIn-moneyOut<0?'−':''}${money0(Math.abs(moneyIn-moneyOut))}</div></div>
-    </div>
-    <p class="small muted" style="margin:-6px 2px 12px">Everything in and out of this account in ${esc(pr.label)}, including transfers.</p>
-    <div class="cols">
-    <div class="card"><h2>${loan?'Balance':'Balance'} over time</h2>${acctLineSVG(a,col)||'<p class="muted small">The chart appears once there are a few days of transactions.</p>'}</div>
-    </div>
+    ${loan?'':(()=>{ const f=acctFlow(a,pr.from,pr.to), per=recentPeriods(6), fl=per.map(p=>acctFlow(a,p.from,p.to));
+      const cats=Object.entries(f.byCat).sort((p,q)=>q[1]-p[1]);
+      const parts=cats.map(([id,v])=>{ const c=catById(id); return {v,c:c?c.color:'var(--pending)',n:c?c.name:'Not reviewed yet'}; });
+      return `<div class="card"><h2>${esc(pr.label)}</h2>
+        <div class="mini2" style="grid-template-columns:1fr 1fr">
+          <div><div class="k">Put in</div><div class="v pos">${money(f.putIn)}</div></div>
+          <div><div class="k">Spent from it</div><div class="v neg">${money(f.spent)}</div></div>
+          <div><div class="k">Moved to other accounts</div><div class="v muted">${money(f.movedOut)}</div></div>
+          <div><div class="k">Saved (net change)</div><div class="v ${f.net<0?'neg':'pos'}">${f.net<0?'−':'+'}${money(Math.abs(f.net))}</div></div>
+        </div>
+        <p class="small muted" style="margin:8px 0 0">"Put in" is everything that arrived. "Spent" is real purchases and bills paid from this account. Moving money to your other accounts isn't counted as spending.</p></div>
+      <div class="cols">
+      <div class="card"><h2>Put in vs spent</h2>${barChartSVG(per.map(p=>p.lab),[{vals:fl.map(z=>z.putIn),color:'var(--good)'},{vals:fl.map(z=>z.spent),color:'var(--bad)'}],{h:180})}
+        <div class="small muted" style="display:flex;gap:14px;margin-top:4px"><span><span class="dot" style="background:var(--good)"></span>Put in</span><span><span class="dot" style="background:var(--bad)"></span>Spent</span></div></div>
+      <div class="card"><h2>Saved each ${state.view.mode==='fortnight'?'fortnight':'month'}</h2>${barChartSVG(per.map(p=>p.lab),[{vals:fl.map(z=>Math.max(0,z.net)),color:'var(--accent)'}],{h:160,values:true})}
+        ${fl.some(z=>z.net<0)?`<p class="small muted" style="margin:4px 0 0">Periods where more went out than came in show as empty.</p>`:''}</div>
+      <div class="card"><h2>What it was spent on</h2>${parts.length?`<div class="donutwrap">${donutSVG(parts,f.spent)}<div class="legend">${parts.slice(0,8).map(p=>`<div class="lg"><span class="dot" style="background:${p.c}"></span><span class="grow">${esc(p.n)}</span><b>${money0(p.v)}</b></div>`).join('')}</div></div>`:'<p class="muted small">Nothing spent from this account in this period.</p>'}</div>
+      <div class="card"><h2>Balance over time</h2>${acctLineSVG(a,col)||'<p class="muted small">The chart appears once there are a few days of transactions.</p>'}</div>
+      </div>`; })()}
+    ${loan?`<div class="card"><h2>Balance over time</h2>${acctLineSVG(a,col)||'<p class="muted small">The chart appears once there are a few days of transactions.</p>'}</div>`:''}
     ${txnsCard(a)}
     <details class="card" style="padding:12px 14px"><summary style="cursor:pointer;font-weight:600">⚙️ Account settings</summary><div style="margin-top:10px">${acctCard(a)}</div></details>`;
 }
