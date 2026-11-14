@@ -379,6 +379,52 @@ input,select{border-radius:12px}
 nav button{font-size:10px}
 @media (max-width:999px){ nav button{padding:5px 0;letter-spacing:-.01em} nav button .ic{font-size:19px} }
 svg text{font-family:inherit}
+/* ---------- Desktop readability (kept last so it wins) ---------- */
+@media (min-width:1000px){
+  body{font-size:16px}
+  .small{font-size:14px}
+  nav button{font-size:15.5px!important;padding:12px 14px!important;letter-spacing:0!important}
+  nav button .ic{font-size:20px!important}
+  .navlogo{font-size:16.5px}
+  h2{font-size:18px}
+  .stat .k,.mini2 .k,.mini3 .k{font-size:13.5px}
+  .mini3 .v{font-size:21px}
+  .seg button{font-size:14.5px;padding:9px 6px}
+  .period .lbl{font-size:20px}
+  .catgroup{font-size:12.5px;margin:14px 2px 8px}
+  .rvright>.small.muted,.rvleft>.small.muted{font-size:14px!important}
+  .qpgrid{gap:10px}
+  .qpgrid button{font-size:16px;padding:16px 14px;min-height:62px;border-radius:15px}
+  .suggrow button{font-size:17px;padding:15px 16px}
+  .suggrow button .why{font-size:13px}
+  .catgrid{gap:9px}
+  .catgrid button{font-size:15.5px;padding:13px 14px;border-radius:13px}
+  .dot{width:11px;height:11px}
+  [data-key]::after{font-size:12px;top:7px;right:9px}
+  .rvhead{font-size:16px}
+  .pill{font-size:14.5px;padding:8px 15px}
+  .acctfilter button{font-size:14.5px;padding:8px 14px}
+  .rvname{font-size:24px}
+  .rvacct .acctag{font-size:13.5px}
+  .rvraw{font-size:13px}
+  .txn .d{font-size:15.5px}
+  .txn .s{font-size:13px}
+  .chip,.acctag{font-size:12.5px}
+  .crow-top{font-size:15.5px}
+  .crow-pct,.crow-chg{font-size:13px}
+  .lrow{font-size:15.5px}
+  .lg{font-size:14.5px}
+  .ce-name{font-size:16px}
+  .ce-sub{font-size:13px}
+  .ce-budget{font-size:13.5px}
+  .ce-head b{font-size:14px}.ce-head span{font-size:14px}
+  .kbdhint{font-size:13.5px}
+  kbd{font-size:12.5px}
+  .ar-name{font-size:17px}.ar-bal{font-size:18px}
+  svg text{font-size:13px}
+  .donut{width:230px;height:230px}
+  .donutwrap{gap:24px}
+}
 </style>
 </head>
 <body>
@@ -389,7 +435,7 @@ svg text{font-family:inherit}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.16';
+const APP_VERSION='0.17';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
