@@ -42,7 +42,7 @@
 :root[data-theme=light] nav button .ic{filter:grayscale(1) brightness(.9);opacity:.55}
 :root[data-theme=light] nav button.on .ic{filter:none;opacity:1}
 *{box-sizing:border-box}
-html,body{margin:0;overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%;overscroll-behavior-x:none}
+html,body{margin:0;overflow-x:clip;-webkit-text-size-adjust:100%;text-size-adjust:100%;overscroll-behavior-x:none}
 html{touch-action:pan-y}
 body *{touch-action:manipulation}
 /* iPhone zooms into any text box with text under 16px, so keep them all at 16px */
@@ -450,6 +450,27 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .improw{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--line);border-left:4px solid var(--ac);border-radius:13px;padding:8px 12px 8px 2px;transition:transform .18s cubic-bezier(.2,.7,.2,1)}
 .improw.dragging{transition:none;z-index:5;position:relative;box-shadow:0 10px 28px var(--shadow);border-color:var(--accent)}
 .improw .grow{flex:1}
+/* ---------- Sticky period bar ---------- */
+.periodbar{position:sticky;top:0;z-index:6;margin:0 -14px 12px;padding:10px 14px 8px;padding-top:calc(10px + env(safe-area-inset-top));
+  background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
+.periodbar.stuck{border-bottom-color:var(--line);box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.periodbar .seg{margin-bottom:8px}
+.periodbar .period{margin-bottom:0}
+.pseg{position:relative}
+.segpill{position:absolute;top:3px;bottom:3px;left:3px;width:0;border-radius:11px;background:var(--accent);box-shadow:0 2px 10px rgba(245,179,1,.3);transition:left .3s cubic-bezier(.3,.7,.2,1),width .3s cubic-bezier(.3,.7,.2,1);z-index:0}
+.pseg button{position:relative;z-index:1;background:none!important;box-shadow:none!important;transition:color .25s}
+.pseg button.on{color:var(--onaccent)}
+.period .lbl{overflow:hidden}
+.period .lbl span{display:inline-block}
+.lbl-left{animation:lblLeft .26s cubic-bezier(.2,.7,.2,1)}
+.lbl-right{animation:lblRight .26s cubic-bezier(.2,.7,.2,1)}
+@keyframes lblLeft{from{opacity:0;transform:translateX(24px)}}
+@keyframes lblRight{from{opacity:0;transform:translateX(-24px)}}
+@media (min-width:1000px){ .periodbar{margin:0 -28px 14px;padding:12px 28px 10px} }
+/* Period filters centred on every screen */
+.periodbar .seg,.periodbar .period{max-width:560px;margin-left:auto;margin-right:auto}
+.periodbar .period{justify-content:center}
+@media (min-width:1000px){ .chartsmode{margin-left:auto;margin-right:auto} }
 </style>
 </head>
 <body>
@@ -460,7 +481,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.24';
+const APP_VERSION='0.25';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -735,7 +756,61 @@ function renderNav(){
   nav.style.setProperty('--n',TABS.length);
 }
 // Transitions: the next render plays this animation on the page ('tab', 'fade', 'left', 'right').
-let nextAnim=null;
+let nextAnim=null, periodDir=null, pillFrom=null, morphNext=false;
+// Seamless period changes: bars and chart columns move from their old size to the new one.
+const barMemo={}, rectMemo={};
+function morphKey(n){ const r=n.closest('.catrow,.crow,.lrow,.card,.stat'); const lab=r?(r.querySelector('.crow-name,.top>span,h2')?.textContent||''):''; return tab+'|'+(acctSel||'')+'|'+(loanSel||'')+'|'+lab; }
+function morphAfterRender(el,animate){
+  const anim=animate&&!reducedMotion();
+  const counts={};
+  el.querySelectorAll('.bar i,.crow-bar i,.sharebar i').forEach(n=>{
+    let k=morphKey(n); counts[k]=(counts[k]||0)+1; k+='#'+counts[k];
+    const target=n.style.width, prev=barMemo[k]; barMemo[k]=target;
+    if(anim&&prev!=null&&prev!==target){ n.style.transition='none'; n.style.width=prev; void n.offsetWidth; n.style.transition='width .5s cubic-bezier(.2,.7,.2,1)'; n.style.width=target; }
+    else if(anim&&prev==null){ n.style.transition='none'; n.style.width='0%'; void n.offsetWidth; n.style.transition='width .5s cubic-bezier(.2,.7,.2,1)'; n.style.width=target; }
+  });
+  el.querySelectorAll('svg').forEach((svg,si)=>{
+    const card=svg.closest('.card'); const lab=tab+'|'+(acctSel||'')+'|'+((card&&card.querySelector('h2')?.textContent)||si);
+    let changed=false;
+    svg.querySelectorAll('rect').forEach((r,ri)=>{
+      if(r.getAttribute('fill')==='transparent'||!r.hasAttribute('height')) return;
+      const k=lab+'|'+ri, y=+r.getAttribute('y'), h=+r.getAttribute('height'), prev=rectMemo[k]; rectMemo[k]={y,h};
+      if(anim&&prev&&(Math.abs(prev.y-y)>.5||Math.abs(prev.h-h)>.5)){ changed=true;
+        r.setAttribute('y',prev.y); r.setAttribute('height',prev.h);
+        const t0=performance.now(), D=480; const step=now=>{ const q=Math.min(1,(now-t0)/D), e=1-Math.pow(1-q,3);
+          r.setAttribute('y',prev.y+(y-prev.y)*e); r.setAttribute('height',Math.max(0,prev.h+(h-prev.h)*e)); if(q<1&&r.isConnected) requestAnimationFrame(step); };
+        requestAnimationFrame(step); }
+    });
+    if(changed) svg.querySelectorAll('text').forEach(t=>{ t.style.opacity='0'; t.style.transition='opacity .25s ease .35s'; requestAnimationFrame(()=>requestAnimationFrame(()=>{ t.style.opacity='1'; })); });
+  });
+}
+// Sliding gold highlight on the period selector
+function rememberPill(){ const sg=document.querySelector('.periodbar .pseg'), on=sg&&sg.querySelector('button.on'); pillFrom=on?{l:on.offsetLeft,w:on.offsetWidth}:null; }
+function placePills(){
+  document.querySelectorAll('.pseg').forEach(sg=>{ const on=sg.querySelector('button.on'), pill=sg.querySelector('.segpill'); if(!on||!pill) return;
+    if(pillFrom&&!reducedMotion()){ pill.style.transition='none'; pill.style.left=pillFrom.l+'px'; pill.style.width=pillFrom.w+'px'; void pill.offsetWidth; pill.style.transition=''; }
+    pill.style.left=on.offsetLeft+'px'; pill.style.width=on.offsetWidth+'px'; });
+  pillFrom=null;
+}
+addEventListener('resize',()=>placePills());
+// Count figures up or down to their new value when the period changes
+const numMemo={};
+function animateNumbers(el){
+  const nodes=el.querySelectorAll('.stat .v, .mini2 .v, .mini3 .v, .loanbig, .crow-amt, .ar-bal');
+  const seen=new Set();
+  nodes.forEach((n,i)=>{
+    const tn=[...n.childNodes].find(c=>c.nodeType===3&&c.textContent.trim()); if(!tn) return;
+    const txt=tn.textContent.trim(), m=txt.match(/^([+−-]?)(\$?)([\d,]+(?:\.(\d+))?)(%?)$/); if(!m) return;
+    const key=tab+':'+(acctSel||'')+':'+(n.closest('.card,.stat')?.querySelector('.k,h2')?.textContent||'')+':'+i; seen.add(key);
+    const val=(m[1]==='−'||m[1]==='-'?-1:1)*parseFloat(m[3].replace(/,/g,'')), dec=m[4]?m[4].length:0;
+    const prev=numMemo[key]; numMemo[key]=val;
+    if(prev==null||prev===val||reducedMotion()||Math.abs(prev-val)<0.005) return;
+    const fmt=v=>{ const neg=v<0; const body=Math.abs(v).toLocaleString('en-AU',{minimumFractionDigits:dec,maximumFractionDigits:dec}); return (neg?'−':(m[1]==='+'?'+':''))+m[2]+body+m[5]; };
+    const t0=performance.now(), D=420;
+    const step=now=>{ const k=Math.min(1,(now-t0)/D), e=1-Math.pow(1-k,3); tn.textContent=fmt(prev+(val-prev)*e)+(txt.endsWith(' ')?' ':''); if(k<1&&tn.isConnected) requestAnimationFrame(step); else tn.textContent=txt; };
+    requestAnimationFrame(step);
+  });
+}
 function animateNext(kind){ nextAnim=kind; }
 function go(t){ if(t!==tab) animateNext('tab'); if(t==='accounts'&&(tab==='accounts'||tab!=='accounts')) acctSel=null; tab=t; render(); window.scrollTo({top:0}); }
 function render(){
@@ -743,6 +818,17 @@ function render(){
   renderNav();
   const el=document.getElementById('app');
   ({dashboard:renderDashboard,review:renderReview,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
+  placePills();
+  animateNumbers(el);
+  morphAfterRender(el,morphNext); morphNext=false;
+  if(periodDir){ const l=el.querySelector('.periodbar .lbl span'); if(l){ l.classList.add('lbl-'+periodDir); } periodDir=null; }
+  if(nextAnim&&el.querySelector(':scope > .periodbar')&&nextAnim!=='tab'){
+    // animate everything except the sticky period bar so it stays put
+    const kids=[...el.children].filter(c=>!c.classList.contains('periodbar')&&!c.classList.contains('banner'));
+    const cls='anim-'+nextAnim;
+    kids.forEach(k=>{ k.classList.remove('anim-fade','anim-left','anim-right'); void k.offsetWidth; k.classList.add(cls); k.addEventListener('animationend',()=>k.classList.remove(cls),{once:true}); });
+    nextAnim=null;
+  }
   if(nextAnim){
     const target=nextAnim==='left'||nextAnim==='right'?(el.querySelector('.rvanim')||el):el;
     const cls='anim-'+nextAnim; target.classList.remove('anim-tab','anim-fade','anim-left','anim-right'); void target.offsetWidth; target.classList.add(cls);
@@ -845,8 +931,7 @@ function renderDashboard(el){
   el.innerHTML=`
     ${daysSince!==null&&daysSince>=7?`<div class="banner"><span>Last import was <b>${daysSince} days ago</b></span><button class="btn" onclick="go('settings')">Import</button></div>`:''}
     ${n?`<div class="banner"><span><b>${n}</b> transaction${n>1?'s':''} to review</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
-    <div class="seg">${[['fortnight','Fortnight'],['month','Month'],['3m','3 mths'],['year','12 mths'],['all','All']].map(([m,l])=>`<button class="${v.mode===m?'on':''}" onclick="setMode('${m}')">${l}</button>`).join('')}</div>
-    <div class="period">${v.mode!=='all'?`<button onclick="shift(-1)">‹</button>`:''}<div class="lbl">${pr.label}</div>${v.mode!=='all'?`<button onclick="shift(1)">›</button>`:''}</div>
+    ${periodControls()}
     <div class="stats">
       <div class="stat"><div class="k">Money in</div><div class="v pos">${money0(s.moneyIn)}</div></div>
       <div class="stat"><div class="k">Spent</div><div class="v neg">${money0(s.spend)}</div>${ps?changeTag(s.spend,ps.spend,pv.short):''}</div>
@@ -889,9 +974,9 @@ function trendSVG(){
   });
   return `<svg viewBox="0 0 ${W} ${H}" width="100%">${bars}</svg><p class="muted small" style="margin:4px 0 0">Tap a month to open it.</p>`;
 }
-function setMode(m){ state.view.mode=m; if(m==='fortnight'&&!state.view.fAnchor) state.view.fAnchor=fortStartFor(latestDate()); animateNext('fade'); save(); render(); }
-function shift(n){ if(state.view.mode==='fortnight'){ state.view.fAnchor=isoAdd(state.view.fAnchor||fortStartFor(latestDate()),14*n); animateNext(n<0?'right':'left'); save(); render(); return; } const step=state.view.mode==='3m'?3:state.view.mode==='year'?12:1; state.view.anchor=ymAdd(state.view.anchor||latestYM(),n*step); animateNext(n<0?'right':'left'); save(); render(); }
-function jumpMonth(m){ state.view.mode='month'; state.view.anchor=m; animateNext('fade'); save(); render(); }
+function setMode(m){ rememberPill(); morphNext=true; state.view.mode=m; if(m==='fortnight'&&!state.view.fAnchor) state.view.fAnchor=fortStartFor(latestDate()); save(); render(); }
+function shift(n){ periodDir=n<0?'right':'left'; morphNext=true; if(state.view.mode==='fortnight'){ state.view.fAnchor=isoAdd(state.view.fAnchor||fortStartFor(latestDate()),14*n); save(); render(); return; } const step=state.view.mode==='3m'?3:state.view.mode==='year'?12:1; state.view.anchor=ymAdd(state.view.anchor||latestYM(),n*step); save(); render(); }
+function jumpMonth(m){ rememberPill(); morphNext=true; state.view.mode='month'; state.view.anchor=m; save(); render(); }
 function filterCat(id){ txFilter={q:'',cat:id,acct:'',period:true}; txLimit=150; tab='accounts'; acctSel='__all'; animateNext('tab'); render(); window.scrollTo({top:0}); }
 
 /* ============ Review ============ */
@@ -1105,8 +1190,8 @@ function closePicker(){ closeModal(); pick=null; }
 let catOpen=null;
 function periodControls(){
   const v=state.view, pr=periodRange();
-  return `<div class="seg">${[['fortnight','Fortnight'],['month','Month'],['3m','3 mths'],['year','12 mths'],['all','All']].map(([m,l])=>`<button class="${v.mode===m?'on':''}" onclick="setMode('${m}')">${l}</button>`).join('')}</div>
-    <div class="period">${v.mode!=='all'?`<button onclick="shift(-1)">‹</button>`:''}<div class="lbl">${pr.label}</div>${v.mode!=='all'?`<button onclick="shift(1)">›</button>`:''}</div>`;
+  return `<div class="periodbar"><div class="seg pseg"><span class="segpill"></span>${[['fortnight','Fortnight'],['month','Month'],['3m','3 mths'],['year','12 mths'],['all','All']].map(([m,l])=>`<button data-mode="${m}" class="${v.mode===m?'on':''}" onclick="setMode('${m}')">${l}</button>`).join('')}</div>
+    <div class="period">${v.mode!=='all'?`<button onclick="shift(-1)" aria-label="Previous">‹</button>`:''}<div class="lbl"><span>${pr.label}</span></div>${v.mode!=='all'?`<button onclick="shift(1)" aria-label="Next">›</button>`:''}</div></div>`;
 }
 function catMonthly(id,end,n){
   const out=[]; for(let i=n-1;i>=0;i--){ const m=ymAdd(end,-i); let a=0; for(const t of state.txns){ if(t.cat===id&&t.date.startsWith(m)&&isCounted(t)) a+= -t.amount; } out.push({m,a}); } return out;
@@ -1992,6 +2077,7 @@ document.addEventListener('keydown',e=>{
     const files=[...e.dataTransfer.files].filter(f=>/\.csv$/i.test(f.name)); if(!files.length){ toast('Only .csv files can be imported'); return; }
     tab='settings'; animateNext('tab'); handleFiles(files); window.scrollTo({top:0}); });
 })();
+addEventListener('scroll',()=>{ const pb=document.querySelector('.periodbar'); if(pb) pb.classList.toggle('stuck',pb.getBoundingClientRect().top<=1&&scrollY>40); },{passive:true});
 let wasDesktop=isDesktop(); addEventListener('resize',()=>{ const d=isDesktop(); if(d!==wasDesktop){ wasDesktop=d; render(); } });
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 showScreen('loading');
