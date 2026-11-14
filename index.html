@@ -505,7 +505,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.32';
+const APP_VERSION='0.33';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -746,10 +746,20 @@ function latestYM(){
   if(!state.txns.length){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
   return state.txns.reduce((m,t)=>t.date>m?t.date:m,'').slice(0,7);
 }
+// Pay that lands a day or two before a fortnight starts (e.g. paid Thursday night, cycle starts Friday)
+// counts as income for the fortnight it's meant for. Spending always stays strictly within the dates.
+function earlyPayDays(){ const n=state.payCycle&&state.payCycle.early; return n==null?2:n; }
+function isPayCat(id){ const c=id?catById(id):null; return !!c&&c.kind==='income'&&(id==='wages'||/wage|salary|\bpay\b|payroll/i.test(c.name)); }
+function isFortRange(from,to){ return isoAdd(from,13)===to&&fortStartFor(from)===from; }
+function incomeDate(t,from,to){
+  const n=earlyPayDays(); if(!n||t.amount<=0||!isPayCat(t.cat)||!isFortRange(from,to)) return t.date;
+  const next=fortStartFor(isoAdd(t.date,n)); return next>t.date?next:t.date;
+}
+function inPeriod(t,from,to){ const d=incomeDate(t,from,to); return d>=from&&d<=to; }
 function summarise(from,to){
   const byCat={}; let moneyIn=0, spend=0, uncatOut=0;
   for(const t of state.txns){
-    if(t.date<from||t.date>to||!isCounted(t)) continue;
+    if(!isCounted(t)||!inPeriod(t,from,to)) continue;
     const c=t.cat?catById(t.cat):null;
     if(c&&c.kind==='transfer') continue;
     if(c&&c.kind==='income'){ moneyIn+=t.amount; continue; }
@@ -1482,7 +1492,7 @@ function renderCharts(el){
   // ---- most visited
   const visits={}; purchases.forEach(t=>{ const k=merchantKey(t); (visits[k]=visits[k]||{n:0,a:0}); visits[k].n++; visits[k].a-=t.amount; });
   const topVisits=Object.entries(visits).sort((a,b)=>b[1].n-a[1].n||b[1].a-a[1].a).slice(0,6);
-  const incomeAmt=inP.filter(t=>catById(t.cat)?.kind==='income').reduce((a,t)=>a+t.amount,0);
+  const incomeAmt=state.txns.filter(t=>isCounted(t)&&catById(t.cat)?.kind==='income'&&inPeriod(t,pr.from,pr.to)).reduce((a,t)=>a+t.amount,0);
   const xfer=inP.filter(t=>catById(t.cat)?.kind==='transfer');
   el.innerHTML=`${toggle}${periodControls()}
     ${s.uncatOut>0?`<div class="banner"><span>${money(s.uncatOut)} not reviewed yet</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
@@ -2179,10 +2189,14 @@ function payCycleCard(){
     <p class="small muted" style="margin-top:-6px">Pick a payday. Fortnights in the period selector then start on that day, every two weeks.</p>
     <label class="ce-lbl">A payday (e.g. your most recent one)</label>
     <input type="date" value="${set?state.payCycle.start:''}" onchange="if(this.value) setPayStart(this.value)">
+    <label class="ce-lbl" style="margin-top:12px">Count early pay in the next fortnight</label>
+    <select onchange="setEarlyPay(+this.value)">${[0,1,2,3].map(n=>`<option value="${n}" ${earlyPayDays()===n?'selected':''}>${n===0?'Off (count it on the day it arrives)':`Up to ${n} day${n>1?'s':''} early`}</option>`).join('')}</select>
+    <p class="small muted" style="margin:6px 0 0">Applies to Wages &amp; Salary only. Spending always stays within the fortnight's dates.</p>
     <p class="small muted" style="margin:8px 0 0">${set?`Fortnights start on <b>${['Sundays','Mondays','Tuesdays','Wednesdays','Thursdays','Fridays','Saturdays'][new Date(payRef()+'T00:00:00').getDay()]}</b>. Current fortnight: <b>${shortDay(cur)} – ${shortDay(isoAdd(cur,13))}</b>.`:'Not set yet, so fortnights start on Mondays for now.'}</p>
   </div>`;
 }
-function setPayStart(d){ state.payCycle={start:d}; state.view.fAnchor=fortStartFor(latestDate()); save(); render(); toast('Fortnights now start on '+['Sundays','Mondays','Tuesdays','Wednesdays','Thursdays','Fridays','Saturdays'][new Date(d+'T00:00:00').getDay()]); }
+function setEarlyPay(n){ state.payCycle={...(state.payCycle||{start:payRef()}),early:n}; save(); render(); toast(n?`Pay up to ${n} day${n>1?'s':''} early counts in the next fortnight`:'Pay counts on the day it arrives'); }
+function setPayStart(d){ state.payCycle={...(state.payCycle||{}),start:d}; state.view.fAnchor=fortStartFor(latestDate()); save(); render(); toast('Fortnights now start on '+['Sundays','Mondays','Tuesdays','Wednesdays','Thursdays','Fridays','Saturdays'][new Date(d+'T00:00:00').getDay()]); }
 
 /* ============ People (admin only) ============ */
 let people=null, personForm=false;
