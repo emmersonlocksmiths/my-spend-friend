@@ -455,6 +455,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .improw .grow{flex:1}
 /* ---------- Sticky period bar ---------- */
 .fresh{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;margin-top:6px}.fdot{width:8px;height:8px;border-radius:50%;flex:none;background:currentColor}.fresh-ok{color:var(--good)}.fresh-mid{color:var(--accent)}.fresh-old{color:var(--bad)}
+.dashpace{text-align:center;margin:-4px 0 14px}.morecats{display:block;margin:10px auto 0}.unrevnote{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px dashed var(--dashed);font-size:13px;color:var(--muted);cursor:pointer}.snapcard{cursor:pointer}.snap-k{font-size:13px;color:var(--muted);font-weight:600}.snap-row{display:flex;justify-content:space-between;align-items:baseline;margin-top:4px}.snap-v{font-size:26px;font-weight:800;letter-spacing:-.5px}
 .periodbar{position:sticky;top:0;z-index:6;margin:0 -14px 12px;padding:10px 14px 8px;padding-top:calc(10px + env(safe-area-inset-top));
   background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
 .periodbar.stuck{border-bottom-color:var(--line);box-shadow:0 6px 18px rgba(0,0,0,.18)}
@@ -485,7 +486,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.28';
+const APP_VERSION='0.29';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -901,8 +902,8 @@ function renderDashboard(el){
   const daysSince=lastImp?Math.floor((Date.now()-lastImp)/86400000):null;
   // categories
   const cats=Object.entries(s.byCat).filter(([,x])=>Math.abs(x)>0.004).sort((a,b)=>b[1]-a[1]);
-  const max=Math.max(s.uncatOut,...cats.map(c=>c[1]),1);
-  let catHtml=cats.map(([id,amt])=>{
+  const max=Math.max(...cats.map(c=>c[1]),1);
+  const catRows=list=>list.map(([id,amt])=>{
     const c=catById(id); const bud=c.budget*pr.months;
     const pct=bud? Math.min(100,amt/bud*100) : amt/max*100;
     const over=bud&&amt>bud;
@@ -913,10 +914,8 @@ function renderDashboard(el){
       <div class="bar"><i style="width:${Math.max(pct,1.5)}%;background:${over?'var(--bad)':c.color}"></i></div>
       ${bud?`<div class="budgetnote ${over?'over':''}">${over?money(amt-bud)+' over':money(bud-amt)+' left'} of ${money0(bud)} budget</div>`:''}
     </div>`;}).join('');
-  if(s.uncatOut>0) catHtml+=`<div class="catrow" onclick="go('review')"><div class="top"><span><span class="dot" style="background:#f5b301"></span>Not reviewed yet</span><b>${money(s.uncatOut)}</b></div><div class="bar"><i style="width:${s.uncatOut/max*100}%;background:var(--pending)"></i></div></div>`;
-  if(!catHtml) catHtml='<p class="muted">No spending in this period.</p>';
   const net=s.moneyIn-s.spend;
-  // pace (month view only)
+  // pace: a single quiet line under the totals (month view)
   let pace='';
   if(v.mode==='month'){
     const inMonth=state.txns.filter(t=>t.date.startsWith(v.anchor)).map(t=>t.date).sort();
@@ -925,24 +924,19 @@ function renderDashboard(el){
     const current=v.anchor===nowYM;
     const daysSoFar=current&&inMonth.length? +inMonth[inMonth.length-1].slice(8) : dim;
     const avg=s.spend/Math.max(daysSoFar,1);
-    pace=`<div class="card"><div class="mini2">
-      <div><div class="k">Daily average</div><div class="v">${money0(avg)}<span class="small muted"> /day</span></div></div>
-      ${current?`<div><div class="k">On track for</div><div class="v">${money0(avg*dim)}<span class="small muted"> this month</span></div>${ps?`<div class="small muted">${MONTHS[+pv.from.slice(5,7)-1]} was ${money0(ps.spend)}</div>`:''}</div>`
-               :`<div><div class="k">Transactions</div><div class="v">${spendTxns(pr.from,pr.to).length}<span class="small muted"> purchases</span></div></div>`}
-    </div>${current?`<p class="small muted" style="margin:8px 0 0">Based on spending up to ${dayLabel(inMonth[inMonth.length-1]).replace(/ \d{4}$/,'')}, your latest imported transaction.</p>`:''}</div>`;
+    pace=`<p class="dashpace small muted">${money0(avg)} a day on average${current?` · on track for <b>${money0(avg*dim)}</b> this month`:''}</p>`;
   }
-  // top places
-  const places={}; for(const t of spendTxns(pr.from,pr.to)){ const k=merchantKey(t); (places[k]=places[k]||{n:0,amt:0}); places[k].n++; places[k].amt+=-t.amount; }
-  const topPlaces=Object.entries(places).sort((a,b)=>b[1].amt-a[1].amt).slice(0,5);
-  const placesHtml=topPlaces.length?topPlaces.map(([k,p],i)=>`<div class="lrow"><span class="rank">${i+1}</span><span class="grow">${esc(titleCase(k))}<div class="small muted">${p.n} visit${p.n>1?'s':''}</div></span><b class="neg">${money(p.amt)}</b></div>`).join(''):'<p class="muted small">Nothing yet.</p>';
-  // biggest purchases
-  const big=spendTxns(pr.from,pr.to).sort((a,b)=>a.amount-b.amount).slice(0,5);
-  const bigHtml=big.length?big.map(t=>`<div class="lrow" style="cursor:pointer" onclick="openPicker('${encodeURIComponent(t.id)}')"><span class="grow">${esc(titleCase(cleanDesc(t.desc)))}<div class="small muted">${dayLabel(t.date).replace(/ \d{4}$/,'')}${t.cat?' · '+esc(catById(t.cat)?.name||''):''}</div></span><b class="neg">${money(t.amount)}</b></div>`).join(''):'<p class="muted small">Nothing yet.</p>';
-  // regular bills & subscriptions (same place, 2+ different months)
-  const reg={}; for(const t of spendTxns('0000','9999')){ const k=merchantKey(t); (reg[k]=reg[k]||{months:new Set(),amts:[],last:''}); reg[k].months.add(t.date.slice(0,7)); reg[k].amts.push(-t.amount); if(t.date>reg[k].last) reg[k].last=t.date; }
-  const regular=Object.entries(reg).filter(([,r])=>r.months.size>=2&&r.amts.length/r.months.size<=2.5).sort((a,b)=>b[1].amts.reduce((x,y)=>x+y,0)/b[1].amts.length-a[1].amts.reduce((x,y)=>x+y,0)/a[1].amts.length).slice(0,8);
-  const regHtml=regular.length?regular.map(([k,r])=>{const avg=r.amts.reduce((x,y)=>x+y,0)/r.amts.length; return `<div class="lrow"><span class="grow">${esc(titleCase(k))}<div class="small muted">seen in ${r.months.size} months · last ${dayLabel(r.last).replace(/ \d{4}$/,'')}</div></span><b>${money(avg)}</b></div>`;}).join('')
-    :`<p class="muted small">Regular bills and subscriptions (Netflix, power, phone and so on) will show here once you've imported two or more months.</p>`;
+  // bills: only what's been categorised as a bill
+  const bills=cats.filter(([id])=>isBillCat(id));
+  const billsTot=bills.reduce((t,[,x])=>t+x,0);
+  const billsHtml=bills.length?bills.map(([id,amt])=>{ const c=catById(id); const tx=spendTxns(pr.from,pr.to).filter(t=>t.cat===id); const last=tx.reduce((m,t)=>t.date>m?t.date:m,'');
+      return `<div class="lrow" style="cursor:pointer" onclick="filterCat('${id}')"><span class="dot" style="background:${c.color}"></span><span class="grow">${esc(c.name)}<div class="small muted">${tx.length} payment${tx.length===1?'':'s'}${last?' · last '+shortDay(last):''}</div></span><b>${money(amt)}</b></div>`; }).join('')
+    :`<p class="muted small">Bills you've categorised (rent, power, water, phone, insurance, subscriptions) will show here.</p>`;
+  // money snapshot
+  const bank=acctSort(Object.keys(state.accounts)).filter(a=>{ const x=state.accounts[a]; return x.bal!=null&&x.counted!==false&&!isLoanAcct(a); });
+  const bankTot=bank.reduce((t,a)=>t+state.accounts[a].bal,0);
+  const snap=bank.length?`<div class="card snapcard" onclick="go('accounts')"><div class="snap-k">In the bank</div><div class="snap-row"><div class="snap-v ${bankTot<0?'neg':''}">${money(bankTot)}</div><span class="link small">${bank.length} account${bank.length===1?'':'s'} ›</span></div></div>`:'';
+  const topN=dashAllCats?cats:cats.slice(0,5);
   el.innerHTML=`
     ${daysSince!==null&&daysSince>=7?`<div class="banner"><span>Last import was <b>${daysSince} days ago</b></span><button class="btn" onclick="go('settings')">Import</button></div>`:''}
     ${n?`<div class="banner"><span><b>${n}</b> transaction${n>1?'s':''} to review</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
@@ -950,21 +944,24 @@ function renderDashboard(el){
     <div class="stats">
       <div class="stat"><div class="k">Money in</div><div class="v pos">${money0(s.moneyIn)}</div></div>
       <div class="stat"><div class="k">Spent</div><div class="v neg">${money0(s.spend)}</div>${ps?changeTag(s.spend,ps.spend,pv.short):''}</div>
-      <div class="stat"><div class="k">Difference</div><div class="v ${net<0?'neg':'pos'}">${net<0?'−':''}${money0(Math.abs(net))}</div></div>
+      <div class="stat"><div class="k">Left over</div><div class="v ${net<0?'neg':'pos'}">${net<0?'−':''}${money0(Math.abs(net))}</div></div>
     </div>
-    <div class="cols">
     ${pace}
-    ${balancesCard()}
-    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Where the money went</h2><button class="link small" onclick="go('cats')">Charts ›</button></div>${catHtml}
-      ${ps?`<p class="small muted" style="margin:8px 0 0">▲▼ compared with ${esc(pv.short)}.</p>`:''}</div>
-    <div class="card"><h2>Spending by month</h2>${trendSVG()}</div>
-    <div class="card"><h2>Top places</h2>${placesHtml}</div>
-    <div class="card"><h2>Biggest purchases</h2>${bigHtml}</div>
-    <div class="card"><h2>Regular bills & subscriptions</h2>${regHtml}</div>
+    <div class="cols">
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Where the money went</h2><button class="link small" onclick="go('cats')">Charts ›</button></div>
+      ${topN.length?catRows(topN):'<p class="muted">No reviewed spending in this period yet.</p>'}
+      ${cats.length>5?`<button class="link small morecats" onclick="dashAllCats=!dashAllCats;render()">${dashAllCats?'Show top 5':'See all '+cats.length+' categories'}</button>`:''}
+      ${s.uncatOut>0?`<div class="unrevnote" onclick="go('review')"><span>Plus <b>${money(s.uncatOut)}</b> not reviewed yet</span><span class="link small">Review ›</span></div>`:''}
+    </div>
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Bills</h2>${bills.length?`<b>${money(billsTot)}</b>`:''}</div>${billsHtml}</div>
+    ${snap}
     </div>
     ${loanDashSection()}
     <p class="muted small" style="text-align:center">Transfers between your own accounts are left out of these totals.</p>`;
 }
+let dashAllCats=false;
+const BILL_IDS=new Set(['rent','utilities','water','phone','insurance','subs']);
+function isBillCat(id){ const c=catById(id); return BILL_IDS.has(id)||(!!c&&/rent|mortgage|power|electric|water|\bgas\b|internet|phone|insurance|rates|subscription|kindy|kinder|childcare|school fee|council|rego/i.test(c.name)); }
 function balancesCard(){
   const list=acctSort(Object.keys(state.accounts)).map(a=>[a,state.accounts[a]]).filter(([a,x])=>x.bal!=null&&x.counted!==false&&x.type!=='loan');
   if(!list.length) return '';
@@ -1347,6 +1344,7 @@ function renderCharts(el){
     <div class="card"><h2>Spending by day of week</h2>${barChartSVG(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],[{vals:wd,color:'var(--accent)'}],{h:170,values:true})}
       ${purchases.length?`<p class="small muted" style="margin:4px 0 0">${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][busiest]} is your biggest spending day (${wn[busiest]} purchase${wn[busiest]===1?'':'s'}).</p>`:''}</div>
     <div class="card"><h2>Most visited</h2>${topVisits.length?topVisits.map(([k,v],i)=>`<div class="lrow"><span class="rank">${i+1}</span><span class="grow">${esc(titleCase(k))}<div class="small muted">${v.n} visit${v.n>1?'s':''} · avg ${money0(v.a/v.n)}</div></span><b class="neg">${money(v.a)}</b></div>`).join(''):'<p class="muted small">Nothing yet.</p>'}</div>
+    <div class="card"><h2>Biggest purchases</h2>${purchases.length?[...purchases].sort((x,y)=>x.amount-y.amount).slice(0,5).map(t=>`<div class="lrow" style="cursor:pointer" onclick="openPicker('${encodeURIComponent(t.id)}')"><span class="grow">${esc(titleCase(cleanDesc(t.desc)))}<div class="small muted">${shortDay(t.date)}${t.cat?' · '+esc(catById(t.cat)?.name||''):''}</div></span><b class="neg">${money(t.amount)}</b></div>`).join(''):'<p class="muted small">Nothing yet.</p>'}</div>
     <div class="card"><h2>Money in</h2>
       ${(()=>{ const rowsIn=catsOfKind('income').map(c=>({c,a:inP.filter(t=>t.cat===c.id).reduce((x,t)=>x+t.amount,0)})).filter(r=>r.a).sort((a,b)=>b.a-a.a);
         return rowsIn.length?rowsIn.map(r=>`<div class="lrow"><span class="grow"><span class="dot" style="background:${r.c.color}"></span>${esc(r.c.name)}</span><b class="pos">${money(r.a)}</b></div>`).join(''):'<p class="muted small">No income categorised in this period yet.</p>'; })()}
