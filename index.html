@@ -439,6 +439,10 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .rvcathead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 2px 8px}
 .rvcathead .pill{flex:none;font-size:12.5px;padding:5px 11px}
 @media (min-width:1000px){ .rvcathead .pill{font-size:14px;padding:7px 13px} }
+.filters.one{grid-template-columns:1fr}
+.filters.one .full{grid-column:auto}
+@media (min-width:1000px){ .filters.one{grid-template-columns:2fr 1fr} }
+.allrow .ar-ic{background:var(--soft)}
 </style>
 </head>
 <body>
@@ -449,7 +453,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.20';
+const APP_VERSION='0.21';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -706,7 +710,7 @@ function uncatCount(){ return state.txns.filter(t=>!t.cat&&isCounted(t)).length;
 
 /* ============ Navigation ============ */
 let tab='dashboard';
-const TABS=[['dashboard','📊','Dashboard'],['cats','📈','Charts'],['accounts','🏦','Accounts'],['txns','📋','Transactions'],['review','✅','Review'],['settings','⚙️','Settings']];
+const TABS=[['dashboard','📊','Dashboard'],['cats','📈','Charts'],['accounts','🏦','Accounts'],['review','✅','Review'],['settings','⚙️','Settings']];
 function renderNav(){
   const nav=document.getElementById('nav'), n=uncatCount();
   const hasLoan=loanAccts().length>0?'1':'0';
@@ -731,7 +735,7 @@ function render(){
   if(appScreen!=='app') return;
   renderNav();
   const el=document.getElementById('app');
-  ({dashboard:renderDashboard,review:renderReview,txns:renderTxns,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
+  ({dashboard:renderDashboard,review:renderReview,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
   if(nextAnim){
     const target=nextAnim==='left'||nextAnim==='right'?(el.querySelector('.rvanim')||el):el;
     const cls='anim-'+nextAnim; target.classList.remove('anim-tab','anim-fade','anim-left','anim-right'); void target.offsetWidth; target.classList.add(cls);
@@ -871,7 +875,7 @@ function trendSVG(){
 function setMode(m){ state.view.mode=m; animateNext('fade'); save(); render(); }
 function shift(n){ const step=state.view.mode==='3m'?3:state.view.mode==='year'?12:1; state.view.anchor=ymAdd(state.view.anchor||latestYM(),n*step); animateNext(n<0?'right':'left'); save(); render(); }
 function jumpMonth(m){ state.view.mode='month'; state.view.anchor=m; animateNext('fade'); save(); render(); }
-function filterCat(id){ txFilter={q:'',cat:id,acct:'',period:true}; go('txns'); }
+function filterCat(id){ txFilter={q:'',cat:id,acct:'',period:true}; txLimit=150; tab='accounts'; acctSel='__all'; animateNext('tab'); render(); window.scrollTo({top:0}); }
 
 /* ============ Review ============ */
 let rv={idx:0,done:0,list:false,kw:null,kwFor:null,remember:true,undo:null};
@@ -1010,27 +1014,30 @@ function reviewUndo(){ if(!rv.undo) return; restore(rv.undo); rv.undo=null; rv.d
 
 /* ============ Transactions ============ */
 let txFilter={q:'',cat:'',acct:'',period:false}; let txLimit=150;
-function renderTxns(el){
-  const pr=periodRange(); const q=txFilter.q.toUpperCase();
+// Searchable, filterable list of transactions. With fixedAcct it shows just that account.
+function txnsCard(fixedAcct){
+  const pr=periodRange(); const q=txFilter.q.toUpperCase(); const acct=fixedAcct||txFilter.acct;
   let list=state.txns.filter(t=>{
     if(txFilter.period&&(t.date<pr.from||t.date>pr.to)) return false;
     if(txFilter.cat==='_none'&&t.cat) return false;
     if(txFilter.cat&&txFilter.cat!=='_none'&&t.cat!==txFilter.cat) return false;
-    if(txFilter.acct&&t.acct!==txFilter.acct) return false;
+    if(acct&&t.acct!==acct) return false;
     if(q&&!t.desc.toUpperCase().includes(q)) return false;
     return true;
   }).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id));
   const total=list.reduce((s,t)=>s+t.amount,0);
-  const catOpts=`<option value="">All categories</option><option value="_none">Uncategorised</option>`+state.categories.map(c=>`<option value="${c.id}" ${txFilter.cat===c.id?'selected':''}>${esc(c.name)}</option>`).join('');
+  const grp=k=>`<optgroup label="${KIND_LABEL[k]}">${catsOfKind(k).map(c=>`<option value="${c.id}" ${txFilter.cat===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</optgroup>`;
+  const catOpts=`<option value="">All categories</option><option value="_none" ${txFilter.cat==='_none'?'selected':''}>Not reviewed yet</option>`+['expense','income','transfer'].map(grp).join('');
   const acctOpts=`<option value="">All accounts</option>`+Object.keys(state.accounts).filter(a=>state.txns.some(t=>t.acct===a)).map(a=>`<option value="${a}" ${txFilter.acct===a?'selected':''}>${esc(acctName(a))}</option>`).join('');
-  el.innerHTML=`<div class="card">
-    <div class="filters">
+  return `<div class="card ${fixedAcct?'inacct':''}">
+    ${fixedAcct?`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h2>Transactions</h2></div>`:''}
+    <div class="filters ${fixedAcct?'one':''}">
       <input class="full" placeholder="Search…" value="${esc(txFilter.q)}" oninput="txFilter.q=this.value;txLimit=150;renderTxnsKeepFocus()">
-      <select onchange="txFilter.cat=this.value;render()">${catOpts.replace(`value="${txFilter.cat}"`,`value="${txFilter.cat}" selected`)}</select>
-      <select onchange="txFilter.acct=this.value;render()">${acctOpts}</select>
+      <select onchange="txFilter.cat=this.value;txLimit=150;render()">${catOpts}</select>
+      ${fixedAcct?'':`<select onchange="txFilter.acct=this.value;txLimit=150;render()">${acctOpts}</select>`}
     </div>
     <label class="small muted" style="display:flex;gap:6px;align-items:center;margin:8px 0"><input type="checkbox" style="width:auto" ${txFilter.period?'checked':''} onchange="txFilter.period=this.checked;render()"> Only ${esc(pr.label)}</label>
-    <div class="small muted">${list.length} transactions · net ${money(total)}</div>
+    <div class="small muted">${list.length} transaction${list.length===1?'':'s'} · net ${money(total)}${(txFilter.q||txFilter.cat||txFilter.period||(!fixedAcct&&txFilter.acct))?` · <button class="link small" onclick="txFilter={q:'',cat:'',acct:'',period:false};render()">Clear filters</button>`:''}</div>
     ${list.length?txnList(list.slice(0,txLimit),true):'<p class="muted">Nothing matches.</p>'}
     ${list.length>txLimit?`<div style="text-align:center;margin-top:10px"><button class="btn ghost" onclick="txLimit+=150;render()">Show more</button></div>`:''}
   </div>`;
@@ -1498,8 +1505,14 @@ function acctLineSVG(a,col){
     <text x="${W-pl}" y="${H-6}" text-anchor="end" font-size="11" style="fill:var(--muted)">${dayLabel(pts0[pts0.length-1].d).replace(/ \d{4}$/,'')}</text></svg>`;
 }
 function acctTypeLabel(x){ return (ACCT_TYPES.find(t=>t[0]===x.type)||['','Account'])[1]; }
-function openAcct(a){ acctSel=a; acctQ=''; acctLimit=150; animateNext('left'); tab='accounts'; render(); window.scrollTo({top:0}); }
+function openAcct(a){ acctSel=a; txFilter={q:'',cat:'',acct:'',period:false}; txLimit=150; animateNext('left'); tab='accounts'; render(); window.scrollTo({top:0}); }
+function openAllTx(){ acctSel='__all'; txFilter={q:'',cat:'',acct:'',period:false}; txLimit=150; animateNext('left'); render(); window.scrollTo({top:0}); }
 function renderAccounts(el){
+  if(acctSel==='__all'){
+    el.innerHTML=`<div class="loanback"><button class="pill" onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button></div>
+      <h2 style="font-size:20px;margin:4px 2px 10px">📋 All transactions</h2>${txnsCard(null)}`;
+    return;
+  }
   if(acctSel&&state.accounts[acctSel]) return renderAcctDetail(el,acctSel);
   acctSel=null;
   const keys=Object.keys(state.accounts);
@@ -1516,8 +1529,12 @@ function renderAccounts(el){
       <div class="ar-meta small muted">${n} transaction${n===1?'':'s'}${last?` · latest ${dayLabel(last).replace(/ \d{4}$/,'')}`:''}${toRev?` · <span style="color:var(--accent)">${toRev} to review</span>`:''}${x.counted===false&&!isLoanAcct(a)?' · not in totals':''}</div>
     </div>`; };
   const tot=everyday.filter(a=>state.accounts[a].counted!==false&&state.accounts[a].bal!=null).reduce((s,a)=>s+state.accounts[a].bal,0);
+  const nAll=state.txns.length;
   el.innerHTML=`
-    ${everyday.length?`<div class="sectionhead" style="border:0;padding:0;margin-top:4px"><span>Bank accounts</span><b>${money(tot)}</b></div>${everyday.map(card).join('')}`:''}
+    ${nAll?`<div class="card acctrow allrow" style="--ac:var(--accent)" onclick="openAllTx()"><div class="ar-top"><span class="ar-ic">📋</span>
+      <div class="grow"><div class="ar-name">All transactions</div><div class="small muted">Search and filter across every account</div></div>
+      <div style="text-align:right"><div class="ar-bal">${nAll}</div><div class="small muted">total</div></div><span class="crow-chev">›</span></div></div>`:''}
+    ${everyday.length?`<div class="sectionhead" style="border:0;padding:0;margin-top:14px"><span>Bank accounts</span><b>${money(tot)}</b></div>${everyday.map(card).join('')}`:''}
     ${loans.length?`<div class="sectionhead"><span>🏠 Home loans</span><b>${money(Math.abs(loans.reduce((s,a)=>s+(state.accounts[a].bal||0),0)))} owing</b></div>${loans.map(card).join('')}`:''}
     ${!main.length?`<div class="card"><h2>No accounts yet</h2><p class="muted">Import a Bankwest CSV in Settings and its account appears here automatically.</p><button class="btn" onclick="go('settings')">Import</button></div>`:''}
     <div class="card">${acctForm?`<h2>Add an account</h2>
@@ -1566,13 +1583,9 @@ function renderAcctDetail(el,a){
     <p class="small muted" style="margin:-6px 2px 12px">Everything in and out of this account in ${esc(pr.label)}, including transfers.</p>
     <div class="cols">
     <div class="card"><h2>${loan?'Balance':'Balance'} over time</h2>${acctLineSVG(a,col)||'<p class="muted small">The chart appears once there are a few days of transactions.</p>'}</div>
-    <div class="card"><h2>Account settings</h2>${acctCard(a)}</div>
     </div>
-    <div class="card inacct"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h2>Transactions</h2><span class="small muted">${list.length}</span></div>
-      <input placeholder="Search this account…" value="${esc(acctQ)}" oninput="acctQ=this.value;acctLimit=150;render();const i=document.querySelector('#app input[placeholder^=Search]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}" style="margin-bottom:6px">
-      ${list.length?txnList(list.slice(0,acctLimit),true):'<p class="muted small">No transactions.</p>'}
-      ${list.length>acctLimit?`<div style="text-align:center;margin-top:10px"><button class="btn ghost" onclick="acctLimit+=150;render()">Show more</button></div>`:''}
-    </div>`;
+    ${txnsCard(a)}
+    <details class="card" style="padding:12px 14px"><summary style="cursor:pointer;font-weight:600">⚙️ Account settings</summary><div style="margin-top:10px">${acctCard(a)}</div></details>`;
 }
 
 /* ============ Settings (incl. Import) ============ */
