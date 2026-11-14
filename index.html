@@ -456,6 +456,17 @@ details .rvpanel{background:transparent;border:0;padding:0}
 /* ---------- Sticky period bar ---------- */
 .fresh{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;margin-top:6px}.fdot{width:8px;height:8px;border-radius:50%;flex:none;background:currentColor}.fresh-ok{color:var(--good)}.fresh-mid{color:var(--accent)}.fresh-old{color:var(--bad)}
 .dashpace{text-align:center;margin:-4px 0 14px}.morecats{display:block;margin:10px auto 0}.unrevnote{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px dashed var(--dashed);font-size:13px;color:var(--muted);cursor:pointer}.snapcard{cursor:pointer}.snap-k{font-size:13px;color:var(--muted);font-weight:600}.snap-row{display:flex;justify-content:space-between;align-items:baseline;margin-top:4px}.snap-v{font-size:26px;font-weight:800;letter-spacing:-.5px}
+.txsearch{display:flex;gap:8px;align-items:center}.txsearch input{flex:1;min-width:0}.txfbtn{white-space:nowrap;padding:10px 14px}.txfbtn.on{border-color:var(--accent);color:var(--accent)}
+.txbadge{display:inline-block;min-width:18px;padding:1px 5px;border-radius:9px;background:var(--accent);color:#1a1300;font-size:11px;font-weight:800;margin-left:3px}
+.txchips{display:flex;gap:6px;overflow-x:auto;margin:10px 0 4px;padding-bottom:2px;scrollbar-width:none}.txchips::-webkit-scrollbar{display:none}
+.txchips button{flex:none;border:1px solid var(--line);background:var(--card2);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.txchips button.on{background:var(--accent);border-color:var(--accent);color:#1a1300}
+.txadv{display:grid;gap:10px;margin:10px 0 4px;padding:12px;border-radius:14px;background:var(--card2);animation:txadvIn .22s ease}
+.txadv label{display:grid;gap:4px;font-size:12px;font-weight:600;color:var(--muted)}.txadv select,.txadv input{width:100%}
+.txpair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(min-width:780px){.txadv{grid-template-columns:repeat(2,1fr)}.txadv .txpair{grid-column:span 1}}
+@keyframes txadvIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.txsum{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;margin:8px 0 2px;color:var(--muted)}.txsum .link{margin-left:auto}
 .periodbar{position:sticky;top:0;z-index:6;margin:0 -14px 12px;padding:10px 14px 8px;padding-top:calc(10px + env(safe-area-inset-top));
   background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
 .periodbar.stuck{border-bottom-color:var(--line);box-shadow:0 6px 18px rgba(0,0,0,.18)}
@@ -486,7 +497,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.29';
+const APP_VERSION='0.30';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -989,7 +1000,7 @@ function trendSVG(){
 function setMode(m){ rememberPill(); morphNext=true; state.view.mode=m; if(m==='fortnight'&&!state.view.fAnchor) state.view.fAnchor=fortStartFor(latestDate()); save(); render(); }
 function shift(n){ periodDir=n<0?'right':'left'; morphNext=true; if(state.view.mode==='fortnight'){ state.view.fAnchor=isoAdd(state.view.fAnchor||fortStartFor(latestDate()),14*n); save(); render(); return; } const step=state.view.mode==='3m'?3:state.view.mode==='year'?12:1; state.view.anchor=ymAdd(state.view.anchor||latestYM(),n*step); save(); render(); }
 function jumpMonth(m){ rememberPill(); morphNext=true; state.view.mode='month'; state.view.anchor=m; save(); render(); }
-function filterCat(id){ txFilter={q:'',cat:id,acct:'',period:true}; txLimit=150; tab='accounts'; acctSel='__all'; animateNext('tab'); render(); window.scrollTo({top:0}); }
+function filterCat(id){ txReset({cat:id,when:'period'}); txAdv=true; txLimit=150; tab='accounts'; acctSel='__all'; animateNext('tab'); render(); window.scrollTo({top:0}); }
 
 /* ============ Review ============ */
 let rv={idx:0,done:0,list:false,kw:null,kwFor:null,remember:true,undo:null};
@@ -1127,36 +1138,78 @@ function reducedMotion(){ return matchMedia('(prefers-reduced-motion: reduce)').
 function reviewUndo(){ if(!rv.undo) return; restore(rv.undo); rv.undo=null; rv.done=Math.max(0,rv.done-1); save(); render(); toast('Undone'); }
 
 /* ============ Transactions ============ */
-let txFilter={q:'',cat:'',acct:'',period:false}; let txLimit=150;
+const TXF0={q:'',cat:'',acct:'',period:false,dir:'',when:'',from:'',to:'',min:'',max:'',sort:'new'};
+let txFilter={...TXF0}; let txLimit=150, txAdv=false;
+function txReset(keep){ txFilter={...TXF0,...(keep||{})}; txLimit=150; }
+function txSet(k,v,keepFocusId){ txFilter[k]=v; txLimit=150; if(keepFocusId) renderKeepFocus(keepFocusId); else render(); }
+function renderKeepFocus(id){ render(); const i=document.getElementById(id); if(i){ i.focus(); try{ i.setSelectionRange(i.value.length,i.value.length); }catch(e){} } }
+function isXferTx(t){ const c=t.cat?catById(t.cat):null; return c?c.kind==='transfer':(/^(TFD|TFC)$/.test(t.type)||OWN_XFER.test(t.desc)); }
+function txDateRange(){
+  const f=txFilter, today=new Date().toLocaleDateString('en-CA');
+  if(f.when==='period'||(!f.when&&f.period)){ const pr=periodRange(); return [pr.from,pr.to]; }
+  if(f.when==='7') return [isoAdd(today,-6),today];
+  if(f.when==='30') return [isoAdd(today,-29),today];
+  if(f.when==='90') return [isoAdd(today,-89),today];
+  if(f.when==='custom') return [f.from||'0000-00-00',f.to||'9999-12-31'];
+  return null;
+}
 // Searchable, filterable list of transactions. With fixedAcct it shows just that account.
 function txnsCard(fixedAcct){
-  const pr=periodRange(); const q=txFilter.q.toUpperCase(); const acct=fixedAcct||txFilter.acct;
+  const f=txFilter, pr=periodRange(), q=f.q.trim().toUpperCase(), acct=fixedAcct||f.acct;
+  const qNum=q.replace(/[$,\s]/g,''); const isNum=/^\d+(\.\d{1,2})?$/.test(qNum);
+  const rng=txDateRange(), min=parseFloat(String(f.min).replace(/[$,]/g,'')), max=parseFloat(String(f.max).replace(/[$,]/g,''));
   let list=state.txns.filter(t=>{
-    if(txFilter.period&&(t.date<pr.from||t.date>pr.to)) return false;
-    if(txFilter.cat==='_none'&&t.cat) return false;
-    if(txFilter.cat&&txFilter.cat!=='_none'&&t.cat!==txFilter.cat) return false;
+    if(rng&&(t.date<rng[0]||t.date>rng[1])) return false;
+    if(f.cat==='_none'&&t.cat) return false;
+    if(f.cat&&f.cat!=='_none'&&t.cat!==f.cat) return false;
     if(acct&&t.acct!==acct) return false;
-    if(q&&!t.desc.toUpperCase().includes(q)) return false;
+    if(f.dir==='out'&&(t.amount>=0||isXferTx(t))) return false;
+    if(f.dir==='in'&&(t.amount<=0||isXferTx(t))) return false;
+    if(f.dir==='review'&&t.cat) return false;
+    if(f.dir==='xfer'&&!isXferTx(t)) return false;
+    const amt=Math.abs(t.amount);
+    if(!isNaN(min)&&amt<min) return false;
+    if(!isNaN(max)&&amt>max) return false;
+    if(q){ const catN=t.cat?(catById(t.cat)?.name||'').toUpperCase():''; const hit=t.desc.toUpperCase().includes(q)||catN.includes(q)||(isNum&&amt.toFixed(2).startsWith(qNum.includes('.')?qNum:qNum)); if(!hit) return false; }
     return true;
-  }).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id));
-  const total=list.reduce((s,t)=>s+t.amount,0);
-  const grp=k=>`<optgroup label="${KIND_LABEL[k]}">${catsOfKind(k).map(c=>`<option value="${c.id}" ${txFilter.cat===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</optgroup>`;
-  const catOpts=`<option value="">All categories</option><option value="_none" ${txFilter.cat==='_none'?'selected':''}>Not reviewed yet</option>`+['expense','income','transfer'].map(grp).join('');
-  const acctOpts=`<option value="">All accounts</option>`+Object.keys(state.accounts).filter(a=>state.txns.some(t=>t.acct===a)).map(a=>`<option value="${a}" ${txFilter.acct===a?'selected':''}>${esc(acctName(a))}</option>`).join('');
+  });
+  const sorts={new:(a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id),old:(a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id),big:(a,b)=>Math.abs(b.amount)-Math.abs(a.amount),small:(a,b)=>Math.abs(a.amount)-Math.abs(b.amount)};
+  list.sort(sorts[f.sort]||sorts.new);
+  const tin=list.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0), tout=list.filter(t=>t.amount<0).reduce((s,t)=>s-t.amount,0);
+  const grp=k=>`<optgroup label="${KIND_LABEL[k]}">${catsOfKind(k).map(c=>`<option value="${c.id}" ${f.cat===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</optgroup>`;
+  const catOpts=`<option value="">All categories</option><option value="_none" ${f.cat==='_none'?'selected':''}>Not reviewed yet</option>`+['expense','income','transfer'].map(grp).join('');
+  const acctOpts=`<option value="">All accounts</option>`+acctSort(Object.keys(state.accounts).filter(a=>state.txns.some(t=>t.acct===a))).map(a=>`<option value="${a}" ${f.acct===a?'selected':''}>${esc(acctName(a))}</option>`).join('');
+  const when=f.when||(f.period?'period':'');
+  const advCount=[f.cat,!fixedAcct&&f.acct,when,f.min,f.max,f.sort!=='new'?1:''].filter(Boolean).length;
+  const anyOn=f.q||f.dir||advCount;
+  const chip=(v,l)=>`<button class="${f.dir===v?'on':''}" onclick="txSet('dir','${v}')">${l}</button>`;
   return `<div class="card ${fixedAcct?'inacct':''}">
     ${fixedAcct?`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h2>Transactions</h2></div>`:''}
-    <div class="filters ${fixedAcct?'one':''}">
-      <input class="full" placeholder="Search…" value="${esc(txFilter.q)}" oninput="txFilter.q=this.value;txLimit=150;renderTxnsKeepFocus()">
-      <select onchange="txFilter.cat=this.value;txLimit=150;render()">${catOpts}</select>
-      ${fixedAcct?'':`<select onchange="txFilter.acct=this.value;txLimit=150;render()">${acctOpts}</select>`}
-    </div>
-    <label class="small muted" style="display:flex;gap:6px;align-items:center;margin:8px 0"><input type="checkbox" style="width:auto" ${txFilter.period?'checked':''} onchange="txFilter.period=this.checked;render()"> Only ${esc(pr.label)}</label>
-    <div class="small muted">${list.length} transaction${list.length===1?'':'s'} · net ${money(total)}${(txFilter.q||txFilter.cat||txFilter.period||(!fixedAcct&&txFilter.acct))?` · <button class="link small" onclick="txFilter={q:'',cat:'',acct:'',period:false};render()">Clear filters</button>`:''}</div>
-    ${list.length?txnList(list.slice(0,txLimit),true):'<p class="muted">Nothing matches.</p>'}
+    <div class="txsearch"><input id="txq" class="full" type="search" placeholder="Search name or amount…" value="${esc(f.q)}" oninput="txSet('q',this.value,'txq')">
+      <button class="btn ghost txfbtn ${txAdv?'on':''}" onclick="txAdv=!txAdv;render()">Filters${advCount?` <span class="txbadge">${advCount}</span>`:''}</button></div>
+    <div class="txchips">${chip('','All')}${chip('out','Money out')}${chip('in','Money in')}${chip('review','To review')}${chip('xfer','Transfers')}</div>
+    ${txAdv?`<div class="txadv">
+      <label>Category<select onchange="txSet('cat',this.value)">${catOpts}</select></label>
+      ${fixedAcct?'':`<label>Account<select onchange="txSet('acct',this.value)">${acctOpts}</select></label>`}
+      <label>When<select onchange="txFilter.period=false;txSet('when',this.value)">
+        <option value="" ${when===''?'selected':''}>Any time</option>
+        <option value="period" ${when==='period'?'selected':''}>${esc(pr.label)}</option>
+        <option value="7" ${when==='7'?'selected':''}>Last 7 days</option>
+        <option value="30" ${when==='30'?'selected':''}>Last 30 days</option>
+        <option value="90" ${when==='90'?'selected':''}>Last 90 days</option>
+        <option value="custom" ${when==='custom'?'selected':''}>Pick dates…</option></select></label>
+      ${when==='custom'?`<div class="txpair"><label>From<input type="date" value="${f.from}" onchange="txSet('from',this.value)"></label><label>To<input type="date" value="${f.to}" onchange="txSet('to',this.value)"></label></div>`:''}
+      <div class="txpair"><label>Amount from<input id="txmin" type="text" inputmode="decimal" placeholder="$0" value="${esc(f.min)}" oninput="txSet('min',this.value,'txmin')"></label><label>to<input id="txmax" type="text" inputmode="decimal" placeholder="Any" value="${esc(f.max)}" oninput="txSet('max',this.value,'txmax')"></label></div>
+      <label>Sort by<select onchange="txSet('sort',this.value)">
+        <option value="new" ${f.sort==='new'?'selected':''}>Newest first</option><option value="old" ${f.sort==='old'?'selected':''}>Oldest first</option>
+        <option value="big" ${f.sort==='big'?'selected':''}>Largest amount</option><option value="small" ${f.sort==='small'?'selected':''}>Smallest amount</option></select></label>
+    </div>`:''}
+    <div class="txsum small"><span><b>${list.length}</b> transaction${list.length===1?'':'s'}</span>${tin?`<span class="pos">in ${money(tin)}</span>`:''}${tout?`<span class="neg">out ${money(tout)}</span>`:''}${anyOn?`<button class="link small" onclick="txReset();render()">Clear all</button>`:''}</div>
+    ${list.length?txnList(list.slice(0,txLimit),f.sort==='new'||f.sort==='old'):'<p class="muted">Nothing matches.</p>'}
     ${list.length>txLimit?`<div style="text-align:center;margin-top:10px"><button class="btn ghost" onclick="txLimit+=150;render()">Show more</button></div>`:''}
   </div>`;
 }
-function renderTxnsKeepFocus(){ render(); const i=document.querySelector('.filters input'); if(i){ i.focus(); i.setSelectionRange(i.value.length,i.value.length);} }
+function renderTxnsKeepFocus(){ renderKeepFocus('txq'); }
 function txnList(list,groupDays){
   let html='',last='';
   for(const t of list){
@@ -1622,8 +1675,8 @@ function acctLineSVG(a,col){
 }
 function acctSort(list){ const keys=Object.keys(state.accounts); return [...list].sort((a,b)=>((state.accounts[a].order??1e6+keys.indexOf(a))-(state.accounts[b].order??1e6+keys.indexOf(b)))); }
 function acctTypeLabel(x){ return (ACCT_TYPES.find(t=>t[0]===x.type)||['','Account'])[1]; }
-function openAcct(a){ acctSel=a; txFilter={q:'',cat:'',acct:'',period:false}; txLimit=150; animateNext('left'); tab='accounts'; render(); window.scrollTo({top:0}); }
-function openAllTx(){ acctSel='__all'; txFilter={q:'',cat:'',acct:'',period:false}; txLimit=150; animateNext('left'); render(); window.scrollTo({top:0}); }
+function openAcct(a){ acctSel=a; txReset(); animateNext('left'); tab='accounts'; render(); window.scrollTo({top:0}); }
+function openAllTx(){ acctSel='__all'; txReset(); animateNext('left'); render(); window.scrollTo({top:0}); }
 function renderAccounts(el){
   if(acctSel==='__all'){
     el.innerHTML=`<div class="loanback"><button class="pill" onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button></div>
