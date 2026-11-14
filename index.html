@@ -56,6 +56,9 @@ header img{display:block;width:100%;height:auto;aspect-ratio:1400/467;object-fit
 header .info{position:absolute;right:12px;bottom:8px;font-size:11px;color:rgba(255,255,255,.75);background:rgba(0,0,0,.45);padding:2px 8px;border-radius:8px}
 @media(min-width:780px){header .info{right:26px;bottom:8px}}
 header .info:empty{display:none}
+header .ver{position:absolute;left:8px;top:6px;font-size:9.5px;line-height:1;letter-spacing:.3px;color:rgba(255,255,255,.7);background:rgba(0,0,0,.35);padding:2px 5px;border-radius:5px;pointer-events:none;font-variant-numeric:tabular-nums}
+@media(min-width:780px){header .ver{left:22px;top:20px}}
+@media(min-width:1000px){header .ver{left:36px;top:24px}}
 main{max-width:760px;margin:0 auto;padding:14px}
 h2{font-size:15px;margin:0 0 12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
@@ -475,14 +478,14 @@ details .rvpanel{background:transparent;border:0;padding:0}
 </style>
 </head>
 <body>
-<header><img src="banner.jpg" alt="My Spend Friend"></header>
+<header><img src="banner.jpg" alt="My Spend Friend"><span class="ver" id="verTag" hidden></span></header>
 <main id="app"></main>
 <nav id="nav"></nav>
 <div id="modalRoot"></div>
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.27';
+const APP_VERSION='0.28';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -817,6 +820,7 @@ function go(t){ if(t!==tab) animateNext('tab'); if(t==='accounts'&&(tab==='accou
 function render(){
   if(appScreen!=='app') return;
   renderNav();
+  const vt=document.getElementById('verTag'); if(vt){ vt.textContent='v'+APP_VERSION; vt.hidden=tab!=='dashboard'; }
   const el=document.getElementById('app');
   ({dashboard:renderDashboard,review:renderReview,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
   placePills();
