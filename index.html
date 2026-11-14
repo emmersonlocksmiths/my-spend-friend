@@ -443,6 +443,10 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .filters.one .full{grid-column:auto}
 @media (min-width:1000px){ .filters.one{grid-template-columns:2fr 1fr} }
 .allrow .ar-ic{background:var(--soft)}
+.acctlist .acctrow{transition:transform .18s cubic-bezier(.2,.7,.2,1),box-shadow .18s}
+.acctrow.dragging{transition:none!important;z-index:5;position:relative;box-shadow:0 10px 28px var(--shadow);border-color:var(--accent)}
+.ar-handle{padding:10px 4px 10px 0;margin-left:-4px}
+.ar-meta{margin-left:78px!important}
 </style>
 </head>
 <body>
@@ -453,7 +457,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.21';
+const APP_VERSION='0.22';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -463,7 +467,7 @@ let cloud=null;                 // set once signed in: {saveMeta(meta), saveTxns
 let synced=new Map();           // transaction id -> JSON as last synced
 let lastMeta='';                // household settings JSON as last synced
 let metaDirty=false;            // local settings change not yet sent
-function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50)}; }
+function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null}; }
 function save(){
   try{ localStorage.setItem(VIEW_KEY,JSON.stringify(state.view)); }catch(e){}
   if(!cloud) return;
@@ -481,7 +485,7 @@ function applyCloudMeta(meta){
   if(metaDirty) return; // our own newer change is on its way
   if(!meta){ return; }
   state.categories=meta.categories||state.categories; state.rules=meta.rules||state.rules;
-  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[];
+  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null;
   runMigrations();
   lastMeta=JSON.stringify(metaOf(state));
   scheduleRender();
@@ -745,14 +749,24 @@ function render(){
 }
 
 /* ============ Dashboard ============ */
+/* ---- Fortnights (pay cycle) ---- */
+const DAY=86400000;
+function isoAdd(d,n){ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
+function payRef(){ return (state.payCycle&&state.payCycle.start)||'2026-01-05'; } // default: fortnights starting Mondays
+function fortStartFor(d){ const ref=payRef(); const diff=Math.round((new Date(d+'T00:00:00')-new Date(ref+'T00:00:00'))/DAY); return isoAdd(ref,Math.floor(diff/14)*14); }
+function latestDate(){ return state.txns.length?state.txns.reduce((m,t)=>t.date>m?t.date:m,''):new Date().toISOString().slice(0,10); }
+function shortDay(d){ const x=new Date(d+'T00:00:00'); return DAYS[x.getDay()]+' '+x.getDate()+' '+MONTHS[x.getMonth()]; }
 function rangeFor(mode,a){
+  if(mode==='fortnight'){ const f=a, t=isoAdd(f,13); return {from:f,to:t,months:12/26,label:shortDay(f)+' – '+shortDay(t),short:'previous fortnight'}; }
   if(mode==='month') return {from:a+'-01',to:a+'-31',months:1,label:ymLabel(a),short:MONTHS[+a.slice(5)-1]};
   if(mode==='3m'){ const s=ymAdd(a,-2); return {from:s+'-01',to:a+'-31',months:3,label:MONTHS[+s.slice(5)-1]+' – '+MONTHS[+a.slice(5)-1]+' '+a.slice(0,4),short:'previous 3 months'}; }
   if(mode==='year'){ const s=ymAdd(a,-11); return {from:s+'-01',to:a+'-31',months:12,label:'12 months to '+MONTHS[+a.slice(5)-1]+' '+a.slice(0,4),short:'previous 12 months'}; }
   return {from:'0000',to:'9999',months:0,label:'All time'};
 }
-function periodRange(){ const v=state.view; if(!v.anchor) v.anchor=latestYM(); return rangeFor(v.mode,v.anchor); }
-function prevRange(){ const v=state.view; if(v.mode==='all') return null; const step=v.mode==='3m'?3:v.mode==='year'?12:1; return rangeFor(v.mode,ymAdd(v.anchor,-step)); }
+function periodRange(){ const v=state.view; if(!v.anchor) v.anchor=latestYM();
+  if(v.mode==='fortnight'){ if(!v.fAnchor||v.fAnchor!==fortStartFor(v.fAnchor)) v.fAnchor=fortStartFor(v.fAnchor||latestDate()); return rangeFor('fortnight',v.fAnchor); }
+  return rangeFor(v.mode,v.anchor); }
+function prevRange(){ const v=state.view; if(v.mode==='all') return null; if(v.mode==='fortnight') return rangeFor('fortnight',isoAdd(v.fAnchor||fortStartFor(latestDate()),-14)); const step=v.mode==='3m'?3:v.mode==='year'?12:1; return rangeFor(v.mode,ymAdd(v.anchor,-step)); }
 function coversFrom(from){
   // only compare when imported data starts at (or within 3 days of) the start of the earlier period
   if(!state.txns.length) return false;
@@ -828,7 +842,7 @@ function renderDashboard(el){
   el.innerHTML=`
     ${daysSince!==null&&daysSince>=7?`<div class="banner"><span>Last import was <b>${daysSince} days ago</b></span><button class="btn" onclick="go('settings')">Import</button></div>`:''}
     ${n?`<div class="banner"><span><b>${n}</b> transaction${n>1?'s':''} to review</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
-    <div class="seg">${[['month','Month'],['3m','3 months'],['year','12 months'],['all','All']].map(([m,l])=>`<button class="${v.mode===m?'on':''}" onclick="setMode('${m}')">${l}</button>`).join('')}</div>
+    <div class="seg">${[['fortnight','Fortnight'],['month','Month'],['3m','3 mths'],['year','12 mths'],['all','All']].map(([m,l])=>`<button class="${v.mode===m?'on':''}" onclick="setMode('${m}')">${l}</button>`).join('')}</div>
     <div class="period">${v.mode!=='all'?`<button onclick="shift(-1)">‹</button>`:''}<div class="lbl">${pr.label}</div>${v.mode!=='all'?`<button onclick="shift(1)">›</button>`:''}</div>
     <div class="stats">
       <div class="stat"><div class="k">Money in</div><div class="v pos">${money0(s.moneyIn)}</div></div>
@@ -849,7 +863,7 @@ function renderDashboard(el){
     <p class="muted small" style="text-align:center">Transfers between your own accounts are left out of these totals.</p>`;
 }
 function balancesCard(){
-  const list=Object.entries(state.accounts).filter(([a,x])=>x.bal!=null&&x.counted!==false&&x.type!=='loan');
+  const list=acctSort(Object.keys(state.accounts)).map(a=>[a,state.accounts[a]]).filter(([a,x])=>x.bal!=null&&x.counted!==false&&x.type!=='loan');
   if(!list.length) return '';
   const tot=list.reduce((s,[,x])=>s+x.bal,0);
   return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Account balances</h2><b class="${tot<0?'neg':''}">${money(tot)}</b></div>
@@ -872,8 +886,8 @@ function trendSVG(){
   });
   return `<svg viewBox="0 0 ${W} ${H}" width="100%">${bars}</svg><p class="muted small" style="margin:4px 0 0">Tap a month to open it.</p>`;
 }
-function setMode(m){ state.view.mode=m; animateNext('fade'); save(); render(); }
-function shift(n){ const step=state.view.mode==='3m'?3:state.view.mode==='year'?12:1; state.view.anchor=ymAdd(state.view.anchor||latestYM(),n*step); animateNext(n<0?'right':'left'); save(); render(); }
+function setMode(m){ state.view.mode=m; if(m==='fortnight'&&!state.view.fAnchor) state.view.fAnchor=fortStartFor(latestDate()); animateNext('fade'); save(); render(); }
+function shift(n){ if(state.view.mode==='fortnight'){ state.view.fAnchor=isoAdd(state.view.fAnchor||fortStartFor(latestDate()),14*n); animateNext(n<0?'right':'left'); save(); render(); return; } const step=state.view.mode==='3m'?3:state.view.mode==='year'?12:1; state.view.anchor=ymAdd(state.view.anchor||latestYM(),n*step); animateNext(n<0?'right':'left'); save(); render(); }
 function jumpMonth(m){ state.view.mode='month'; state.view.anchor=m; animateNext('fade'); save(); render(); }
 function filterCat(id){ txFilter={q:'',cat:id,acct:'',period:true}; txLimit=150; tab='accounts'; acctSel='__all'; animateNext('tab'); render(); window.scrollTo({top:0}); }
 
@@ -1088,7 +1102,7 @@ function closePicker(){ closeModal(); pick=null; }
 let catOpen=null;
 function periodControls(){
   const v=state.view, pr=periodRange();
-  return `<div class="seg">${[['month','Month'],['3m','3 months'],['year','12 months'],['all','All']].map(([m,l])=>`<button class="${v.mode===m?'on':''}" onclick="setMode('${m}')">${l}</button>`).join('')}</div>
+  return `<div class="seg">${[['fortnight','Fortnight'],['month','Month'],['3m','3 mths'],['year','12 mths'],['all','All']].map(([m,l])=>`<button class="${v.mode===m?'on':''}" onclick="setMode('${m}')">${l}</button>`).join('')}</div>
     <div class="period">${v.mode!=='all'?`<button onclick="shift(-1)">‹</button>`:''}<div class="lbl">${pr.label}</div>${v.mode!=='all'?`<button onclick="shift(1)">›</button>`:''}</div>`;
 }
 function catMonthly(id,end,n){
@@ -1504,6 +1518,7 @@ function acctLineSVG(a,col){
     <text x="${pl}" y="13" font-size="11" style="fill:var(--muted)">${money0(max)}</text><text x="${pl}" y="${H-6}" font-size="11" style="fill:var(--muted)">${dayLabel(pts0[0].d).replace(/ \d{4}$/,'')}</text>
     <text x="${W-pl}" y="${H-6}" text-anchor="end" font-size="11" style="fill:var(--muted)">${dayLabel(pts0[pts0.length-1].d).replace(/ \d{4}$/,'')}</text></svg>`;
 }
+function acctSort(list){ const keys=Object.keys(state.accounts); return [...list].sort((a,b)=>((state.accounts[a].order??1e6+keys.indexOf(a))-(state.accounts[b].order??1e6+keys.indexOf(b)))); }
 function acctTypeLabel(x){ return (ACCT_TYPES.find(t=>t[0]===x.type)||['','Account'])[1]; }
 function openAcct(a){ acctSel=a; txFilter={q:'',cat:'',acct:'',period:false}; txLimit=150; animateNext('left'); tab='accounts'; render(); window.scrollTo({top:0}); }
 function openAllTx(){ acctSel='__all'; txFilter={q:'',cat:'',acct:'',period:false}; txLimit=150; animateNext('left'); render(); window.scrollTo({top:0}); }
@@ -1518,11 +1533,11 @@ function renderAccounts(el){
   const keys=Object.keys(state.accounts);
   const main=keys.filter(a=>acctTxCount(a)||state.accounts[a].manual);
   const seen=keys.filter(a=>!main.includes(a));
-  const everyday=main.filter(a=>!isLoanAcct(a)), loans=main.filter(isLoanAcct);
+  const everyday=acctSort(main.filter(a=>!isLoanAcct(a))), loans=acctSort(main.filter(isLoanAcct));
   const card=a=>{ const x=state.accounts[a], n=acctTxCount(a), last=state.txns.filter(t=>t.acct===a).reduce((m,t)=>t.date>m?t.date:m,'');
     const toRev=state.txns.filter(t=>t.acct===a&&!t.cat&&isCounted(t)).length;
-    return `<div class="card acctrow" style="--ac:${acctColor(a)}" onclick="openAcct('${a}')">
-      <div class="ar-top"><span class="ar-ic">${isLoanAcct(a)?'🏠':x.type==='savings'?'💰':x.type==='credit'?'💳':'🏦'}</span>
+    return `<div class="card acctrow" data-id="${a}" style="--ac:${acctColor(a)}" onclick="openAcct('${a}')">
+      <div class="ar-top"><span class="ce-handle ar-handle" title="Drag to reorder" onpointerdown="acctDragStart(event,'${a}')" onclick="event.stopPropagation()">⋮⋮</span><span class="ar-ic">${isLoanAcct(a)?'🏠':x.type==='savings'?'💰':x.type==='credit'?'💳':'🏦'}</span>
         <div class="grow" style="min-width:0"><div class="ar-name">${esc(acctName(a))}</div><div class="small muted">${esc(acctTypeLabel(x))}${x.owner?' · '+esc(x.owner):''}${a.startsWith('manual-')?'':' · …'+esc(a.slice(-4))}</div></div>
         <div style="text-align:right"><div class="ar-bal ${x.bal<0?'neg':''}">${x.bal!=null?money(isLoanAcct(a)?Math.abs(x.bal):x.bal):'—'}</div><div class="small muted">${isLoanAcct(a)?'owing':x.balDate?dayLabel(x.balDate).replace(/ \d{4}$/,''):''}</div></div>
         <span class="crow-chev">›</span></div>
@@ -1534,8 +1549,8 @@ function renderAccounts(el){
     ${nAll?`<div class="card acctrow allrow" style="--ac:var(--accent)" onclick="openAllTx()"><div class="ar-top"><span class="ar-ic">📋</span>
       <div class="grow"><div class="ar-name">All transactions</div><div class="small muted">Search and filter across every account</div></div>
       <div style="text-align:right"><div class="ar-bal">${nAll}</div><div class="small muted">total</div></div><span class="crow-chev">›</span></div></div>`:''}
-    ${everyday.length?`<div class="sectionhead" style="border:0;padding:0;margin-top:14px"><span>Bank accounts</span><b>${money(tot)}</b></div>${everyday.map(card).join('')}`:''}
-    ${loans.length?`<div class="sectionhead"><span>🏠 Home loans</span><b>${money(Math.abs(loans.reduce((s,a)=>s+(state.accounts[a].bal||0),0)))} owing</b></div>${loans.map(card).join('')}`:''}
+    ${everyday.length?`<div class="sectionhead" style="border:0;padding:0;margin-top:14px"><span>Bank accounts</span><b>${money(tot)}</b></div><div class="acctlist">${everyday.map(card).join('')}</div>`:''}
+    ${loans.length?`<div class="sectionhead"><span>🏠 Home loans</span><b>${money(Math.abs(loans.reduce((s,a)=>s+(state.accounts[a].bal||0),0)))} owing</b></div><div class="acctlist">${loans.map(card).join('')}</div>`:''}
     ${!main.length?`<div class="card"><h2>No accounts yet</h2><p class="muted">Import a Bankwest CSV in Settings and its account appears here automatically.</p><button class="btn" onclick="go('settings')">Import</button></div>`:''}
     <div class="card">${acctForm?`<h2>Add an account</h2>
       <input id="naName" placeholder="Nickname e.g. Joint savings" style="margin-bottom:6px">
@@ -1551,6 +1566,26 @@ function renderAccounts(el){
           <div class="grow" style="min-width:0"><div class="ar-name">${x.name?esc(x.name):'Unnamed account'}</div><div class="small muted">${esc(a)}</div></div>
           <div style="text-align:right"><div class="small muted">${n} transfer${n===1?'':'s'}</div><div class="small muted">not imported</div></div><span class="crow-chev">›</span></div></div>`; }).join('')}`:''}
     <datalist id="ownerList">${[...new Set(['Joint',...Object.values(state.accounts).map(x=>x.owner).filter(Boolean)])].map(o=>`<option value="${esc(o)}">`).join('')}</datalist>`;
+}
+// Drag accounts up and down (touch and mouse) within their section.
+function acctDragStart(e,id){
+  e.preventDefault(); e.stopPropagation();
+  const row=document.querySelector(`.acctrow[data-id="${id}"]`); if(!row) return;
+  const list=row.parentElement, rows=[...list.querySelectorAll('.acctrow')], from=rows.indexOf(row);
+  const gap=parseFloat(getComputedStyle(row).marginBottom)||0, h=row.getBoundingClientRect().height+gap, y0=e.clientY; let to=from;
+  row.classList.add('dragging'); list.classList.add('sorting');
+  const move=ev=>{ const dy=ev.clientY-y0; row.style.transform=`translateY(${dy}px)`;
+    to=Math.max(0,Math.min(rows.length-1,from+Math.round(dy/h)));
+    rows.forEach((r,i)=>{ if(r===row) return; let sh=0; if(from<to&&i>from&&i<=to) sh=-h; if(to<from&&i>=to&&i<from) sh=h; r.style.transform=sh?`translateY(${sh}px)`:''; }); };
+  const up=()=>{ document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); document.removeEventListener('pointercancel',up);
+    if(to!==from){ const ids=rows.map(r=>r.dataset.id); const [m]=ids.splice(from,1); ids.splice(to,0,m);
+      // give every account a position (this section first keeps its new order; others keep theirs)
+      const all=acctSort(Object.keys(state.accounts)); const others=all.filter(a=>!ids.includes(a));
+      const start=all.indexOf(rows[0].dataset.id)<0?0:Math.min(...ids.map(a=>all.indexOf(a)));
+      const merged=[...others.slice(0,start),...ids,...others.slice(start)];
+      merged.forEach((a,i)=>{ state.accounts[a].order=i; }); save(); if(navigator.vibrate) navigator.vibrate(10); }
+    render(); };
+  document.addEventListener('pointermove',move); document.addEventListener('pointerup',up); document.addEventListener('pointercancel',up);
 }
 function renderAcctDetail(el,a){
   const x=state.accounts[a], col=acctColor(a), pr=periodRange(), loan=isLoanAcct(a);
@@ -1602,6 +1637,7 @@ function renderSettings(el){
     <div class="seg" style="margin:0">${[['auto','Auto'],['light','☀️ Light'],['dark','🌙 Dark']].map(([v,l])=>`<button class="${getThemePref()===v?'on':''}" onclick="setThemePref('${v}');render()">${l}</button>`).join('')}</div>
     <p class="small muted" style="margin:8px 0 0">Auto matches your phone's light or dark setting and switches with it. Saved on this device.</p>
   </div>
+  ${payCycleCard()}
   <div class="card"><h2>⬆️ Import transactions</h2>
     <div class="drop" id="drop" onclick="document.getElementById('fileIn').click()">
       <div style="font-size:28px">📄</div><b>Tap to choose Bankwest CSV file(s)</b><div class="small muted">or drag them here. You can pick several accounts at once.</div>
@@ -1834,6 +1870,19 @@ async function doReset(){
   drawLogin(); document.getElementById('auEmail').value=email;
 }
 function onSignedOut(){ cloud=null; state=freshState(); synced=new Map(); lastMeta=''; metaDirty=false; showScreen('login'); }
+
+/* ============ Pay cycle setting ============ */
+function payCycleCard(){
+  const today=new Date(); const td=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  const cur=fortStartFor(td), set=!!(state.payCycle&&state.payCycle.start);
+  return `<div class="card"><h2>Pay cycle (fortnight)</h2>
+    <p class="small muted" style="margin-top:-6px">Pick a payday. Fortnights in the period selector then start on that day, every two weeks.</p>
+    <label class="ce-lbl">A payday (e.g. your most recent one)</label>
+    <input type="date" value="${set?state.payCycle.start:''}" onchange="if(this.value) setPayStart(this.value)">
+    <p class="small muted" style="margin:8px 0 0">${set?`Fortnights start on <b>${['Sundays','Mondays','Tuesdays','Wednesdays','Thursdays','Fridays','Saturdays'][new Date(payRef()+'T00:00:00').getDay()]}</b>. Current fortnight: <b>${shortDay(cur)} – ${shortDay(isoAdd(cur,13))}</b>.`:'Not set yet, so fortnights start on Mondays for now.'}</p>
+  </div>`;
+}
+function setPayStart(d){ state.payCycle={start:d}; state.view.fAnchor=fortStartFor(latestDate()); save(); render(); toast('Fortnights now start on '+['Sundays','Mondays','Tuesdays','Wednesdays','Thursdays','Fridays','Saturdays'][new Date(d+'T00:00:00').getDay()]); }
 
 /* ============ People (admin only) ============ */
 let people=null, personForm=false;
