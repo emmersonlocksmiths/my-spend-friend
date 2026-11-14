@@ -482,7 +482,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.26';
+const APP_VERSION='0.27';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -849,8 +849,10 @@ function daysAgo(iso){ const t=new Date(); t.setHours(0,0,0,0); const d=new Date
 function agoTxt(n){ return n===0?'today':n===1?'yesterday':n+' days ago'; }
 function freshLine(a){
   const x=state.accounts[a]; const last=state.txns.filter(t=>t.acct===a).reduce((m,t)=>t.date>m?t.date:m,'');
-  if(!last) return '';
-  const n=daysAgo(last), lvl=n<=3?'ok':n<=7?'mid':'old';
+  // How long since a CSV including this account was last imported (falls back to newest transaction for older imports).
+  const ref=x.uploaded?new Date(x.uploaded).toLocaleDateString('en-CA'):last;
+  if(!ref) return '';
+  const n=daysAgo(ref), lvl=n<=3?'ok':n<=7?'mid':'old';
   return `<div class="fresh fresh-${lvl}"><span class="fdot"></span>Last updated ${agoTxt(n)}</div>`;
 }
 function shortDay(d){ const x=new Date(d+'T00:00:00'); return DAYS[x.getDay()]+' '+x.getDate()+' '+MONTHS[x.getMonth()]; }
