@@ -513,6 +513,7 @@ nav button.on .lic{color:var(--accent)}
 .rvxfer button:active{transform:scale(.98)}.rvxfer .xfic{font-size:20px}.rvxfer .why{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .rvxfer button.sel{outline:2px solid var(--accent)}
 .rvxfer.likely button{border-style:solid;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--card))}
+.budtopbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.budtopbar .btn{flex:none}
 .budempty{text-align:center}.budstart{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:14px 0 8px}
 .budtop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.budtop .k{font-size:13px;color:var(--muted);font-weight:600}.budbig{font-size:34px;font-weight:800;letter-spacing:-.8px;margin-top:2px}
 .budpill{font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;white-space:nowrap}.budpill.good{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}.budpill.mid{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}.budpill.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
@@ -558,7 +559,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.43';
+const APP_VERSION='0.44';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -2465,7 +2466,8 @@ function renderBudget(el){
       <p class="small muted">You can mix them: groceries per fortnight, car servicing per month.</p></div>`;
     return;
   }
-  if(!pr.months){ el.innerHTML=`${periodControls()}<div class="card"><p class="muted" style="margin:0">Pick a fortnight, month or longer period to compare against your budgets.</p></div>`; return; }
+  const budTop=`<div class="budtopbar"><div><h2 style="margin:0">Budget</h2><div class="small muted">${budgeted.length} categor${budgeted.length===1?'y':'ies'} budgeted</div></div><button class="btn" onclick="budEdit=true;render();window.scrollTo({top:0})">✏️ Edit budgets</button></div>`;
+  if(!pr.months){ el.innerHTML=`${budTop}${periodControls()}<div class="card"><p class="muted" style="margin:0">Pick a fortnight, month or longer period to compare against your budgets.</p></div>`; return; }
   const rows=budgeted.map(c=>{ const b=budgetFor(c,pr), sp=s.byCat[c.id]||0; return {c,b,sp,p:sp/b}; }).sort((x,y)=>y.p-x.p);
   const bTot=rows.reduce((a,r)=>a+r.b,0), spTot=rows.reduce((a,r)=>a+r.sp,0), left=bTot-spTot;
   const today=new Date().toLocaleDateString('en-CA'), days=periodDays(pr);
@@ -2485,7 +2487,7 @@ function renderBudget(el){
       <div class="top"><span><span class="dot" style="background:${r.c.color}"></span>${esc(r.c.name)}</span><b class="${r.p>1?'neg':''}">${money(r.sp)}<span class="small muted"> / ${money0(r.b)}</span></b></div>
       <div class="bar budbar ${cls}"><i style="width:${Math.max(pct,1.5)}%;background:${r.p>1?'var(--bad)':r.p>=0.9?'var(--accent)':r.c.color}"></i>${current?`<span class="pace" style="left:${frac*100}%"></span>`:''}</div>
       <div class="budnote ${cls}">${r.p>1?`${money(r.sp-r.b)} over`:`${money(r.b-r.sp)} left`}${budPer(r.c)!==state.view.mode&&state.view.mode!=='3m'&&state.view.mode!=='year'?` · ${money0(r.c.budget)} per ${budPer(r.c)}`:''}</div></div>`; };
-  el.innerHTML=`${periodControls()}
+  el.innerHTML=`${budTop}${periodControls()}
     <div class="card budhero">
       <div class="budtop"><div><div class="k">${left>=0?'Left to spend':'Over budget by'}</div><div class="budbig ${left<0?'neg':''}">${money(Math.abs(left))}</div></div><span class="budpill ${scls}">${status}</span></div>
       <div class="bar budbar big"><i style="width:${Math.min(100,used*100)}%;background:${used>1?'var(--bad)':used>frac+0.08&&current?'var(--accent)':'var(--good)'}"></i>${current?`<span class="pace" style="left:${frac*100}%"></span>`:''}</div>
