@@ -547,7 +547,7 @@ nav button.on .lic{color:var(--accent)}
 .budedhead .btn{white-space:nowrap;flex:none}.budedhead>span{text-align:left}
 .budedhead{display:flex;gap:10px;justify-content:space-between;align-items:center;margin-bottom:12px}
 .budedrow{padding:12px 0;border-top:1px solid var(--line)}.budedname{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.budedctl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.budseg{margin:0}.budseg button{padding:8px 10px;font-size:13px}.budavg{margin-top:6px}.banked{color:var(--good);font-weight:700}.short{color:var(--bad);font-weight:700}.rolltog{display:flex;gap:10px;align-items:flex-start;margin-top:8px;cursor:pointer;font-size:14px}.rolltog input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--accent)}.rollctl{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);margin-top:10px;padding-top:10px}.rollctl select{width:auto;max-width:60%}.budmode{margin:4px 0 8px!important;display:inline-grid!important;grid-template-columns:1fr 1fr;width:200px!important;max-width:100%}.budmode button{white-space:nowrap;padding:6px 8px!important;font-size:13px!important;min-width:0;width:100%}.budhint{margin-top:4px;font-size:12.5px}
+.budedctl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.budseg{margin:0}.budseg button{padding:8px 10px;font-size:13px}.budavg{margin-top:6px}.recapcard{cursor:pointer}.recap h3{margin:16px 0 6px;font-size:15px}.recaphead{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:center;margin-bottom:10px}.recaphead .pill{width:40px;height:36px;padding:0}.recapgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;background:var(--card2);border-radius:14px;padding:12px 6px}.recapgrid .k{font-size:12px;color:var(--muted)}.recapgrid .v{font-size:19px;font-weight:800}.modal.recap{max-height:88vh;overflow:auto}.banked{color:var(--good);font-weight:700}.short{color:var(--bad);font-weight:700}.goalrow{display:flex;align-items:center;gap:8px;margin:8px 0 0 30px;flex-wrap:wrap}.goalrow>span.small:first-child{flex-basis:100%;font-weight:700}.goalrow .ce-money{width:110px}.goalrow .goalby{width:150px!important;min-width:0!important;flex:none}.goalrow .ce-money{flex:none}.rolltog{display:flex;gap:10px;align-items:flex-start;margin-top:8px;cursor:pointer;font-size:14px}.rolltog input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--accent)}.rollctl{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);margin-top:10px;padding-top:10px}.rollctl select{width:auto;max-width:60%}.budmode{margin:4px 0 8px!important;display:inline-grid!important;grid-template-columns:1fr 1fr;width:200px!important;max-width:100%}.budmode button{white-space:nowrap;padding:6px 8px!important;font-size:13px!important;min-width:0;width:100%}.budhint{margin-top:4px;font-size:12.5px}
 .chartcats .top>span:last-child{white-space:nowrap;flex:none}.chartcats .top{gap:8px}
 .ccthead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.ccseg{margin:0}.ccseg button{padding:7px 12px;font-size:13px}
 .loanfacts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 10px;margin-top:16px;text-align:left;padding-top:14px;border-top:1px solid var(--line)}
@@ -587,7 +587,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.61';
+const APP_VERSION='0.62';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -599,6 +599,7 @@ let lastMeta='';                // household settings JSON as last synced
 let metaDirty=false, metaPending=0, metaWaiting=null, metaLast=null;            // local settings change not yet sent
 function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false,projects:s.projects||[],projSeeded:!!s.projSeeded,catDeleted:(s.catDeleted||[]).slice(-100),budRoll:s.budRoll||null}; }
 function save(){
+  recordBudChanges();
   try{ localStorage.setItem(VIEW_KEY,JSON.stringify(state.view)); }catch(e){}
   if(!cloud) return;
   const m=JSON.stringify(metaOf(state));
@@ -623,6 +624,7 @@ function applyCloudMeta(meta){
   if('catDeleted' in meta) state.catDeleted=meta.catDeleted||[];
   runMigrations();
   const merged=mergeDuplicateCats();
+  snapBud();
   lastMeta=JSON.stringify(metaOf(state));
   if(seedProjects()||repaired||merged) { lastMeta=''; save(); }
   scheduleRender();
@@ -1115,7 +1117,7 @@ function renderDashboard(el){
   const ch=ps?changeTag(s.spend,ps.spend,pv.short):'';
   const topN=dashAllCats?cats:cats.slice(0,5);
   el.innerHTML=`
-    ${daysSince!==null&&daysSince>=7?`<div class="banner"><span>Last import was <b>${daysSince} days ago</b></span><button class="btn" onclick="go('settings')">Import</button></div>`:''}
+    ${staleBanner()}
     ${needs?`<div class="banner"><span>${needs}</span><button class="btn" onclick="rvMode=${n?"'sort'":"'check'"};go('review')">Review</button></div>`:''}
     ${periodControls()}
     <div class="card dashhero">
@@ -1137,10 +1139,47 @@ function renderDashboard(el){
     </div>
     ${position}
     </div>
+    ${recapCard()}
     ${projDashSection()}
     <p class="muted small" style="text-align:center">Transfers between your own accounts${P.some(p=>!p.counted)?' and projects kept separate':''} are left out of these totals.</p>`;
 }
 let dashAllCats=false;
+// ----- Monthly summary -----
+function lastFullYM(){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function ymRange(ym){ const [y,m]=ym.split('-').map(Number); return {from:ym+'-01',to:new Date(y,m,0).toLocaleDateString('en-CA'),months:1,label:FULLMONTHS[m-1]+' '+y}; }
+const FULLMONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function recapCard(){ const ym=lastFullYM(), r=ymRange(ym); if(!state.txns.some(t=>t.date>=r.from&&t.date<=r.to)) return '';
+  const s=summarise(r.from,r.to), net=s.moneyIn-s.spend;
+  return `<div class="card recapcard" onclick="openRecap('${ym}')"><div class="snap-k">Monthly summary</div><div class="snap-row"><div><b style="font-size:18px">${r.label}</b><div class="small muted">Spent ${money0(s.spend)} · ${net<0?'overspent '+money0(-net):money0(net)+' left over'}</div></div><span class="link small">Open ›</span></div></div>`; }
+function openRecap(ym){
+  const r=ymRange(ym), s=summarise(r.from,r.to), net=s.moneyIn-s.spend, pym=ymAdd(ym,-1), p=ymRange(pym);
+  const hasPrev=state.txns.some(t=>t.date>=p.from&&t.date<=p.to), ps=hasPrev&&coversFrom(p.from)?summarise(p.from,p.to):null;
+  const nextYM=ymAdd(ym,1), canNext=nextYM<=lastFullYM(), canPrev=state.txns.some(t=>t.date<r.from);
+  const T=budgetTotals(r,s);
+  const cats=Object.entries(s.byCat).filter(([id,x])=>x>0.004&&catKindOf(id)==='expense').sort((a,b)=>b[1]-a[1]).slice(0,5), max=Math.max(1,...cats.map(c=>c[1]));
+  const big=state.txns.filter(t=>t.amount<0&&inHH(t)&&catKindOf(t.cat)==='expense'&&t.date>=r.from&&t.date<=r.to).sort((a,b)=>a.amount-b.amount)[0];
+  const P=(state.projects||[]).map(pj=>({pj,q:projSum(pj,r.from,r.to)})).filter(o=>o.q.tx.length);
+  const L=loanAccts().map(a=>{ const d=loanDaily(a), before=d.filter(x=>x.d<r.from).pop(), end=d.filter(x=>x.d<=r.to).pop(); const int=state.txns.filter(t=>t.acct===a&&loanKind(t)==='interest'&&t.date>=r.from&&t.date<=r.to).reduce((x,t)=>x-t.amount,0); return {a,start:before?before.owing:null,end:end?end.owing:null,int}; }).filter(o=>o.end!=null);
+  const diff=ps?s.spend-ps.spend:null;
+  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal recap">
+    <div class="recaphead"><button class="pill" ${canPrev?'':'disabled'} onclick="openRecap('${pym}')" aria-label="Previous month">‹</button><div><div class="small muted">Monthly summary</div><h2 style="margin:0">${r.label}</h2></div><button class="pill" ${canNext?'':'disabled'} onclick="openRecap('${nextYM}')" aria-label="Next month">›</button></div>
+    ${!coversFrom(r.from)?`<p class="small muted">Your imported transactions start partway through this month, so it's incomplete.</p>`:''}
+    <div class="recapgrid"><div><div class="k">Money in</div><div class="v pos">${money0(s.moneyIn)}</div></div><div><div class="k">Spent</div><div class="v neg">${money0(s.spend)}</div></div><div><div class="k">${net<0?'Overspent':'Left over'}</div><div class="v ${net<0?'neg':'pos'}">${money0(Math.abs(net))}</div></div></div>
+    ${diff!==null?`<p class="small muted" style="margin:8px 0 0;text-align:center">${Math.abs(diff)<1?'Same spending as':diff>0?`<span class="neg">${money0(diff)} more</span> than`:`<span class="pos">${money0(-diff)} less</span> than`} ${FULLMONTHS[+pym.slice(5)-1]}</p>`:''}
+    ${T.hasOut?`<h3>Budget</h3><div class="lrow"><span class="grow">Spent ${money0(T.aOut)} of a ${money0(T.bOut)} budget</span><b class="${T.aOut>T.bOut?'neg':'pos'}">${T.aOut>T.bOut?money0(T.aOut-T.bOut)+' over':money0(T.bOut-T.aOut)+' under'}</b></div>${T.hasIn?`<div class="lrow"><span class="grow">Income ${money0(T.aIn)} of ${money0(T.bIn)} expected</span><b class="${T.aIn<T.bIn?'neg':'pos'}">${T.aIn<T.bIn?money0(T.bIn-T.aIn)+' short':money0(T.aIn-T.bIn)+' extra'}</b></div>`:''}`:''}
+    ${cats.length?`<h3>Biggest categories</h3>${cats.map(([id,x])=>{ const c=catById(id); return `<div class="catrow" onclick="closeModal();jumpMonth('${ym}');filterCat('${id}')"><div class="top"><span><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</span><b>${money0(x)}</b></div><div class="bar"><i style="width:${Math.max(2,x/max*100)}%;background:${c.color}"></i></div></div>`; }).join('')}`:''}
+    ${big?`<h3>Biggest purchase</h3><div class="lrow"><span class="grow">${esc(titleCase(cleanDesc(big.desc)))}<div class="small muted">${shortDay(big.date)} · ${esc(catById(big.cat)?.name||'')}</div></span><b class="neg">${money0(-big.amount)}</b></div>`:''}
+    ${P.length?`<h3>Projects</h3>${P.map(({pj,q})=>`<div class="lrow"><span class="grow">${esc(pj.emoji||'')} ${esc(pj.name)}<div class="small muted">In ${money0(q.inn)} · out ${money0(q.out)}</div></span><b class="${q.inn-q.out<0?'neg':'pos'}">${q.inn-q.out<0?'−':'+'}${money0(Math.abs(q.inn-q.out))}</b></div>`).join('')}`:''}
+    ${L.length?`<h3>Home loan</h3>${L.map(o=>{ const ch=o.start!=null?o.start-o.end:null; return `<div class="lrow"><span class="grow">${esc(acctName(o.a))}<div class="small muted">Owing ${money0(o.end)} at the end of the month${o.int?` · interest ${money0(o.int)}`:''}</div></span>${ch!=null?`<b class="${ch>=0?'pos':'neg'}">${ch>=0?'Down '+money0(ch):'Up '+money0(-ch)}</b>`:''}</div>`; }).join('')}`:''}
+    <div style="text-align:center;margin-top:14px"><button class="btn ghost" onclick="closeModal()">Close</button></div>
+  </div></div>`;
+}
+// Accounts whose data is a week or more old (from when a CSV including them was last imported).
+function staleAccts(){ return Object.keys(state.accounts).filter(a=>acctTxCount(a)).map(a=>{ const x=state.accounts[a]; const last=state.txns.filter(t=>t.acct===a).reduce((m,t)=>t.date>m?t.date:m,''); const ref=x.uploaded?new Date(x.uploaded).toLocaleDateString('en-CA'):last; return {a,n:ref?daysAgo(ref):999}; }).filter(o=>o.n>=7).sort((p,q)=>q.n-p.n); }
+function staleBanner(){ const S=staleAccts(); if(!S.length) return '';
+  const names=S.map(o=>esc(acctName(o.a))), who=names.length===1?`<b>${names[0]}</b> hasn't`:names.length<=3?`<b>${names.slice(0,-1).join('</b>, <b>')}</b> and <b>${names[names.length-1]}</b> haven't`:`<b>${names.length} accounts</b> haven't`;
+  const n=S[S.length-1].n;
+  return `<div class="banner stale"><span>${icon('accounts',16)} ${who} been updated in ${n>=999?'a while':n+' days'}. Upload a new CSV from Bankwest.</span><button class="btn" onclick="go('settings')">Import</button></div>`; }
 function budMini(pr,s){
   const b=catsOfKind('expense').filter(c=>c.budget>0); if(!b.length||!pr.months) return '';
   const avail=c=>budgetFor(c,pr)+bankedFor(c,pr), bt=b.reduce((a,c)=>a+avail(c),0), sp=b.reduce((a,c)=>a+(s.byCat[c.id]||0),0), left=bt-sp, over=b.filter(c=>(s.byCat[c.id]||0)>avail(c)+0.004).length;
@@ -2583,7 +2622,8 @@ function deleteProject(){ const id=projEd.id; state.projects=(state.projects||[]
 /* ============ Budget ============ */
 // Each expense category can have a budget per fortnight or per month; it's scaled to whatever period you're viewing.
 function budPer(c){ return c.budgetPer==='fortnight'?'fortnight':'month'; }
-function budgetFor(c,pr){ if(!c||!c.budget||!pr.months) return 0; if(c.billFreq){ if(billAnchor(c)) return billInfo(c,pr).budget; return c.budget*({weekly:52,fortnightly:26,monthly:12,quarterly:4,yearly:1}[c.billFreq]||12)/12*pr.months; } return c.budget*pr.months*(budPer(c)==='fortnight'?26/12:1); }
+function budgetFor(c,pr){ if(!c||!pr.months) return 0; if(!c.budget&&!(c.budHist&&!c.billFreq)) return 0; if(c.billFreq){ if(!c.budget) return 0; if(billAnchor(c)) return billInfo(c,pr).budget; return c.budget*({weekly:52,fortnightly:26,monthly:12,quarterly:4,yearly:1}[c.billFreq]||12)/12*pr.months; } if(c.budHist&&pr.from&&pr.to){ const days=dayGap(pr.from,pr.to)+1; return budSegments(c,pr.from,pr.to).reduce((a,g)=>a+g.b*pr.months*((dayGap(g.from,g.to)+1)/days)*(g.per==='fortnight'?26/12:1),0); }
+  return c.budget*pr.months*(budPer(c)==='fortnight'?26/12:1); }
 // Bills: a set amount that comes weekly, fortnightly, monthly, quarterly or yearly. The full amount is
 // budgeted in the period it's due (worked out from when you last paid it), and $0 in periods with nothing due.
 const BILL_FREQS=[['weekly','Weekly'],['fortnightly','Fortnightly'],['monthly','Monthly'],['quarterly','Quarterly'],['yearly','Yearly']];
@@ -2651,6 +2691,27 @@ function useAvg(id){ const c=catObj(id); c.budget=roundBud(avgSpend(c,budPer(c))
 function useAvgAll(){ let n=0; catsOfKind('expense').forEach(c=>{ if(!c.budget){ const a=roundBud(avgSpend(c,budPer(c))); if(a){ c.budget=a; n++; } } }); save(); render(); toast(n?`Filled ${n} budget${n>1?'s':''} from your averages`:'Nothing to fill'); }
 function startBudgets(per){ catsOfKind('expense').forEach(c=>{ if(!c.budget) c.budgetPer=per; }); budEdit=true; save(); render(); window.scrollTo({top:0}); }
 // Budgeted vs actual: income, expenses and what's left, one above the other.
+// Budget history: a changed amount applies from the start of the current fortnight; earlier periods keep the old amount.
+let budSnap=null;
+function snapBud(){ budSnap=new Map(state.categories.map(c=>[c.id,(c.budget||0)+'|'+budPer(c)])); }
+function recordBudChanges(){
+  if(!budSnap){ snapBud(); return; }
+  const from=fortStartFor(new Date().toLocaleDateString('en-CA'));
+  state.categories.forEach(c=>{ const now=(c.budget||0)+'|'+budPer(c), old=budSnap.get(c.id); if(old===undefined||old===now) return;
+    const [ob,op]=old.split('|'), h=c.budHist||(c.budHist=[]);
+    if(!h.length) h.push({from:'2000-01-01',b:+ob||0,per:op});
+    const last=h[h.length-1];
+    if(last.from===from){ last.b=c.budget||0; last.per=budPer(c); } else h.push({from,b:c.budget||0,per:budPer(c)});
+    if(h.length>=2){ const a=h[h.length-2], z=h[h.length-1]; if(a.b===z.b&&a.per===z.per) h.pop(); }
+    if(h.length===1) delete c.budHist; });
+  snapBud();
+}
+function budSegments(c,from,to){
+  const h=c.budHist; if(!h||!h.length) return [{from,to,b:c.budget||0,per:budPer(c)}];
+  const out=[]; h.forEach((x,i)=>{ const last=i===h.length-1, s0=x.from, e0=last?'9999-12-31':isoAdd(h[i+1].from,-1), a=s0>from?s0:from, z=e0<to?e0:to;
+    if(a<=z) out.push({from:a,to:z,b:last?(c.budget||0):x.b,per:last?budPer(c):x.per}); });
+  return out;
+}
 // Carry-over: unspent everyday budget banks up from one period to the next, and overspending carries as a shortfall.
 // Counted from budRoll.from (a fortnight start) up to the day before the period being viewed.
 function rollCfg(){ if(!state.budRoll){ state.budRoll={on:true,from:fortStartFor(new Date().toLocaleDateString('en-CA'))}; if(cloud) setTimeout(save,0); } return state.budRoll; }
@@ -2658,14 +2719,31 @@ function rollsOver(c){ return c&&c.kind==='expense'&&c.budget>0&&!c.billFreq&&!!
 let bankCache={key:'',map:{}};
 function bankedMap(upTo){
   const r=rollCfg(); if(!r.on||!r.from||upTo<=r.from) return {};
-  const key=upTo+'|'+r.from+'|'+state.txns.length+'|'+JSON.stringify(state.categories.map(c=>[c.id,c.budget,c.budgetPer,c.billFreq,c.roll]));
+  const key=upTo+'|'+r.from+'|'+state.txns.length+'|'+JSON.stringify(state.categories.map(c=>[c.id,c.budget,c.budgetPer,c.billFreq,c.roll,c.budHist]));
   if(bankCache.key===key) return bankCache.map;
-  const to=isoAdd(upTo,-1), days=Math.round(dayGap(r.from,upTo)), pr={from:r.from,to,months:days*12/364}, sm=summarise(r.from,to), map={};
-  catsOfKind('expense').filter(rollsOver).forEach(c=>{ map[c.id]=budgetFor(c,pr)-(sm.byCat[c.id]||0); });
+  const to=isoAdd(upTo,-1), sums={}, map={};
+  catsOfKind('expense').filter(rollsOver).forEach(c=>{
+    // Don't count fortnights before this category had a budget at all.
+    const first=c.budHist?(c.budHist.find(h=>h.b>0)||{from:upTo}).from:r.from, from=first>r.from?first:r.from; if(from>to) return;
+    const sm=sums[from]||(sums[from]=summarise(from,to)), days=Math.round(dayGap(from,upTo));
+    map[c.id]=budgetFor(c,{from,to,months:days*12/364})-(sm.byCat[c.id]||0); });
   bankCache={key,map}; return map;
 }
 function bankedFor(c,pr){ return rollsOver(c)?(bankedMap(pr.from)[c.id]||0):0; }
-function setCatRoll(id,on){ const c=catObj(id); if(on) c.roll=true; else delete c.roll; rollCfg(); save(); }
+function setCatRoll(id,on){ const c=catObj(id); if(on) c.roll=true; else delete c.roll; rollCfg(); save(); render(); }
+function goalSet(id,k,v){ const c=catObj(id), g=c.goal||{}; if(k==='amt') g.amt=Math.max(0,parseFloat(String(v).replace(/[$,]/g,''))||0); else g.by=v||''; if(!g.amt&&!g.by) delete c.goal; else c.goal=g; save(); }
+function curFortnight(){ const f=fortStartFor(new Date().toLocaleDateString('en-CA')); return {from:f,to:isoAdd(f,13),months:12/26}; }
+function goalInfo(c){ const pr=curFortnight(), spent=summarise(pr.from,pr.to).byCat[c.id]||0;
+  const saved=bankedFor(c,pr)+budgetFor(c,pr)-spent, rate=c.budget*(budPer(c)==='fortnight'?1:12/26), g=c.goal;
+  let end=null, fnLeft=0; if(g.by){ const [y,m]=g.by.split('-').map(Number); end=new Date(y,m,0).toLocaleDateString('en-CA'); fnLeft=Math.max(0,Math.floor(dayGap(pr.to,end)/14)*(end>pr.to?1:0)); }
+  const proj=saved+rate*fnLeft, need=g.amt-proj;
+  return {saved,rate,end,fnLeft,proj,need,perFn:fnLeft?need/fnLeft:need}; }
+function goalsCard(){ const G=catsOfKind('expense').filter(c=>rollsOver(c)&&c.goal&&c.goal.amt>0); if(!G.length) return '';
+  return `<div class="card"><h2>Savings goals</h2>${G.map(c=>{ const i=goalInfo(c), g=c.goal, pct=Math.max(0,Math.min(100,i.saved/g.amt*100)), byTxt=g.by?MONTHS[+g.by.slice(5)-1]+' '+g.by.slice(0,4):'';
+    const line=i.saved>=g.amt?'<span class="banked">Goal reached 🎉</span>':!g.by?`${money0(g.amt-i.saved)} to go`:i.need<=0.5?`<span class="banked">On track for ${byTxt}</span>`:`<span class="short">${money0(i.need)} short by ${byTxt}</span> · about ${money0(i.perFn)} more a fortnight would get there`;
+    return `<div class="catrow" onclick="filterCat('${c.id}')"><div class="top"><span><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</span><b>${money0(Math.max(0,i.saved))}<span class="small muted"> / ${money0(g.amt)}</span></b></div>
+      <div class="bar"><i style="width:${Math.max(pct,1.5)}%;background:${i.saved>=g.amt?'var(--good)':c.color}"></i></div><div class="budnote">${line}</div></div>`; }).join('')}
+    <p class="small muted" style="margin:6px 0 0">Saved so far is what's banked plus what's left of this fortnight's budget. Goals are set in Edit budgets.</p></div>`; }
 function setRoll(v){ const r=rollCfg(); if(v==='off') r.on=false; else { r.on=true; r.from=v; } save(); render(); }
 function rollControl(){ const r=rollCfg(), cur=fortStartFor(new Date().toLocaleDateString('en-CA')), opts=[]; for(let i=0;i<8;i++) opts.push(isoAdd(cur,-14*i)); if(r.from&&!opts.includes(r.from)) opts.push(r.from);
   return `<div class="rollctl small muted"><span>Banking counted</span><select onchange="setRoll(this.value)"><option value="off" ${r.on?'':'selected'}>Off</option>${opts.map(d=>`<option value="${d}" ${r.on&&r.from===d?'selected':''}>${i18From(d,cur)}</option>`).join('')}</select></div>`; }
@@ -2735,6 +2813,7 @@ function renderBudget(el){
       ${!coversFrom(pr.from)?`<div class="small muted" style="margin-top:6px">Your imported transactions start partway through this period, so these numbers are incomplete.</div>`:''}
       ${current?`<div class="small muted" style="margin-top:6px">You've used <b>${Math.round(used*100)}%</b> of the budget and you're <b>${Math.round(frac*100)}%</b> of the way through.</div>`:''}
     </div>
+    ${goalsCard()}
     ${over.length||close.length||billFlags.length?`<div class="card"><h2>Needs attention</h2>${billFlags.map(b=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${b.c.id}')"><span class="dot" style="background:var(--bad)"></span><span class="grow">${esc(b.c.name)}<div class="small muted">Bill · ${freqLabel(b.c.billFreq)}</div></span><b class="neg">${esc(b.i.status)}</b></div>`).join('')}${over.map(r=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${r.c.id}')"><span class="dot" style="background:var(--bad)"></span><span class="grow">${esc(r.c.name)}<div class="small muted">${money(r.sp)} of ${money0(r.b)}</div></span><b class="neg">${money(r.sp-r.b)} over</b></div>`).join('')}${close.map(r=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${r.c.id}')"><span class="dot" style="background:var(--accent)"></span><span class="grow">${esc(r.c.name)}<div class="small muted">${Math.round(r.p*100)}% used</div></span><b>${money(r.b-r.sp)} left</b></div>`).join('')}</div>`:''}
     <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Budgets</h2><button class="pill" onclick="budEdit=true;render();window.scrollTo({top:0})">✏️ Edit budgets</button></div>
       ${current?`<p class="small muted" style="margin:-4px 0 6px">The thin line on each bar shows where you'd be if spending was spread evenly.</p>`:''}
@@ -2754,7 +2833,8 @@ function budEditRow(c){ const per=budPer(c), bill=c.billFreq, avg=bill?billAvg(c
           <div class="budedctl"><div class="ce-money"><span>$</span><input type="text" inputmode="decimal" placeholder="${c.kind==='income'?'Not set':'No budget'}" value="${c.budget||''}" oninput="budInput('${c.id}',this.value)"></div>
             <select class="budfreq" onchange="setBillFreq('${c.id}',this.value)">${(c.kind==='income'||bill)?BILL_FREQS.map(([v])=>`<option value="${v}" ${(bill||(per==='fortnight'?'fortnightly':'monthly'))===v?'selected':''}>${{weekly:'every week',fortnightly:'every fortnight',monthly:'every month',quarterly:'every quarter',yearly:'every year'}[v]}</option>`).join(''):`<option value="fortnight" ${per==='fortnight'?'selected':''}>per fortnight</option><option value="month" ${per==='month'?'selected':''}>per month</option>`}</select></div>
           <div class="small muted budhint">${c.kind==='income'?'Counted on the day it arrives.':bill?'The full amount counts in the fortnight or month it’s due.':'Spread evenly, like groceries or fuel.'}</div>
-          ${c.kind==='expense'&&!bill?`<label class="rolltog"><input type="checkbox" ${c.roll?'checked':''} onchange="setCatRoll('${c.id}',this.checked)"><span><b>Bank unspent money</b><span class="small muted"> · leftovers carry to the next ${per}, overspending comes off it</span></span></label>`:''}
+          ${c.kind==='expense'&&!bill?`<label class="rolltog"><input type="checkbox" ${c.roll?'checked':''} onchange="setCatRoll('${c.id}',this.checked)"><span><b>Bank unspent money</b><span class="small muted"> · leftovers carry to the next ${per}, overspending comes off it</span></span></label>
+          ${c.roll?`<div class="goalrow"><span class="small">Savings goal</span><div class="ce-money"><span>$</span><input type="text" inputmode="decimal" placeholder="Optional" value="${c.goal&&c.goal.amt||''}" oninput="goalSet('${c.id}','amt',this.value)"></div><span class="small">by</span><input type="month" class="goalby" value="${c.goal&&c.goal.by||''}" onchange="goalSet('${c.id}','by',this.value)"></div>`:''}`:''}
           <div class="small muted budavg">${bill?`${last?`Last ${c.kind==='income'?'received':'paid'} ${money(Math.abs(last.amount))} on ${shortDay(last.date)}`:'None yet'}${nx?` · next ~${shortDay(nx)}`:''}${avg>0.5?` · <button class="link small" onclick="setBud('${c.id}',${Math.round(avg)})">Use ${money0(avg)}</button>`:''}`
             :(avg>0.5?`Usually about <b>${money0(avg)}</b> a ${per} · <button class="link small" onclick="useAvg('${c.id}')">Use this</button>`:(c.kind==='income'?'Nothing received recently':'No recent spending'))}</div></div>`; }
 function renderBudgetEdit(el){
@@ -2762,7 +2842,7 @@ function renderBudgetEdit(el){
   const perYear={weekly:52,fortnightly:26,monthly:12,quarterly:4,yearly:1};
   const total={fortnight:0,month:0}; exp.forEach(c=>{ if(!c.budget) return; const y=c.billFreq?c.budget*perYear[c.billFreq]:c.budget*(budPer(c)==='fortnight'?26:12); total.fortnight+=y/26; total.month+=y/12; });
   el.innerHTML=`<div class="budedhead"><span class="small muted" id="budTotal">${budTotalText()}</span><button class="btn" onclick="budSave()">Save</button></div>
-    <div class="card"><h2>Edit budgets</h2><p class="small muted" style="margin-top:-6px">Set what you expect to earn and spend. For spending, pick <b>Everyday spending</b> for things like groceries (spread evenly), or <b>A bill</b> for things like electricity (counted when it's due).</p>
+    <div class="card"><h2>Edit budgets</h2><p class="small muted" style="margin-top:-6px">Set what you expect to earn and spend. For spending, pick <b>Everyday spending</b> for things like groceries (spread evenly), or <b>A bill</b> for things like electricity (counted when it's due). A changed amount applies from this fortnight on; earlier fortnights keep the old amount.</p>
       ${empty?`<button class="btn ghost" style="margin:4px 0 8px" onclick="useAvgAll()">Fill the ${empty} empty ones from my averages</button>`:''}
       <div class="catgroup" style="margin-top:6px">Expected income</div>
       ${catsOfKind('income').map(budEditRow).join('')}
