@@ -605,7 +605,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.67';
+const APP_VERSION='0.68';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -970,7 +970,7 @@ function morphAfterRender(el,entering){
   });
   el.querySelectorAll('svg').forEach((svg,si)=>{
     if(svg.closest('.lic,.navic,button')||svg.classList.contains('lic')) return;
-    const card=svg.closest('.card,.modal'); const lab=tab+'|'+(acctSel||'')+'|'+(projSel||'')+'|'+((card&&card.querySelector('h2,h3')?.textContent)||si);
+    const card=svg.closest('.card,.modal'); const lab=tab+'|'+(acctSel||'')+'|'+(projSel||'')+'|'+((card&&(card.dataset.mk||card.querySelector('h2,h3')?.textContent))||si);
     let changed=false;
     // chart columns: move from old height, or rise from the baseline the first time
     svg.querySelectorAll('rect').forEach((r,ri)=>{
@@ -1014,7 +1014,7 @@ addEventListener('resize',()=>placePills());
 // Count figures up or down to their new value. Figures seen for the first time count up from zero.
 const numMemo={};
 const NUM_SEL='.stat .v, .mini2 .v, .mini3 .v, .loanbig, .crow-amt, .ar-bal, .dh-big, .budbig, .snap-v, .catrow .top b, .lrow > b, .posrow b, .billrow > b, .recapgrid .v, .cmpgrid > span, .ce-budget, .acctrow b, .loancard b, .v';
-function numKey(n){ const row=n.closest('.catrow,.crow,.lrow,.posrow,.billrow,.acctrow,.stat,.recapgrid>div,.card'); const lab=row?(row.querySelector('.crow-name,.top>span,.grow,.k,h2')?.textContent||'').trim().slice(0,40):''; return tab+':'+(acctSel||'')+':'+(projSel||'')+':'+lab+':'+n.className; }
+function numKey(n){ const g=n.closest('.mini3>div'); if(g&&g.closest('.card')&&tab==='cats'){ const i=[...g.parentNode.children].indexOf(g); return tab+':glance:'+i+':'+n.className; } const row=n.closest('.catrow,.crow,.lrow,.posrow,.billrow,.acctrow,.stat,.recapgrid>div,.card'); const lab=row?(row.querySelector('.crow-name,.top>span,.grow,.k,h2')?.textContent||'').trim().slice(0,40):''; return tab+':'+(acctSel||'')+':'+(projSel||'')+':'+lab+':'+n.className; }
 const NUM_HERO='.dh-big,.budbig,.snap-v,.loanbig,.recapgrid .v';
 function animateNumbers(el,entering){
   if(reducedMotion()) return;
@@ -1779,7 +1779,7 @@ function sparkline(vals,color){
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${vals.map((v,i)=>{const h=Math.max(2,Math.max(v.a,0)/max*(H-2)); return `<rect x="${i*bw+1.5}" y="${H-h}" width="${bw-3}" height="${h}" rx="2" fill="${color}" opacity="${i===vals.length-1?1:.45}"/>`;}).join('')}</svg>`;
 }
 /* ============ Charts helpers ============ */
-function donutSVG(parts,total){
+function donutSVG(parts,total,label){
   const R=70,r=46,C=90; let a0=-Math.PI/2, paths='';
   const tot=parts.reduce((s,p)=>s+p.v,0)||1;
   parts.forEach(p=>{
@@ -1793,7 +1793,7 @@ function donutSVG(parts,total){
     a0+=frac*Math.PI*2;
   });
   return `<svg viewBox="0 0 180 180" width="170" height="170" class="donut">${paths}
-    <text x="90" y="86" text-anchor="middle" font-size="11" style="fill:var(--muted)">Spent</text>
+    <text x="90" y="86" text-anchor="middle" font-size="11" style="fill:var(--muted)">${label||'Spent'}</text>
     <text x="90" y="104" text-anchor="middle" font-size="17" font-weight="800" style="fill:var(--ink)">${money0(total)}</text></svg>`;
 }
 function barChartSVG(labels,series,opts={}){
@@ -1829,7 +1829,7 @@ function chartCatsCard(pr){
   const rows=Object.entries(tot).filter(([,v])=>Math.abs(v)>0.004).sort((a,b)=>b[1]-a[1]);
   const sum=rows.reduce((a,[,v])=>a+v,0), max=Math.max(...rows.map(r=>r[1]),1);
   return `<div class="card chartcats"><div class="ccthead"><h2 style="margin:0">Categories</h2>
-      <div class="seg ccseg"><button class="${kind==='expense'?'on':''}" onclick="chartCatKind='expense';render()">Spending</button><button class="${kind==='income'?'on':''}" onclick="chartCatKind='income';render()">Income</button></div></div>
+      <div class="seg ccseg"><button class="${kind==='expense'?'on':''}" onclick="if(chartCatKind!=='expense'){chartCatKind='expense';render()}">Spending</button><button class="${kind==='income'?'on':''}" onclick="if(chartCatKind!=='income'){chartCatKind='income';render()}">Income</button></div></div>
     <div class="small muted" style="margin:6px 0 4px">${rows.length?`${money(sum)} across ${rows.length} categor${rows.length===1?'y':'ies'} · tap one to see its transactions`:`No ${kind==='expense'?'spending':'income'} sorted in this period yet.`}</div>
     ${rows.map(([id,v])=>{ const c=catById(id); return `<div class="catrow" onclick="filterCat('${id}')">
       <div class="top"><span><span class="dot" style="background:${c.color}"></span>${esc(c.name)} <span class="small muted">· ${cnt[id]}</span></span><span><span class="small muted" style="margin-right:8px">${sum?Math.round(v/sum*100):0}%</span><b>${money(v)}</b> <span class="muted">›</span></span></div>
@@ -1842,104 +1842,115 @@ function renderCharts(el){
   if(!hasLoan) chartsMode='spend';
   const toggle=hasLoan?`<div class="seg chartsmode"><button class="${chartsMode==='spend'?'on':''}" onclick="chartsMode='spend';animateNext('fade');render()">📈 Spending</button><button class="${chartsMode==='loan'?'on':''}" onclick="chartsMode='loan';animateNext('fade');render()">🏠 Home loan</button></div>`:'';
   if(chartsMode==='loan'){ renderLoanCharts(el,toggle); return; }
+  // Everything below follows the Spending / Income switch at the top.
+  const K=chartCatKind==='income'?'income':'expense', INC=K==='income';
+  const W=INC?{noun:'income',items:'Payments',item:'payment',places:'Sources',per:'Per day',where:'Where it came from',mon:'Monthly income',wday:'Income by day of week',most:'Who pays you most',big:'Biggest payments in',none:'Nothing received this period',biggestDay:'biggest day for income'}
+              :{noun:'spending',items:'Purchases',item:'purchase',places:'Places',per:'Per day',where:'Where it went',mon:'Monthly spending',wday:'Spending by day of week',most:'Most visited',big:'Biggest purchases',none:'Nothing spent this period',biggestDay:'biggest spending day'};
   const pr=periodRange(), s=summarise(pr.from,pr.to);
-  const pv=prevRange(); const ps=pv&&coversFrom(pv.from)?summarise(pv.from,pv.to):null;
-  const total=Math.max(s.spend,0.01);
-  const exp=state.categories.filter(c=>c.kind==='expense');
+  const pv=prevRange();
+  const ownX=t=>!t.cat&&t.sug==='transfer'&&OWN_XFER.test(t.desc);
+  // the transactions this page is about, as positive amounts
+  const itemsIn=(from,to)=>INC?state.txns.filter(t=>t.amount>0&&inHH(t)&&inPeriod(t,from,to)&&!ownX(t)&&(t.cat?catKindOf(t.cat)==='income':true)):spendTxns(from,to);
+  const val=t=>Math.abs(t.amount);
+  const byCatK=(from,to)=>{ const o={}; let un=0; itemsIn(from,to).forEach(t=>{ if(t.cat) o[t.cat]=(o[t.cat]||0)+(INC?t.amount:-t.amount); else un+=val(t); }); return {o,un}; };
+  const cur=byCatK(pr.from,pr.to), prevK=pv&&coversFrom(pv.from)?byCatK(pv.from,pv.to):null;
+  const items=itemsIn(pr.from,pr.to), totK=items.reduce((a,t)=>a+val(t),0), total=Math.max(totK,0.01);
+  const cats=state.categories.filter(c=>c.kind===K);
   const end=state.view.anchor||latestYM();
   const inP=state.txns.filter(t=>inPeriod(t,pr.from,pr.to)&&inHH(t));
-  const purchases=spendTxns(pr.from,pr.to);
-  const rows=exp.map(c=>{ const tx=inP.filter(t=>t.cat===c.id); return {c,tx,amt:s.byCat[c.id]||0}; });
+  const rows=cats.map(c=>({c,tx:inP.filter(t=>t.cat===c.id),amt:cur.o[c.id]||0}));
   const spent=rows.filter(r=>Math.abs(r.amt)>0.004).sort((a,b)=>b.amt-a.amt);
   const unused=rows.filter(r=>Math.abs(r.amt)<=0.004);
+  const monthTot=m=>{ const x=summarise(m+'-01',m+'-31'); return INC?x.moneyIn:x.spend; };
+  const catMon=(id,n)=>catMonthly(id,end,n).map(x=>({m:x.m,a:INC?-x.a:x.a}));
   // ---- headline stats
-  const days={}; purchases.forEach(t=>{ days[t.date]=(days[t.date]||0)-t.amount; });
+  const days={}; items.forEach(t=>{ days[t.date]=(days[t.date]||0)+val(t); });
   const bigDay=Object.entries(days).sort((a,b)=>b[1]-a[1])[0];
   const datesIn=inP.map(t=>t.date).sort(); const spanDays=datesIn.length?Math.round((new Date(datesIn[datesIn.length-1])-new Date(datesIn[0]))/86400000)+1:0;
-  const placesN=new Set(purchases.map(merchantKey)).size;
-  const avgBuy=purchases.length?purchases.reduce((a,t)=>a-t.amount,0)/purchases.length:0;
-  const budgeted=exp.filter(c=>c.budget>0); const budTotal=budgeted.reduce((a,c)=>a+budgetFor(c,pr),0);
-  const budSpent=budgeted.reduce((a,c)=>a+(s.byCat[c.id]||0),0);
+  const placesN=new Set(items.map(merchantKey)).size;
+  const avgBuy=items.length?totK/items.length:0;
+  const budgeted=cats.filter(c=>c.budget>0); const budTotal=budgeted.reduce((a,c)=>a+budgetFor(c,pr),0);
+  const budSpent=budgeted.reduce((a,c)=>a+(cur.o[c.id]||0),0);
   // ---- donut
   const parts=spent.filter(r=>r.amt>0).map(r=>({v:r.amt,c:r.c.color,n:r.c.name}));
-  if(s.uncatOut>0) parts.push({v:s.uncatOut,c:'var(--pending)',n:'Not reviewed yet'});
+  if(cur.un>0) parts.push({v:cur.un,c:'var(--pending)',n:'Not reviewed yet'});
   const legend=parts.slice(0,8).map(p=>`<div class="lg"><span class="dot" style="background:${p.c}"></span><span class="grow">${esc(p.n)}</span><b>${Math.round(p.v/total*100)}%</b></div>`).join('')+(parts.length>8?`<div class="small muted">+${parts.length-8} more below</div>`:'');
   // ---- category breakdown rows (tap for details)
   const card=(r)=>{
-    const c=r.c, amt=r.amt, bud=budgetFor(c,pr), over=bud&&amt>bud;
-    const before=ps?ps.byCat[c.id]||0:0; const diff=ps&&before?Math.round((amt-before)/before*100):null;
-    const sp=r.tx.filter(t=>t.amount<0);
-    const avg=sp.length?sp.reduce((a,t)=>a-t.amount,0)/sp.length:0;
+    const c=r.c, amt=r.amt, bud=budgetFor(c,pr), over=!INC&&bud&&amt>bud;
+    const before=prevK?prevK.o[c.id]||0:0; const diff=prevK&&before?Math.round((amt-before)/before*100):null;
+    const sp=r.tx.filter(t=>INC?t.amount>0:t.amount<0);
+    const avg=sp.length?sp.reduce((a,t)=>a+val(t),0)/sp.length:0;
     const open=catOpen===c.id; let detail='';
     if(open){
-      const places={}; sp.forEach(t=>{const k=merchantKey(t); (places[k]=places[k]||{n:0,a:0}); places[k].n++; places[k].a-=t.amount;});
+      const places={}; sp.forEach(t=>{const k=merchantKey(t); (places[k]=places[k]||{n:0,a:0}); places[k].n++; places[k].a+=val(t);});
       const top=Object.entries(places).sort((a,b)=>b[1].a-a[1].a).slice(0,5);
-      const biggest=[...sp].sort((a,b)=>a.amount-b.amount)[0];
-      const withData=catMonthly(c.id,end,12).filter(x=>coversFrom(x.m+'-01')&&x.m<latestYM());
+      const biggest=[...sp].sort((a,b)=>val(b)-val(a))[0];
+      const withData=catMon(c.id,12).filter(x=>coversFrom(x.m+'-01')&&x.m<latestYM());
       const mAvg=withData.length?withData.reduce((a,x)=>a+x.a,0)/withData.length:null;
+      const cls=INC?'pos':'neg';
       detail=`<div class="catdetail ${catJustOpened===c.id?'anim-open':''}" onclick="event.stopPropagation()">
         <div class="mini3"><div><div class="k">Transactions</div><div class="v">${r.tx.length}</div></div><div><div class="k">Average</div><div class="v">${money0(avg)}</div></div><div><div class="k">Monthly avg</div><div class="v">${mAvg!==null?money0(mAvg):'—'}</div></div></div>
-        <div class="small muted" style="margin:12px 0 0">Last 6 months</div>${barChartSVG(catMonthly(c.id,end,6).map(x=>MONTHS[+x.m.slice(5)-1]),[{vals:catMonthly(c.id,end,6).map(x=>x.a),color:c.color}],{h:130,values:true})}
-        ${top.length?`<div class="small muted" style="margin:8px 0 2px">Top places</div>${top.map(([k,p])=>`<div class="lrow"><span class="grow">${esc(titleCase(k))}<div class="small muted">${p.n} visit${p.n>1?'s':''}</div></span><b class="neg">${money(p.a)}</b></div>`).join('')}`:''}
-        ${biggest?`<div class="small muted" style="margin:12px 0 2px">Biggest</div><div class="lrow"><span class="grow">${esc(titleCase(cleanDesc(biggest.desc)))}<div class="small muted">${dayLabel(biggest.date)}</div></span><b class="neg">${money(biggest.amount)}</b></div>`:''}
+        <div class="small muted" style="margin:12px 0 0">Last 6 months</div>${barChartSVG(catMon(c.id,6).map(x=>MONTHS[+x.m.slice(5)-1]),[{vals:catMon(c.id,6).map(x=>x.a),color:c.color}],{h:130,values:true})}
+        ${top.length?`<div class="small muted" style="margin:8px 0 2px">${INC?'Top sources':'Top places'}</div>${top.map(([k,p])=>`<div class="lrow"><span class="grow">${esc(titleCase(k))}<div class="small muted">${p.n} ${INC?'payment':'visit'}${p.n>1?'s':''}</div></span><b class="${cls}">${money(p.a)}</b></div>`).join('')}`:''}
+        ${biggest?`<div class="small muted" style="margin:12px 0 2px">Biggest</div><div class="lrow"><span class="grow">${esc(titleCase(cleanDesc(biggest.desc)))}<div class="small muted">${dayLabel(biggest.date)}</div></span><b class="${cls}">${money(val(biggest))}</b></div>`:''}
         <button class="btn ghost" style="margin-top:10px" onclick="filterCat('${c.id}')">View transactions</button>
       </div>`;
     }
     const share=Math.round(Math.max(amt,0)/total*100);
     const fill=bud?Math.min(100,Math.max(amt,0)/bud*100):Math.max(amt,0)/total*100;
+    const chgBad=INC?diff<0:diff>0;
     return `<div class="crow ${open?'open':''}" onclick="toggleCat('${c.id}')">
       <div class="crow-top"><span class="dot" style="background:${c.color};margin:0"></span><span class="crow-name">${esc(c.name)}</span>
-        ${diff!==null&&diff!==0?`<span class="crow-chg ${diff>0?'neg':'pos'}">${diff>0?'▲':'▼'}${Math.abs(diff)}%</span>`:''}
-        <span class="crow-pct">${bud?(over?'over':Math.round(fill)+'% of budget'):share+'%'}</span>
+        ${diff!==null&&diff!==0?`<span class="crow-chg ${chgBad?'neg':'pos'}">${diff>0?'▲':'▼'}${Math.abs(diff)}%</span>`:''}
+        <span class="crow-pct">${bud?(over?'over':Math.round(fill)+(INC?'% of expected':'% of budget')):share+'%'}</span>
         <b class="crow-amt ${over?(overLvl(amt,bud)==='bad'?'over':'warnover'):''}">${money(amt)}</b><span class="crow-chev">${open?'▾':'›'}</span></div>
       <div class="crow-bar"><i style="width:${Math.max(fill,1)}%;background:${over?LVLCOL[overLvl(amt,bud)]:c.color}"></i></div>
       ${detail}</div>`;
   };
   // ---- 12-month trend
-  const m12=monthsBack(end,12); const v12=m12.map(m=>summarise(m+'-01',m+'-31').spend);
-  const full=m12.filter((m,i)=>coversFrom(m+'-01')&&m<latestYM()); const avg12=full.length?full.reduce((a,m)=>a+summarise(m+'-01',m+'-31').spend,0)/full.length:0;
+  const m12=monthsBack(end,12); const v12=m12.map(monthTot);
+  const full=m12.filter(m=>coversFrom(m+'-01')&&m<latestYM()); const avg12=full.length?full.reduce((a,m)=>a+monthTot(m),0)/full.length:0;
   // ---- in vs out, 6 months
   const m6=monthsBack(end,6); const s6=m6.map(m=>summarise(m+'-01',m+'-31'));
   // ---- weekday
-  const wd=[0,0,0,0,0,0,0], wn=[0,0,0,0,0,0,0]; purchases.forEach(t=>{ const d=(new Date(t.date+'T00:00:00').getDay()+6)%7; wd[d]-=t.amount; wn[d]++; });
+  const wd=[0,0,0,0,0,0,0], wn=[0,0,0,0,0,0,0]; items.forEach(t=>{ const d=(new Date(t.date+'T00:00:00').getDay()+6)%7; wd[d]+=val(t); wn[d]++; });
   const busiest=wd.indexOf(Math.max(...wd));
-  // ---- most visited
-  const visits={}; purchases.forEach(t=>{ const k=merchantKey(t); (visits[k]=visits[k]||{n:0,a:0}); visits[k].n++; visits[k].a-=t.amount; });
-  const topVisits=Object.entries(visits).sort((a,b)=>b[1].n-a[1].n||b[1].a-a[1].a).slice(0,6);
-  const incomeAmt=state.txns.filter(t=>inHH(t)&&catById(t.cat)?.kind==='income'&&inPeriod(t,pr.from,pr.to)).reduce((a,t)=>a+t.amount,0);
+  // ---- most visited / top sources
+  const visits={}; items.forEach(t=>{ const k=merchantKey(t); (visits[k]=visits[k]||{n:0,a:0}); visits[k].n++; visits[k].a+=val(t); });
+  const topVisits=Object.entries(visits).sort((a,b)=>INC?(b[1].a-a[1].a):(b[1].n-a[1].n||b[1].a-a[1].a)).slice(0,6);
   const xfer=inP.filter(t=>catById(t.cat)?.kind==='transfer');
+  const amtCls=INC?'pos':'neg', col=INC?'var(--good)':'var(--accent)';
   el.innerHTML=`${toggle}${periodControls()}
     ${s.uncatOut>0?`<div class="banner"><span>${money(s.uncatOut)} not reviewed yet</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
     ${chartCatsCard(pr)}
     <div class="cols">
     <div class="card"><h2>At a glance</h2>
       <div class="mini3">
-        <div><div class="k">Purchases</div><div class="v">${purchases.length}</div></div>
-        <div><div class="k">Average purchase</div><div class="v">${money0(avgBuy)}</div></div>
-        <div><div class="k">Per day</div><div class="v">${spanDays?money0(s.spend/spanDays):'—'}</div></div>
-        <div><div class="k">Places</div><div class="v">${placesN}</div></div>
+        <div><div class="k">${W.items}</div><div class="v">${items.length}</div></div>
+        <div><div class="k">Average ${W.item}</div><div class="v">${money0(avgBuy)}</div></div>
+        <div><div class="k">${W.per}</div><div class="v">${spanDays?money0(totK/spanDays):'—'}</div></div>
+        <div><div class="k">${W.places}</div><div class="v">${placesN}</div></div>
         <div><div class="k">Biggest day</div><div class="v" style="font-size:15px">${bigDay?money0(bigDay[1]):'—'}</div>${bigDay?`<div class="small muted">${dayLabel(bigDay[0]).replace(/ \d{4}$/,'')}</div>`:''}</div>
-        <div><div class="k">Budgets</div><div class="v ${budTotal&&budSpent>budTotal?'neg':''}" style="font-size:15px">${budTotal?money0(budSpent)+' / '+money0(budTotal):'None set'}</div></div>
+        <div><div class="k">${INC?'Expected':'Budgets'}</div><div class="v ${!INC&&budTotal&&budSpent>budTotal?'neg':''}" style="font-size:15px">${budTotal?money0(budSpent)+' / '+money0(budTotal):'None set'}</div></div>
       </div>
     </div>
-    <div class="card"><h2>Where it went</h2>
-      ${parts.length?`<div class="donutwrap">${donutSVG(parts,s.spend)}<div class="legend">${legend}</div></div>`:'<p class="muted">No spending in this period.</p>'}
+    <div class="card" data-mk="donut"><h2>${W.where}</h2>
+      ${parts.length?`<div class="donutwrap">${donutSVG(parts,totK,INC?'Received':'Spent')}<div class="legend">${legend}</div></div>`:`<p class="muted">No ${W.noun} in this period.</p>`}
     </div>
     ${spent.length?`<div class="card catlist"><h2 style="margin:12px 0 2px">Category breakdown</h2>${spent.map(card).join('')}</div>`:''}
-    <div class="card"><h2>Monthly spending</h2>${barChartSVG(m12.map(m=>MONTHS[+m.slice(5)-1].slice(0,1)+MONTHS[+m.slice(5)-1].slice(1,3)),[{vals:v12,color:'var(--accent)'}],{avg:avg12||0,h:190})}
+    <div class="card" data-mk="monthly"><h2>${W.mon}</h2>${barChartSVG(m12.map(m=>MONTHS[+m.slice(5)-1].slice(0,1)+MONTHS[+m.slice(5)-1].slice(1,3)),[{vals:v12,color:col}],{avg:avg12||0,h:190})}
       <p class="small muted" style="margin:4px 0 0">Last 12 months.${avg12?` Dashed line is your average over complete months.`:' The average line appears once you have a full month imported.'}</p></div>
     <div class="card"><h2>Money in vs spent</h2>${barChartSVG(m6.map(m=>MONTHS[+m.slice(5)-1]),[{vals:s6.map(x=>x.moneyIn),color:'var(--good)'},{vals:s6.map(x=>x.spend),color:'var(--bad)'}],{h:190})}
       <div class="small muted" style="display:flex;gap:14px;margin-top:4px"><span><span class="dot" style="background:var(--good)"></span>Money in</span><span><span class="dot" style="background:var(--bad)"></span>Spent</span></div></div>
-    <div class="card"><h2>Spending by day of week</h2>${barChartSVG(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],[{vals:wd,color:'var(--accent)'}],{h:170,values:true})}
-      ${purchases.length?`<p class="small muted" style="margin:4px 0 0">${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][busiest]} is your biggest spending day (${wn[busiest]} purchase${wn[busiest]===1?'':'s'}).</p>`:''}</div>
-    <div class="card"><h2>Most visited</h2>${topVisits.length?topVisits.map(([k,v],i)=>`<div class="lrow"><span class="rank">${i+1}</span><span class="grow">${esc(titleCase(k))}<div class="small muted">${v.n} visit${v.n>1?'s':''} · avg ${money0(v.a/v.n)}</div></span><b class="neg">${money(v.a)}</b></div>`).join(''):'<p class="muted small">Nothing yet.</p>'}</div>
-    <div class="card"><h2>Biggest purchases</h2>${purchases.length?[...purchases].sort((x,y)=>x.amount-y.amount).slice(0,5).map(t=>`<div class="lrow" style="cursor:pointer" onclick="openPicker('${encodeURIComponent(t.id)}')"><span class="grow">${esc(titleCase(cleanDesc(t.desc)))}<div class="small muted">${shortDay(t.date)}${t.cat?' · '+esc(catById(t.cat)?.name||''):''}</div></span><b class="neg">${money(t.amount)}</b></div>`).join(''):'<p class="muted small">Nothing yet.</p>'}</div>
-    <div class="card"><h2>Money in</h2>
-      ${(()=>{ const rowsIn=catsOfKind('income').map(c=>({c,a:inP.filter(t=>t.cat===c.id).reduce((x,t)=>x+t.amount,0)})).filter(r=>r.a).sort((a,b)=>b.a-a.a);
-        return rowsIn.length?rowsIn.map(r=>`<div class="lrow"><span class="grow"><span class="dot" style="background:${r.c.color}"></span>${esc(r.c.name)}</span><b class="pos">${money(r.a)}</b></div>`).join(''):'<p class="muted small">No income categorised in this period yet.</p>'; })()}
-      <div class="lrow"><span class="grow"><span class="dot" style="background:${catById('transfer')?.color||'#6d6d78'}"></span>${esc(catById('transfer')?.name||'Transfers')}<div class="small muted">${xfer.length} moved between accounts, not counted</div></span><b class="muted">${money(xfer.reduce((a,t)=>a+Math.abs(t.amount),0))}</b></div>
+    <div class="card" data-mk="weekday"><h2>${W.wday}</h2>${barChartSVG(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],[{vals:wd,color:col}],{h:170,values:true})}
+      ${items.length?`<p class="small muted" style="margin:4px 0 0">${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][busiest]} is your ${W.biggestDay} (${wn[busiest]} ${W.item}${wn[busiest]===1?'':'s'}).</p>`:''}</div>
+    <div class="card"><h2>${W.most}</h2>${topVisits.length?topVisits.map(([k,v],i)=>`<div class="lrow"><span class="rank">${i+1}</span><span class="grow">${esc(titleCase(k))}<div class="small muted">${v.n} ${INC?'payment':'visit'}${v.n>1?'s':''} · avg ${money0(v.a/v.n)}</div></span><b class="${amtCls}">${money(v.a)}</b></div>`).join(''):'<p class="muted small">Nothing yet.</p>'}</div>
+    <div class="card"><h2>${W.big}</h2>${items.length?[...items].sort((x,y)=>val(y)-val(x)).slice(0,5).map(t=>`<div class="lrow" style="cursor:pointer" onclick="openPicker('${encodeURIComponent(t.id)}')"><span class="grow">${esc(titleCase(cleanDesc(t.desc)))}<div class="small muted">${shortDay(t.date)}${t.cat?' · '+esc(catById(t.cat)?.name||''):''}</div></span><b class="${amtCls}">${money(val(t))}</b></div>`).join(''):'<p class="muted small">Nothing yet.</p>'}</div>
+    <div class="card"><h2>Transfers</h2>
+      <div class="lrow"><span class="grow"><span class="dot" style="background:${catById('transfer')?.color||'#6d6d78'}"></span>${esc(catById('transfer')?.name||'Transfers')}<div class="small muted">${xfer.length} moved between your own accounts · not counted as ${INC?'income':'spending'}</div></span><b class="muted">${money(xfer.reduce((a,t)=>a+Math.abs(t.amount),0))}</b></div>
     </div>
-    ${unused.length?`<div class="card"><h2>Nothing spent this period</h2><div style="display:flex;flex-wrap:wrap;gap:6px">${unused.map(r=>`<span class="chip"><span class="dot" style="background:${r.c.color};width:8px;height:8px;margin-right:5px"></span>${esc(r.c.name)}</span>`).join('')}</div></div>`:''}
+    ${unused.length?`<div class="card"><h2>${W.none}</h2><div style="display:flex;flex-wrap:wrap;gap:6px">${unused.map(r=>`<span class="chip"><span class="dot" style="background:${r.c.color};width:8px;height:8px;margin-right:5px"></span>${esc(r.c.name)}</span>`).join('')}</div></div>`:''}
     </div>`;
 }
 
