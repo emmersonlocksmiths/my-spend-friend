@@ -518,6 +518,7 @@ nav button.on .lic{color:var(--accent)}
 .dh-split{display:grid;grid-template-columns:1fr 1fr;gap:10px;border-top:1px solid var(--line);padding-top:12px}.dh-split .stat{background:none;border:0;box-shadow:none;padding:0}.dh-pace{margin:10px 0 0}
 .posrow{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line);cursor:pointer}.posrow:first-of-type{border-top:0}.posrow .grow{min-width:0}.posrow b{white-space:nowrap}.posic{width:32px;height:32px;border-radius:10px;background:var(--card2);display:inline-flex;align-items:center;justify-content:center;flex:none;color:var(--muted);font-size:16px}
 .rvmodes{margin-bottom:12px}.rvn{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--card2);font-size:11px;margin-left:4px}.rvn.warn{background:color-mix(in srgb,var(--accent) 30%,transparent)}
+.addproj{display:flex;gap:12px;align-items:center;cursor:pointer;border-style:dashed}.addproj .posic{font-size:22px;color:var(--accent)}
 .budempty{text-align:center}.budstart{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:14px 0 8px}
 .budtop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.budtop .k{font-size:13px;color:var(--muted);font-weight:600}.budbig{font-size:34px;font-weight:800;letter-spacing:-.8px;margin-top:2px}
 .budpill{font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;white-space:nowrap}.budpill.good{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}.budpill.mid{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}.budpill.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
@@ -563,7 +564,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.45';
+const APP_VERSION='0.46';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -573,7 +574,7 @@ let cloud=null;                 // set once signed in: {saveMeta(meta), saveTxns
 let synced=new Map();           // transaction id -> JSON as last synced
 let lastMeta='';                // household settings JSON as last synced
 let metaDirty=false;            // local settings change not yet sent
-function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false,projects:s.projects||[]}; }
+function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false,projects:s.projects||[],projSeeded:!!s.projSeeded}; }
 function save(){
   try{ localStorage.setItem(VIEW_KEY,JSON.stringify(state.view)); }catch(e){}
   if(!cloud) return;
@@ -591,10 +592,18 @@ function applyCloudMeta(meta){
   if(metaDirty) return; // our own newer change is on its way
   if(!meta){ return; }
   state.categories=meta.categories||state.categories; state.rules=meta.rules||state.rules;
-  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null; state.dupOk=meta.dupOk||[]; state.autoCat=meta.autoCat!==false; state.projects=meta.projects||[];
+  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null; state.dupOk=meta.dupOk||[]; state.autoCat=meta.autoCat!==false; state.projects=meta.projects||[]; state.projSeeded=!!meta.projSeeded;
   runMigrations();
   lastMeta=JSON.stringify(metaOf(state));
+  if(seedProjects()) save();
   scheduleRender();
+}
+// One-time: start the Projects tab with a Farm project.
+function seedProjects(){
+  if(state.projSeeded) return false;
+  state.projSeeded=true;
+  if(!(state.projects||[]).some(p=>/farm/i.test(p.name))) state.projects=[...(state.projects||[]),{id:'p'+Date.now().toString(36),name:'Farm',emoji:'🚜',cats:[],counted:false}];
+  return true;
 }
 function applyCloudTxns(list){
   state.txns=list;
@@ -853,10 +862,10 @@ function renderNav(){
   const hasLoan=loanAccts().length>0?'1':'0';
   if(!nav.querySelector('button')||nav.dataset.loan!==hasLoan){
     nav.dataset.loan=hasLoan;
-    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div>'+[...TABS,...(hasLoan==='1'?[['loan','🏠','Home loan']]:[]),['project','📁','Projects'],['settings','⚙️','Settings']].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='loan'||id==='project'||id==='settings'?'navdesk':''}${id==='settings'?' navset':''}" onclick="go('${id}')"><span class="ic">${icon(id)}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
+    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div>'+[...TABS,['project','📁','Projects'],['settings','⚙️','Settings']].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='loan'||id==='project'||id==='settings'?'navdesk':''}${id==='settings'?' navset':''}" onclick="go('${id}')"><span class="ic">${icon(id)}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
   }
   nav.querySelectorAll('button').forEach(b=>{
-    b.classList.toggle('on',b.dataset.tab===tab);
+    b.classList.toggle('on',b.dataset.tab===tab||(tab==='loan'&&b.dataset.tab==='project'));
     const bd=b.querySelector('.badge'); const show=b.dataset.tab==='review'&&n>0;
     if(bd){ if(show&&bd.textContent!==String(n)){ bd.textContent=n; bd.classList.remove('bump'); void bd.offsetWidth; bd.classList.add('bump'); } bd.style.display=show?'':'none'; }
   });
@@ -921,7 +930,7 @@ function animateNumbers(el){
   });
 }
 function animateNext(kind){ nextAnim=kind; }
-function go(t){ if(t!==tab) animateNext('tab'); if(t==='accounts'&&(tab==='accounts'||tab!=='accounts')) acctSel=null; tab=t; render(); window.scrollTo({top:0}); }
+function go(t){ if(t==='project') projSel=null; if(t!==tab) animateNext('tab'); if(t==='accounts'&&(tab==='accounts'||tab!=='accounts')) acctSel=null; tab=t; render(); window.scrollTo({top:0}); }
 function render(){
   if(appScreen!=='app') return;
   renderNav(); _loneSet=null; _matchMap=null;
@@ -1941,7 +1950,7 @@ function loanView(el,toggle,from){
   const daily=loanDaily(a), endBal=m=>{ const d=daily.filter(p=>p.d<=m+'-31'); return d.length?d[d.length-1].owing:null; };
   const leg=(items)=>`<div class="small muted" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px">${items.map(([c,l])=>`<span><span class="dot" style="background:${c}"></span>${l}</span>`).join('')}</div>`;
   const ml=m=>MONTHS[+m.slice(5)-1];
-  el.innerHTML=`${toggle||`<div class="loanback"><button class="pill" onclick="go('dashboard')">‹ Dashboard</button></div>`}
+  el.innerHTML=`${toggle||`<div class="loanback"><button class="pill" onclick="go('project')">‹ Projects</button></div>`}
     ${Ls.length>1?`<div class="acctfilter">${Ls.map(k=>`<button class="${k===a?'on':''}" onclick="loanSel='${k}';loanChartSel='${k}';animateNext('fade');render()">${esc(acctName(k))}</button>`).join('')}</div>`:''}
     <div class="card loanhero">
       <div class="small muted">🏠 ${esc(acctName(a))} · ${esc(a)}</div>
@@ -2265,7 +2274,7 @@ function toggleUserMenu(e){
   m.innerHTML=`<div class="um-head"><span class="avatar big">${esc(userInitial())}</span><div style="min-width:0"><b>${esc(userName())}</b><div class="small muted" style="overflow:hidden;text-overflow:ellipsis">${esc(userEmail()||'Signed in')}${admin?' · admin':''}</div></div></div>
     <button onclick="closeUserMenu();go('settings')">${icon('settings',20)} <span>Settings</span></button>
     <button onclick="closeUserMenu();go('settings');setTimeout(()=>document.getElementById('fileIn')?.click(),150)">${icon('import',20)} <span>Import CSV files</span></button>
-    <button onclick="closeUserMenu();go('settings');setTimeout(()=>document.getElementById('projset')?.scrollIntoView({behavior:'smooth'}),120)">${icon('project',20)} <span>Projects</span></button>
+    <button onclick="closeUserMenu();go('project')">${icon('project',20)} <span>Projects</span></button>
     <div class="um-theme"><span class="small muted">Appearance</span><div class="seg">${[['auto','Auto'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button class="${th===v?'on':''}" onclick="setThemePref('${v}');closeUserMenu();toggleUserMenu();if(tab==='settings')render()">${l}</button>`).join('')}</div></div>
     <button class="um-out" onclick="closeUserMenu();window.cloudApi&&cloudApi.logout()">${icon('signout',20)} <span>Sign out</span></button>
     <div class="small muted" style="text-align:center;padding:6px 0 2px">My Spend Friend v${APP_VERSION}</div>`;
@@ -2381,19 +2390,39 @@ function projPickRow(t){
 }
 function setTxnProj(id){ const t=pick.t; if(id==='__auto') delete t.proj; else t.proj=id; save(); drawPicker(); render(); toast(id&&id!=='__auto'?'Added to '+projById(id).name:id==='__auto'?'Follows its category':'Not in a project'); }
 let projSel=null;
-function openProject(id){ projSel=id; go('project'); }
+function openProject(id){ projSel=id; animateNext('tab'); tab='project'; render(); window.scrollTo({top:0}); }
 function projDashSection(){
   const P=state.projects||[]; if(!P.length) return '';
   const pr=periodRange();
-  return `<div class="sectionhead"><span>📁 Projects</span><button class="link small" onclick="go('settings');setTimeout(()=>document.getElementById('projset')?.scrollIntoView({behavior:'smooth'}),80)">Manage ›</button></div>
+  return `<div class="sectionhead"><span>📁 Projects</span><button class="link small" onclick="go('project')">All projects ›</button></div>
     <div class="loangrid">${P.map(p=>{ const s=projSum(p,pr.from,pr.to); return `<div class="card loancard" onclick="openProject('${p.id}')">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>${esc(p.emoji||'📁')} ${esc(p.name)}</h2><span class="link small">Details ›</span></div>
       ${s.tx.length?`<div class="loanbig ${s.net<0?'neg':'pos'}">${s.net<0?'−':'+'}${money(Math.abs(s.net))}<span class="small muted"> ${s.net<0?'loss':'profit'}</span></div>`:`<div class="loanbig muted" style="font-size:20px">No activity this period</div>`}
       <div class="mini3" style="margin-top:8px"><div><div class="k">Money in</div><div class="v pos" style="font-size:16px">${money0(s.inn)}</div></div><div><div class="k">Money out</div><div class="v neg" style="font-size:16px">${money0(s.out)}</div></div><div><div class="k">Transactions</div><div class="v" style="font-size:16px">${s.tx.length}</div></div></div>
       <p class="small muted" style="margin:6px 0 0">${esc(pr.label)} · ${p.counted?'included in':'kept out of'} household totals</p></div>`; }).join('')}</div>`;
 }
+// The Projects tab: your home loan(s) and every project, each opening its own page, with Add below.
+function renderProjectsHub(el){
+  const pr=periodRange(), L=loanAccts(), P=state.projects||[];
+  const loanCards=L.map(a=>{ const I=loanInfo(a), pj=loanProject(I,0); return `<div class="card loancard" onclick="openLoan('${a}')">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>🏠 ${esc(acctName(a))}</h2><span class="link small">Open ›</span></div>
+      <div class="loanbig">${money(I.owing)}<span class="small muted"> owing</span></div>
+      <div class="mini3" style="margin-top:8px"><div><div class="k">After offset</div><div class="v" style="font-size:16px">${I.offsetSet?money0(I.eff):'—'}</div></div><div><div class="k">Rate</div><div class="v" style="font-size:16px">${I.rate?I.rate.toFixed(2)+'%':'—'}</div></div><div><div class="k">Paid off</div><div class="v" style="font-size:16px">${pj&&!pj.never?monthYear(pj.date):'—'}</div></div></div>
+      <p class="small muted" style="margin:6px 0 0">Home loan · charts, payoff estimate and transactions</p></div>`; }).join('');
+  const projCards=P.map(p=>{ const q=projSum(p,pr.from,pr.to); return `<div class="card loancard" onclick="openProject('${p.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>${esc(p.emoji||'📁')} ${esc(p.name)}</h2><span class="link small">Open ›</span></div>
+      ${q.tx.length?`<div class="loanbig ${q.net<0?'neg':'pos'}">${q.net<0?'−':'+'}${money(Math.abs(q.net))}<span class="small muted"> ${q.net<0?'loss':'profit'}</span></div>`:`<div class="loanbig muted" style="font-size:20px">No activity this period</div>`}
+      <div class="mini3" style="margin-top:8px"><div><div class="k">Money in</div><div class="v pos" style="font-size:16px">${money0(q.inn)}</div></div><div><div class="k">Money out</div><div class="v neg" style="font-size:16px">${money0(q.out)}</div></div><div><div class="k">Transactions</div><div class="v" style="font-size:16px">${q.tx.length}</div></div></div>
+      <p class="small muted" style="margin:6px 0 0">${esc(pr.label)} · ${p.counted?'included in':'kept out of'} household totals</p></div>`; }).join('');
+  el.innerHTML=`<div class="budtopbar"><div><h2 style="margin:0">Projects</h2><div class="small muted">Your home loan and anything you track separately</div></div><button class="btn" onclick="newProject()">+ Add project</button></div>
+    ${periodControls()}
+    <div class="loangrid">${loanCards}${projCards}</div>
+    ${!L.length&&!P.length?`<div class="card"><p class="muted" style="margin:0">Nothing here yet. Add a project like the farm or an investment property, or import your home loan's CSV.</p></div>`:''}
+    <div class="card addproj" onclick="newProject()"><span class="posic">+</span><div><b>Add a project</b><div class="small muted">Group income and spending, like the farm or an investment property, to see its own profit or loss.</div></div></div>`;
+}
 function renderProject(el){
-  const p=projById(projSel)||(state.projects||[])[0];
+  if(!projSel||!projById(projSel)) return renderProjectsHub(el);
+  const p=projById(projSel);
   if(!p){ el.innerHTML=`<div class="card"><h2>📁 Projects</h2><p class="muted">Group income and spending, like the farm or an investment property, to see its own profit or loss.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="newProject()">+ New project</button><button class="btn ghost" onclick="newProject('Farm','🚜')">🚜 Farm</button><button class="btn ghost" onclick="newProject('Investment property','🏡')">🏡 Investment property</button></div></div>`; return; }
   projSel=p.id;
   const pr=periodRange(), s=projSum(p,pr.from,pr.to), all=projSum(p);
@@ -2402,7 +2431,7 @@ function renderProject(el){
   const byCat=dir=>{ const o={}; s.tx.filter(t=>dir>0?t.amount>0:t.amount<0).forEach(t=>{ const k=t.cat||'_none'; o[k]=(o[k]||0)+Math.abs(t.amount); }); return Object.entries(o).sort((a,b)=>b[1]-a[1]); };
   const catList=(rows,cls)=>rows.length?rows.map(([id,v])=>{ const c=id==='_none'?null:catById(id); return `<div class="lrow"><span class="dot" style="background:${c?c.color:'var(--muted)'}"></span><span class="grow">${c?esc(c.name):'Not sorted yet'}</span><b class="${cls}">${money(v)}</b></div>`; }).join(''):'<p class="muted small" style="margin:4px 0">None in this period.</p>';
   const tx=[...s.tx].sort((a,b)=>b.date.localeCompare(a.date));
-  el.innerHTML=`<div class="loanback"><button class="pill" onclick="go('dashboard')">‹ Dashboard</button><button class="pill" onclick="openProjEditor('${p.id}')">⚙️ Edit project</button></div>
+  el.innerHTML=`<div class="loanback"><button class="pill" onclick="go('project')">‹ Projects</button><button class="pill" onclick="openProjEditor('${p.id}')">⚙️ Edit project</button></div>
     ${(state.projects||[]).length>1?`<div class="acctfilter">${state.projects.map(q=>`<button class="${q===p?'on':''}" onclick="projSel='${q.id}';animateNext('fade');render()">${esc(q.emoji||'📁')} ${esc(q.name)}</button>`).join('')}</div>`:''}
     <div class="card loanhero"><div style="font-size:30px">${esc(p.emoji||'📁')}</div><h2 style="margin:4px 0 0">${esc(p.name)}</h2>
       <div class="small muted">${p.counted?'Included in':'Kept out of'} household totals</div></div>
@@ -2448,7 +2477,7 @@ function drawProjEditor(){
 function saveProject(){ const e=projEd, p=projById(e.id); if(!p) return;
   (state.projects||[]).forEach(q=>{ if(q!==p) q.cats=(q.cats||[]).filter(c=>!e.cats.has(c)); });
   Object.assign(p,{name:e.name.trim()||'Project',emoji:e.emoji.trim()||'📁',cats:[...e.cats],counted:e.counted}); save(); closeModal(); render(); toast('Project saved'); }
-function deleteProject(){ const id=projEd.id; state.projects=(state.projects||[]).filter(p=>p.id!==id); state.txns.forEach(t=>{ if(t.proj===id) delete t.proj; }); if(projSel===id) projSel=null; save(); closeModal(); if(tab==='project') go('dashboard'); else render(); toast('Project deleted'); }
+function deleteProject(){ const id=projEd.id; state.projects=(state.projects||[]).filter(p=>p.id!==id); state.txns.forEach(t=>{ if(t.proj===id) delete t.proj; }); if(projSel===id) projSel=null; save(); closeModal(); if(tab==='project') go('project'); else render(); toast('Project deleted'); }
 /* ============ Budget ============ */
 // Each expense category can have a budget per fortnight or per month; it's scaled to whatever period you're viewing.
 function budPer(c){ return c.budgetPer==='fortnight'?'fortnight':'month'; }
