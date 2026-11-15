@@ -607,7 +607,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.75';
+const APP_VERSION='0.76';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1291,21 +1291,30 @@ const DASH_CARDS=[
     for(let i=0;i<off;i++) cells.push('<div></div>'); for(let d=1;d<=nd;d++){ const k=ym+'-'+String(d).padStart(2,'0'), v=byD[k]||0, a=v?0.15+0.85*(v/mx):0; cells.push(`<div class="calday" title="${shortDay(k)}: ${money0(v)}" style="background:${v?`color-mix(in srgb,var(--accent) ${Math.round(a*100)}%,transparent)`:'var(--card2)'}"><span>${d}</span></div>`); }
     return dcard(FULLMONTHS[mm-1]+' spending','Transactions',"txReset();go('tx')",`<div class="calgrid">${['M','T','W','T','F','S','S'].map(x=>`<div class="calhd">${x}</div>`).join('')}${cells.join('')}</div><div class="small muted" style="margin-top:6px">Darker days are bigger spending days.</div>`); }}
 ];
+// One running-balance card per bank account, switched on individually.
+function acctBalCard(a){ const x=state.accounts[a]; if(!x) return ''; const d=acctDaily(a), col=acctColor(a), now=x.bal!=null?x.bal:(d.length?d[d.length-1].bal:null); if(now==null) return '';
+  const first=d[0], ch=first?now-first.bal:0;
+  return `<div class="card" data-mk="acct-${a}" onclick="openAcct('${a}')">${dashHead(esc(acctName(a)),'Account')}
+    <div class="snap-row"><div class="snap-v">${now<0?'−':''}${money0(Math.abs(now))}</div>${first?`<span class="small ${ch>=0?'pos':'neg'}">${ch>=0?'▲':'▼'} ${money0(Math.abs(ch))} since ${dayLabel(first.d).replace(/ \d{4}$/,'')}</span>`:''}</div>
+    ${acctLineSVG(a,col)||'<p class="muted small">The chart shows once there are a few days of transactions.</p>'}
+    <div class="small muted">${freshLine?freshLine(a):''}</div></div>`; }
+function dashCardList(){ return [...DASH_CARDS,...acctSort(Object.keys(state.accounts)).filter(a=>!isLoanAcct(a)&&acctTxCount(a)).map(a=>({id:'acct:'+a,grp:'Account balances',name:acctName(a)+(isOffset(a)?' (offset)':''),r:()=>acctBalCard(a)}))]; }
 function dashLayout(C){
   let out='', half=[];
   const flush=()=>{ if(half.length){ out+=`<div class="cols dashcols">${half.join('')}</div>`; half=[]; } };
-  dashOn().map(id=>DASH_CARDS.find(c=>c.id===id)).filter(Boolean).forEach(c=>{ let h=''; try{ h=c.r(C)||''; }catch(e){ console.error('dash card',c.id,e); } if(!h) return; if(c.full){ flush(); out+=h; } else half.push(h); });
+  const L=dashCardList();
+  dashOn().map(id=>L.find(c=>c.id===id)).filter(Boolean).forEach(c=>{ let h=''; try{ h=c.r(C)||''; }catch(e){ console.error('dash card',c.id,e); } if(!h) return; if(c.full){ flush(); out+=h; } else half.push(h); });
   flush();
   return out||`<div class="card"><h2>Your Dashboard is empty</h2><p class="muted">Choose which cards to show in Settings → Dashboard.</p><button class="btn" onclick="go('settings')">Choose cards</button></div>`;
 }
 function dashSettingsCard(){
-  const on=new Set(dashOn()), groups=[...new Set(DASH_CARDS.map(c=>c.grp))];
-  const order=dashOn().map(id=>DASH_CARDS.find(c=>c.id===id)).filter(Boolean);
+  const L=dashCardList(), on=new Set(dashOn()), GO=['Overview','Account balances','Budget','Charts','Accounts & projects','New'], groups=[...new Set(L.map(c=>c.grp))].sort((x,y)=>GO.indexOf(x)-GO.indexOf(y));
+  const order=dashOn().map(id=>L.find(c=>c.id===id)).filter(Boolean);
   return `<div class="card" id="dashSettings"><h2>Dashboard</h2><p class="small muted" style="margin-top:-6px">Choose what shows on your Dashboard. Each card opens the full version when you tap it.</p>
     <div class="catgroup" style="margin-top:12px">Your Dashboard, in order</div>
     ${order.length?order.map((c,i)=>`<div class="dashord"><span class="grow">${esc(c.name)}</span><button class="pill" ${i?'':'disabled'} onclick="dashMove('${c.id}',-1)" aria-label="Move up">↑</button><button class="pill" ${i<order.length-1?'':'disabled'} onclick="dashMove('${c.id}',1)" aria-label="Move down">↓</button></div>`).join(''):'<p class="muted small">Nothing switched on yet.</p>'}
     <div class="catgroup" style="margin-top:16px">All cards</div>
-    ${groups.map(g=>`<div class="catgroup" style="margin-top:12px">${g==='New'?'Extra insights':g}</div>${DASH_CARDS.filter(c=>c.grp===g).map(c=>`<label class="dashtog"><span>${esc(c.name)}</span><input type="checkbox" class="switch" ${on.has(c.id)?'checked':''} onchange="dashToggle('${c.id}')"></label>`).join('')}`).join('')}
+    ${groups.map(g=>`<div class="catgroup" style="margin-top:12px">${g==='New'?'Extra insights':g}</div>${g==='Account balances'?'<p class="small muted" style="margin:2px 0 4px">The running balance of each account, with its chart.</p>':''}${L.filter(c=>c.grp===g).map(c=>`<label class="dashtog"><span>${esc(c.name)}</span><input type="checkbox" class="switch" ${on.has(c.id)?'checked':''} onchange="dashToggle('${c.id}')"></label>`).join('')}`).join('')}
     <button class="btn ghost" style="margin-top:12px" onclick="state.dashCards=null;save();render()">Reset to the default cards</button></div>`;
 }
 // ----- Dashboard cards: quick versions of charts from around the app; tap one for the full view -----
