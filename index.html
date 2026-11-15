@@ -585,7 +585,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.56';
+const APP_VERSION='0.57';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1029,6 +1029,7 @@ function freshLine(a){
   return `<div class="fresh fresh-${lvl}"><span class="fdot"></span>Last updated ${agoTxt(n)}</div>`;
 }
 function shortDay(d){ const x=new Date(d+'T00:00:00'); return DAYS[x.getDay()]+' '+x.getDate()+' '+MONTHS[x.getMonth()]; }
+function dayYear(d){ return shortDay(d)+' '+d.slice(0,4); }
 function rangeFor(mode,a){
   if(mode==='fortnight'){ const f=a, t=isoAdd(f,13); return {from:f,to:t,months:12/26,label:shortDay(f)+' – '+shortDay(t),short:'previous fortnight'}; }
   if(mode==='month') return {from:a+'-01',to:a+'-31',months:1,label:ymLabel(a),short:MONTHS[+a.slice(5)-1]};
@@ -1477,7 +1478,7 @@ let dupOpen=false, dupReviewOpen=false;
 function dupCard(compact){
   const ds=doubleUps(); if(!ds.length) return '';
   if(compact&&!dupReviewOpen) return `<div class="banner dupbanner" onclick="dupReviewOpen=true;render()"><span>⚠️ <b>${ds.length}</b> thing${ds.length>1?'s':''} to check</span><button class="btn ghost">Check</button></div>`;
-  const row=(t,label)=>{ const c=t.cat?catById(t.cat):null; return `<div class="duprow">${label?`<span class="duplab">${label}</span>`:''}<span class="grow"><div class="dupacct">${acctTag(t.acct)}<span class="small muted">${state.accounts[t.acct]&&state.accounts[t.acct].name?esc(t.acct):'Account '+esc(t.acct)}</span></div><b>${esc(titleCase(cleanDesc(t.desc)))}</b><div class="small muted">${shortDay(t.date)} · <span class="chip ${c?(c.kind==='transfer'?'':(label==='Bill'?'':'warnchip')):'none'}">${c?esc(c.name):'To review'}</span></div></span><b class="${t.amount>0?'pos':'neg'}">${t.amount>0?'+':'−'}${money(Math.abs(t.amount))}</b></div>`; };
+  const row=(t,label)=>{ const c=t.cat?catById(t.cat):null; return `<div class="duprow">${label?`<span class="duplab">${label}</span>`:''}<span class="grow"><div class="dupacct">${acctTag(t.acct)}<span class="small muted">${state.accounts[t.acct]&&state.accounts[t.acct].name?esc(t.acct):'Account '+esc(t.acct)}</span></div><b>${esc(titleCase(cleanDesc(t.desc)))}</b><div class="small muted">${dayYear(t.date)} · <span class="chip ${c?(c.kind==='transfer'?'':(label==='Bill'?'':'warnchip')):'none'}">${c?esc(c.name):'To review'}</span></div></span><b class="${t.amount>0?'pos':'neg'}">${t.amount>0?'+':'−'}${money(Math.abs(t.amount))}</b></div>`; };
   const shown=dupOpen?ds:ds.slice(0,2);
   const doubles=ds.filter(d=>d.type==='double'), incs=ds.filter(d=>d.type==='income'), lone=ds.filter(d=>d.type==='unmatched');
   const twice=doubles.reduce((s,d)=>s-d.xfer.amount,0), extraIn=incs.reduce((s,d)=>s+d.inc.amount,0);
