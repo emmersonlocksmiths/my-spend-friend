@@ -565,7 +565,7 @@ nav button.on .lic{color:var(--accent)}
 .budedhead .btn{white-space:nowrap;flex:none}.budedhead>span{text-align:left}
 .budedhead{display:flex;gap:10px;justify-content:space-between;align-items:center;margin-bottom:12px}
 .budedrow{padding:12px 0;border-top:1px solid var(--line)}.budedname{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.budedctl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.budseg{margin:0}.budseg button{padding:8px 10px;font-size:13px}.budavg{margin-top:6px}.recapcard{cursor:pointer}.recap h3{margin:16px 0 6px;font-size:15px}.recaphead{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:center;margin-bottom:10px}.recaphead .pill{width:40px;height:36px;padding:0}.recapgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;background:var(--card2);border-radius:14px;padding:12px 6px}.recapgrid .k{font-size:12px;color:var(--muted)}.recapgrid .v{font-size:19px;font-weight:800}.modal.recap{max-height:88vh;overflow:auto}.banked{color:var(--good);font-weight:700}.short{color:var(--bad);font-weight:700}.goalrow{display:flex;align-items:center;gap:8px;margin:8px 0 0 30px;flex-wrap:wrap}.goalrow>span.small:first-child{flex-basis:100%;font-weight:700}.goalrow .ce-money{width:110px}.goalrow .goalby{width:150px!important;min-width:0!important;flex:none}.goalrow .ce-money{flex:none}.rolltog{display:flex;gap:10px;align-items:flex-start;margin-top:8px;cursor:pointer;font-size:14px}.rolltog input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--accent)}.rollctl{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);margin-top:10px;padding-top:10px}.rollctl select{width:auto;max-width:60%}.budmode{margin:4px 0 8px!important;display:inline-grid!important;grid-template-columns:1fr 1fr;width:200px!important;max-width:100%}.budmode button{white-space:nowrap;padding:6px 8px!important;font-size:13px!important;min-width:0;width:100%}.budhint{margin-top:4px;font-size:12.5px}
+.budedctl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.budseg{margin:0}.budseg button{padding:8px 10px;font-size:13px}.budavg{margin-top:6px}.taxbig{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:4px 0 2px}.taxaside{margin-top:10px;font-weight:700}.taxaside.short{color:var(--bad)}.taxaside.banked{color:var(--good)}.taxlines{margin-top:8px}.taxperson{display:grid;grid-template-columns:1fr 150px;gap:8px;margin:6px 0}.taxrow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;font-size:14px}.taxrow select{width:auto;max-width:55%}.recapcard{cursor:pointer}.recap h3{margin:16px 0 6px;font-size:15px}.recaphead{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:center;margin-bottom:10px}.recaphead .pill{width:40px;height:36px;padding:0}.recapgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;background:var(--card2);border-radius:14px;padding:12px 6px}.recapgrid .k{font-size:12px;color:var(--muted)}.recapgrid .v{font-size:19px;font-weight:800}.modal.recap{max-height:88vh;overflow:auto}.banked{color:var(--good);font-weight:700}.short{color:var(--bad);font-weight:700}.goalrow{display:flex;align-items:center;gap:8px;margin:8px 0 0 30px;flex-wrap:wrap}.goalrow>span.small:first-child{flex-basis:100%;font-weight:700}.goalrow .ce-money{width:110px}.goalrow .goalby{width:150px!important;min-width:0!important;flex:none}.goalrow .ce-money{flex:none}.rolltog{display:flex;gap:10px;align-items:flex-start;margin-top:8px;cursor:pointer;font-size:14px}.rolltog input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--accent)}.rollctl{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);margin-top:10px;padding-top:10px}.rollctl select{width:auto;max-width:60%}.budmode{margin:4px 0 8px!important;display:inline-grid!important;grid-template-columns:1fr 1fr;width:200px!important;max-width:100%}.budmode button{white-space:nowrap;padding:6px 8px!important;font-size:13px!important;min-width:0;width:100%}.budhint{margin-top:4px;font-size:12.5px}
 .chartcats .top>span:last-child{white-space:nowrap;flex:none}.chartcats .top{gap:8px}
 .ccthead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.ccseg{margin:0}.ccseg button{padding:7px 12px;font-size:13px}
 .loanfacts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 10px;margin-top:16px;text-align:left;padding-top:14px;border-top:1px solid var(--line)}
@@ -605,7 +605,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.68';
+const APP_VERSION='0.69';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -615,7 +615,7 @@ let cloud=null;                 // set once signed in: {saveMeta(meta), saveTxns
 let synced=new Map();           // transaction id -> JSON as last synced
 let lastMeta='';                // household settings JSON as last synced
 let metaDirty=false, metaPending=0, metaWaiting=null, metaLast=null;            // local settings change not yet sent
-function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false,projects:s.projects||[],projSeeded:!!s.projSeeded,catDeleted:(s.catDeleted||[]).slice(-100),budRoll:s.budRoll||null,avatars:s.avatars||{}}; }
+function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false,projects:s.projects||[],projSeeded:!!s.projSeeded,catDeleted:(s.catDeleted||[]).slice(-100),budRoll:s.budRoll||null,avatars:s.avatars||{},tax:s.tax||null}; }
 function save(){
   recordBudChanges();
   try{ localStorage.setItem(VIEW_KEY,JSON.stringify(state.view)); }catch(e){}
@@ -633,12 +633,12 @@ function scheduleRender(){ if(renderQueued) return; renderQueued=true; requestAn
 function applyCloudMeta(meta){
   if(metaDirty) return; // our own newer change is on its way
   if(!meta){ return; }
-  const localNewer={projects:state.projects,projSeeded:state.projSeeded,dupOk:state.dupOk,autoCat:state.autoCat,catDeleted:state.catDeleted,budRoll:state.budRoll,avatars:state.avatars};
+  const localNewer={projects:state.projects,projSeeded:state.projSeeded,dupOk:state.dupOk,autoCat:state.autoCat,catDeleted:state.catDeleted,budRoll:state.budRoll,avatars:state.avatars,tax:state.tax};
   state.categories=meta.categories||state.categories; state.rules=meta.rules||state.rules;
-  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null; state.dupOk=meta.dupOk||[]; state.autoCat=meta.autoCat!==false; state.projects=meta.projects||[]; state.projSeeded=!!meta.projSeeded; state.budRoll=meta.budRoll||null; state.avatars=meta.avatars||{};
+  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null; state.dupOk=meta.dupOk||[]; state.autoCat=meta.autoCat!==false; state.projects=meta.projects||[]; state.projSeeded=!!meta.projSeeded; state.budRoll=meta.budRoll||null; state.avatars=meta.avatars||{}; state.tax=meta.tax||null;
   // An older version of the app on another device may have saved without these newer settings: keep ours.
   let repaired=false;
-  for(const k of ['projects','projSeeded','dupOk','autoCat','catDeleted','budRoll','avatars']){ if(!(k in meta)&&localNewer[k]!==undefined){ state[k]=localNewer[k]; repaired=true; } }
+  for(const k of ['projects','projSeeded','dupOk','autoCat','catDeleted','budRoll','avatars','tax']){ if(!(k in meta)&&localNewer[k]!==undefined){ state[k]=localNewer[k]; repaired=true; } }
   if('catDeleted' in meta) state.catDeleted=meta.catDeleted||[];
   runMigrations();
   const merged=mergeDuplicateCats();
@@ -2478,6 +2478,7 @@ function renderSettings(el){
     <p class="small muted" style="margin:8px 0 0">Auto matches your phone's light or dark setting and switches with it. Saved on this device.</p>
   </div>
   ${payCycleCard()}
+  ${taxSettingsCard()}
   <div class="card"><h2>⬆️ Import transactions</h2>
     <div class="drop" id="drop" onclick="document.getElementById('fileIn').click()">
       <div style="font-size:28px">📄</div><b>Tap to choose Bankwest CSV file(s)</b><div class="small muted">or drag them here. You can pick several accounts at once.</div>
@@ -2660,6 +2661,7 @@ function renderProject(el){
       <div class="small muted">${p.counted?'Included in':'Kept out of'} household totals</div></div>
     ${periodControls()}
     <div class="cols">
+    ${(taxCfg().projects||[]).includes(p.id)?taxCard(false):''}
     ${projStatement(p,pr,s)}
     ${projMonthly(p,mShow,sShow)}
     ${projRunning(p,all)}
@@ -2852,7 +2854,7 @@ function renderBudget(el){
     el.innerHTML=`${periodControls()}<div class="card budempty"><div style="font-size:40px">🎯</div><h2>Set your budgets</h2>
       <p class="muted">Give each spending category a limit per fortnight or per month. You'll see what's left, what's gone over, and whether you're on track.</p>
       <div class="budstart"><button class="btn" onclick="startBudgets('fortnight')">Budget per fortnight</button><button class="btn ghost" onclick="startBudgets('month')">Per month</button></div>
-      <p class="small muted">You can mix them: groceries per fortnight, car servicing per month.</p></div>`;
+      <p class="small muted">You can mix them: groceries per fortnight, car servicing per month.</p></div>${taxCard(false)}`;
     return;
   }
   const budTop=`<div class="budtopbar"><div><h2 style="margin:0">Budget</h2><div class="small muted">${budgeted.length+incB.length} categor${budgeted.length+incB.length===1?'y':'ies'} budgeted</div></div><button class="btn" onclick="budEdit=true;render();window.scrollTo({top:0})">✏️ Edit budgets</button></div>`;
@@ -2890,6 +2892,7 @@ function renderBudget(el){
       ${current?`<div class="small muted" style="margin-top:6px">You've used <b>${Math.round(used*100)}%</b> of the budget and you're <b>${Math.round(frac*100)}%</b> of the way through.</div>`:''}
     </div>
     ${goalsCard()}
+    ${taxCard(false)}
     ${over.length||close.length||billFlags.length?`<div class="card"><h2>Needs attention</h2>${billFlags.map(b=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${b.c.id}')"><span class="dot" style="background:var(--bad)"></span><span class="grow">${esc(b.c.name)}<div class="small muted">Bill · ${freqLabel(b.c.billFreq)}</div></span><b class="neg">${esc(b.i.status)}</b></div>`).join('')}${over.map(r=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${r.c.id}')"><span class="dot" style="background:${LVLCOL[r.lvl]}"></span><span class="grow">${esc(r.c.name)}<div class="small muted">${money(r.sp)} of ${money0(r.b)}</div></span><b class="${r.lvl==='bad'?'neg':'warntxt'}">${money(r.sp-r.b)} over</b></div>`).join('')}${close.map(r=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${r.c.id}')"><span class="dot" style="background:var(--accent)"></span><span class="grow">${esc(r.c.name)}<div class="small muted">${Math.round(r.p*100)}% used</div></span><b>${money(r.b-r.sp)} left</b></div>`).join('')}</div>`:''}
     <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Budgets</h2><button class="pill" onclick="budEdit=true;render();window.scrollTo({top:0})">✏️ Edit budgets</button></div>
       ${current?`<p class="small muted" style="margin:-4px 0 6px">The thin line on each bar shows where you'd be if spending was spread evenly.</p>`:''}
@@ -3099,6 +3102,71 @@ async function doReset(){
 function onSignedOut(){ cloud=null; state=freshState(); synced=new Map(); lastMeta=''; metaDirty=false; showScreen('login'); }
 
 /* ============ Pay cycle setting ============ */
+
+/* ============ Tax set-aside ============ */
+// Australian resident rates by financial year (the year it starts). Medicare levy 2% on top.
+const TAX_TABLES={
+  2024:[[18200,0],[45000,.16],[135000,.30],[190000,.37],[Infinity,.45]],
+  2025:[[18200,0],[45000,.16],[135000,.30],[190000,.37],[Infinity,.45]],
+  2026:[[18200,0],[45000,.15],[135000,.30],[190000,.37],[Infinity,.45]],
+  2027:[[18200,0],[45000,.14],[135000,.30],[190000,.37],[Infinity,.45]]
+};
+function taxTable(y){ const ks=Object.keys(TAX_TABLES).map(Number); return TAX_TABLES[Math.min(Math.max(y,Math.min(...ks)),Math.max(...ks))]; }
+function incomeTax(inc,y){ let t=0,lo=0; for(const [hi,r] of taxTable(y)){ if(inc>lo) t+=(Math.min(inc,hi)-lo)*r; lo=hi; } return t+Math.max(0,inc)*0.02; }
+function marginal(inc,y){ let lo=0; for(const [hi,r] of taxTable(y)){ if(inc<=hi) return r; lo=hi; } return .45; }
+function fyOf(d){ const y=+d.slice(0,4), m=+d.slice(5,7); return m>=7?y:y-1; }
+function fyRange(y){ return {from:y+'-07-01',to:(y+1)+'-06-30',label:y+'–'+String(y+1).slice(2)}; }
+function taxCfg(){ if(!state.tax) state.tax={people:[{id:'p1',name:userName()==='You'?'Me':userName(),gross:0},{id:'p2',name:'Partner',gross:0}],who:'p1',projects:[],cats:[],acct:null,est:{}}; return state.tax; }
+function taxReady(){ const t=state.tax; return !!(t&&((t.projects||[]).length||(t.cats||[]).length)); }
+function taxInfo(y){
+  const t=taxCfg(), fy=fyRange(y), today=new Date().toLocaleDateString('en-CA'), to=today<fy.to?today:fy.to;
+  const person=t.people.find(x=>x.id===t.who)||t.people[0], gross=+person.gross||0;
+  const src=[];
+  (t.projects||[]).forEach(id=>{ const pj=projById(id); if(!pj) return; const q=projSum(pj,fy.from,to); src.push({name:(pj.emoji?pj.emoji+' ':'')+pj.name,inn:q.inn,out:q.out,net:q.inn-q.out}); });
+  (t.cats||[]).forEach(id=>{ const c=catById(id); if(!c) return; const inn=state.txns.filter(x=>x.cat===id&&x.amount>0&&inHH(x)&&x.date>=fy.from&&x.date<=to).reduce((a,x)=>a+x.amount,0); src.push({name:c.name,inn,out:0,net:inn}); });
+  const sofar=src.reduce((a,x)=>a+x.net,0);
+  const days=dayGap(fy.from,fy.to)+1, gone=today<fy.from?0:Math.min(days,dayGap(fy.from,to)+1), frac=gone/days;
+  const pace=frac>0.05?sofar/frac:sofar;
+  const est=t.est&&t.est[y]>0?+t.est[y]:null, base=est!=null?est:Math.max(0,pace);
+  const extra=incomeTax(gross+base,y)-incomeTax(gross,y);
+  const owedSoFar=est!=null?extra*frac:incomeTax(gross+Math.max(0,sofar),y)-incomeTax(gross,y);
+  const aside=t.acct&&state.accounts[t.acct]?(state.accounts[t.acct].bal||0):null;
+  return {fy,person,gross,src,sofar,pace,est,base,extra,owedSoFar,aside,frac,rate:marginal(gross+base,y),eff:base>0?extra/base:0};
+}
+function taxCard(compact){
+  if(!taxReady()) return '';
+  const y=fyOf(new Date().toLocaleDateString('en-CA')), i=taxInfo(y);
+  const short=i.aside!=null?i.owedSoFar-i.aside:null;
+  return `<div class="card taxcard"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h2>Tax to set aside</h2><span class="small muted">${i.fy.label} financial year</span></div>
+    <div class="taxbig">${money0(Math.max(0,i.owedSoFar))}<span class="small muted"> ${i.est!=null?'by now':'so far'}</span></div>
+    <div class="small muted">About <b>${money0(Math.max(0,i.extra))}</b> for the full year${i.est!=null?' (from your estimate)':' if it keeps going at this pace'}.</div>
+    ${i.aside!=null?`<div class="taxaside ${short>0.5?'short':'banked'}">${short>0.5?`${money0(short)} still to put aside`:'Covered ✓'} <span class="small muted">· ${money0(Math.max(0,i.aside))} in ${esc(acctName(taxCfg().acct))}</span></div>`:''}
+    ${compact?'':`<div class="taxlines">
+      ${i.src.map(x=>`<div class="lrow"><span class="grow">${esc(x.name)}<div class="small muted">${x.out?`In ${money0(x.inn)} · out ${money0(x.out)}`:'Money in'} since 1 July</div></span><b>${money0(x.net)}</b></div>`).join('')}
+      <div class="lrow"><span class="grow">Counted as ${esc(i.person.name)}'s income<div class="small muted">On top of a ${money0(i.gross)} salary · top rate ${Math.round(i.rate*100)}% + 2% Medicare</div></span><b>≈${Math.round(i.eff*100)}%</b></div>
+    </div>`}
+    <p class="small muted" style="margin:8px 0 0">An estimate to help you plan, not tax advice. ${i.est!=null?'':'It uses money in minus money out, which isn\'t the same as your taxable share, so add your accountant\'s figure in Settings → Tax when you have one.'}</p></div>`;
+}
+function taxSet(k,v){ const t=taxCfg(); if(k==='acct') t.acct=v||null; else if(k==='who') t.who=v; save(); render(); }
+function taxPerson(id,k,v){ const t=taxCfg(), x=t.people.find(q=>q.id===id); if(!x) return; x[k]=k==='gross'?Math.max(0,parseFloat(String(v).replace(/[$,]/g,''))||0):v; save(); }
+function taxToggle(list,id){ const t=taxCfg(), a=new Set(t[list]||[]); a.has(id)?a.delete(id):a.add(id); t[list]=[...a]; save(); render(); }
+function taxEst(v){ const t=taxCfg(), y=fyOf(new Date().toLocaleDateString('en-CA')); t.est=t.est||{}; const n=parseFloat(String(v).replace(/[$,]/g,''))||0; if(n>0) t.est[y]=n; else delete t.est[y]; save(); }
+function taxSettingsCard(){
+  const t=taxCfg(), y=fyOf(new Date().toLocaleDateString('en-CA')), fy=fyRange(y);
+  const accts=Object.keys(state.accounts).filter(a=>!isLoanAcct(a)&&acctTxCount(a));
+  return `<div class="card"><h2>Tax</h2>
+    <p class="small muted" style="margin-top:-6px">For income that comes in <b>before tax</b>, like a farm partnership. The app estimates the tax you'll owe on it so you can put it aside. Salaries are only used to work out your tax rate.</p>
+    <div class="catgroup">Gross salaries (per year, before tax)</div>
+    ${t.people.map(x=>`<div class="taxperson"><input value="${esc(x.name)}" oninput="taxPerson('${x.id}','name',this.value)" aria-label="Name"><div class="ce-money"><span>$</span><input type="text" inputmode="decimal" placeholder="0" value="${x.gross||''}" oninput="taxPerson('${x.id}','gross',this.value)"></div></div>`).join('')}
+    <div class="catgroup" style="margin-top:14px">Income that comes in before tax</div>
+    <div class="projpick">${(state.projects||[]).map(pj=>`<button class="${(t.projects||[]).includes(pj.id)?'on':''}" onclick="taxToggle('projects','${pj.id}')">${esc(pj.emoji||'📁')} ${esc(pj.name)}</button>`).join('')}${catsOfKind('income').map(c=>`<button class="${(t.cats||[]).includes(c.id)?'on':''}" onclick="taxToggle('cats','${c.id}')">${esc(c.name)}</button>`).join('')}</div>
+    <p class="small muted" style="margin:4px 0 0">For a project it uses money in minus money out.</p>
+    <div class="taxrow"><span>Counts as whose income</span><select onchange="taxSet('who',this.value)">${t.people.map(x=>`<option value="${x.id}" ${t.who===x.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
+    <div class="taxrow"><span>Your accountant's estimate of your taxable share for ${fy.label} <span class="small muted">(optional)</span></span><div class="ce-money" style="max-width:140px"><span>$</span><input type="text" inputmode="decimal" placeholder="Not set" value="${t.est&&t.est[y]||''}" oninput="taxEst(this.value)" onchange="render()"></div></div>
+    <div class="taxrow"><span>Account you keep tax money in <span class="small muted">(optional)</span></span><select onchange="taxSet('acct',this.value)"><option value="">None</option>${accts.map(a=>`<option value="${a}" ${t.acct===a?'selected':''}>${esc(acctName(a))}</option>`).join('')}</select></div>
+    ${taxReady()?taxCard(true):''}
+  </div>`;
+}
 function payCycleCard(){
   const today=new Date(); const td=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
   const cur=fortStartFor(td), set=!!(state.payCycle&&state.payCycle.start);
