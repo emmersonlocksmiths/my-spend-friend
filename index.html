@@ -528,6 +528,7 @@ nav button.on .lic{color:var(--accent)}
 .billst{font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--card2);white-space:nowrap}.billst.good{color:var(--good);background:color-mix(in srgb,var(--good) 14%,transparent)}.billst.mid{color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent)}.billst.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}.billst.muted{color:var(--muted)}
 .cmpgrid{display:grid;grid-template-columns:auto repeat(3,1fr);gap:10px 8px;align-items:baseline;margin-top:6px;font-variant-numeric:tabular-nums}.cmpgrid>span{text-align:right;font-weight:700;font-size:15px}.cmpgrid .cmph{font-size:11.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}.cmpgrid .cmpl{text-align:left;font-size:13px;color:var(--muted);font-weight:600}
 .cmpgrid>span:nth-child(n+13){border-top:1px solid var(--line);padding-top:8px;font-size:13.5px}
+.ignorebtn{display:grid;width:100%;text-align:left;margin-top:12px;padding:10px 14px;border-radius:14px;border:1px dashed var(--line);background:none;color:var(--muted);font:inherit;font-weight:600;cursor:pointer}.ignorebtn.sel{border-color:var(--accent);color:var(--ink)}.ignorebtn .small{font-weight:400}
 .budempty{text-align:center}.budstart{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:14px 0 8px}
 .budtop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.budtop .k{font-size:13px;color:var(--muted);font-weight:600}.budbig{font-size:34px;font-weight:800;letter-spacing:-.8px;margin-top:2px}
 .budpill{font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;white-space:nowrap}.budpill.good{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}.budpill.mid{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}.budpill.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
@@ -574,7 +575,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.53';
+const APP_VERSION='0.54';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -674,7 +675,7 @@ const DEFAULT_RULES = {
 };
 const INCOME_DEFAULTS=[['wages','Wages & Salary','#4cd964'],['business','Business income','#20c997'],['govt','Government payments','#74c0fc'],['interest','Interest','#a9e34b'],['income','Other income','#69db7c']];
 const INCOME_RULES={wages:['SALARY','WAGES','PAYROLL'],govt:['CENTRELINK','SERVICES AUSTRALIA','ATO','MEDICARE'],interest:['INTEREST','BONUS INTEREST']};
-const KIND_LABEL={income:'Income',expense:'Expenses',transfer:'Not counted (transfers)'};
+const KIND_LABEL={income:'Income',expense:'Expenses',transfer:'Not counted (transfers)',ignore:"Don't count"};
 function catsOfKind(k){ return state.categories.filter(c=>c.kind===k); }
 function freshState(){
   const cats = DEFAULT_CATS.map(([id,name],i)=>({id,name,color:id==='water'?'#22b8cf':PALETTE[i%PALETTE.length],kind:'expense',budget:0}));
@@ -693,6 +694,8 @@ function runMigrations(){
   // income categories (v0.13)
   if(c('income')&&c('income').name==='Income') c('income').name='Other income';
   const gone=new Set(state.catDeleted||[]);
+  // "Don't count" (v0.54): for old or one-off transactions that shouldn't affect any numbers
+  if(!c('ignore')&&!gone.has('ignore')) state.categories.push({id:'ignore',name:"Don't count",color:'#868e96',kind:'ignore',budget:0});
   INCOME_DEFAULTS.forEach(([id,name,color])=>{ if(!c(id)&&!gone.has(id)&&!state.categories.some(x=>x.kind==='income'&&normCat(x.name)===normCat(name))){ const i=state.categories.findIndex(x=>x.id==='income'); state.categories.splice(i<0?state.categories.length:i,0,{id,name,color,kind:'income',budget:0}); } });
   for(const [cat,kws] of Object.entries(INCOME_RULES)) kws.forEach(kw=>{ if(!state.rules.some(r=>r.kw===kw&&r.dir==='in')) state.rules.push({kw,cat,dir:'in',user:false}); });
   if(c('rent')&&c('rent').name==='Rent / Mortgage') c('rent').name='Rent';
@@ -1190,7 +1193,7 @@ function suggestionsFor(t,manualOnly){
   const out=[]; const add=(id,why)=>{ if(id&&catById(id)&&!out.some(x=>x.id===id)) out.push({id,why}); };
   if(OWN_XFER.test(t.desc)) add('transfer','Between your accounts');
   const k=merchantKey(t), dirOut=t.amount<0, hist={};
-  for(const x of state.txns){ if(x!==t&&x.cat&&!(manualOnly&&x.auto)&&(x.amount<0)===dirOut&&merchantKey(x)===k) hist[x.cat]=(hist[x.cat]||0)+1; }
+  for(const x of state.txns){ if(x!==t&&x.cat&&catKindOf(x.cat)!=='ignore'&&!(manualOnly&&x.auto)&&(x.amount<0)===dirOut&&merchantKey(x)===k) hist[x.cat]=(hist[x.cat]||0)+1; }
   Object.entries(hist).sort((a,b)=>b[1]-a[1]).forEach(([id,n])=>add(id,`Picked ${n}× here`));
   if(t.sug){ const r=findRule(t); add(t.sug, r?`Matches "${titleCase(r.kw)}"`:'Suggested'); }
   return out.slice(0,3);
@@ -1221,10 +1224,11 @@ function xferBlock(t,clickFn,selId){
   const why=p?`${mt&&mt.kind==='possible'&&!transferPairs().partner.get(t.id)?'Possible match':'Looks like it'}: ${p.amount>0?'+':'−'}${money(Math.abs(p.amount))} ${p.amount>0?'arrived in':'left'} ${esc(acctName(p.acct))} on ${shortDay(p.date)}.`:(likely?'Looks like money moved between your own accounts.':'Money moved between your own accounts. Not counted as income or spending.');
   return `<div class="rvxfer ${likely?'likely':''}">${ids.map(id=>{const c=catById(id); return `<button class="${selId===id?'sel':''}" onclick="${clickFn}('${id}',this)"><span class="xfic">↔️</span><span><b>${esc(c.name.replace(/\s*\(ignored\)/i,''))}</b><span class="why">${why}</span></span></button>`;}).join('')}</div>`;
 }
+function ignoreBtn(clickFn,selId){ const c=catById('ignore'); if(!c) return ''; return `<button class="ignorebtn ${selId==='ignore'?'sel':''}" onclick="${clickFn}('ignore',this)">🚫 Don't count this one<span class="small muted">Leaves it out of every total, chart and budget</span></button>`; }
 function groupedCatGrid(t,clickFn,selId){
   const gs=catGroupsFor(t), tr=gs.find(g=>g.kind==='transfer');
   const xfer=xferBlock(t,clickFn,selId);
-  return xfer+gs.filter(g=>g.kind!=='transfer').map(g=>`<div class="catgroup">${KIND_LABEL[g.kind]}</div><div class="catgrid">${g.ids.map(id=>{const c=catById(id); return `<button class="${selId===id?'sel':''}" onclick="${clickFn}('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>`).join('');
+  return xfer+gs.filter(g=>g.kind!=='transfer').map(g=>`<div class="catgroup">${KIND_LABEL[g.kind]}</div><div class="catgrid">${g.ids.map(id=>{const c=catById(id); return `<button class="${selId===id?'sel':''}" onclick="${clickFn}('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>`).join('')+ignoreBtn(clickFn,selId);
 }
 let rvMode='sort';
 function reviewModeBar(nSort,nCheck){
@@ -1303,6 +1307,7 @@ function renderReview(el){
     <details class="card" style="padding:12px 14px" ${rv.otherOpen?'open':''} ontoggle="rv.otherOpen=this.open"><summary style="cursor:pointer;font-weight:600">${credit?'Expenses':'Income'}</summary>
       ${otherGroups.map(g=>`${otherGroups.length>1?`<div class="catgroup">${KIND_LABEL[g.kind]}</div>`:''}<div class="catgrid rvpanel">${g.ids.map(id=>{const c=catById(id); return `<button onclick="reviewSave('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>`).join('')}</details>
     </div></div>
+    ${ignoreBtn('reviewSave')}
     <p class="kbdhint small muted">Keyboard: <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>Enter</kbd> top suggestion · <kbd>T</kbd> transfer · <kbd>→</kbd> skip · <kbd>←</kbd> back · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</p>
     </div>
 `;
@@ -1532,7 +1537,7 @@ function txnsCard(fixedAcct){
   list.sort(sorts[f.sort]||sorts.new);
   const tin=list.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0), tout=list.filter(t=>t.amount<0).reduce((s,t)=>s-t.amount,0);
   const grp=k=>`<optgroup label="${KIND_LABEL[k]}">${catsOfKind(k).map(c=>`<option value="${c.id}" ${f.cat===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</optgroup>`;
-  const catOpts=`<option value="">All categories</option><option value="_none" ${f.cat==='_none'?'selected':''}>Not reviewed yet</option>`+['expense','income','transfer'].map(grp).join('');
+  const catOpts=`<option value="">All categories</option><option value="_none" ${f.cat==='_none'?'selected':''}>Not reviewed yet</option>`+['expense','income','transfer'].map(grp).join('')+(catById('ignore')?`<option value="ignore" ${f.cat==='ignore'?'selected':''}>Don't count</option>`:'');
   const acctOpts=`<option value="">All accounts</option>`+acctSort(Object.keys(state.accounts).filter(a=>state.txns.some(t=>t.acct===a))).map(a=>`<option value="${a}" ${f.acct===a?'selected':''}>${esc(acctName(a))}</option>`).join('');
   const when=f.when||(f.period?'period':'');
   const advCount=[f.cat,!fixedAcct&&f.acct,when,f.min,f.max,f.sort!=='new'?1:''].filter(Boolean).length;
@@ -1574,7 +1579,7 @@ function txnList(list,groupDays){
     html+=`<div class="txn" onclick="openPicker('${encodeURIComponent(t.id)}')">
       <span class="dot" style="background:${c?c.color:'#f5b301'};margin:0"></span>
       <div class="mid"><div class="d">${esc(cleanDesc(t.desc))}</div><div class="s">${chip}${(()=>{const pj=projOf(t); return pj?`<span class="chip projchip">${esc(pj.emoji||'📁')} ${esc(pj.name)}</span>`:'';})()}${(()=>{const mt=matchFor(t); return mt?`<span class="chip matchchip ${mt.kind}">↔ ${mt.x.amount>0?'to':'from'} ${esc(acctName(mt.x.acct))}</span>`:'';})()}${groupDays?'':dayLabel(t.date)+' · '}${acctTag(t.acct)}</div></div>
-      <div class="amt ${c&&c.kind==='transfer'?'muted':t.amount>0?'pos':'neg'}">${t.amount>0?'+':''}${money(t.amount)}</div></div>`;
+      <div class="amt ${c&&(c.kind==='transfer'||c.kind==='ignore')?'muted':t.amount>0?'pos':'neg'}">${t.amount>0?'+':''}${money(t.amount)}</div></div>`;
   }
   return html;
 }
@@ -2062,7 +2067,7 @@ function normAcct(s){
   return d;
 }
 // In household totals: counted account, and not in a project that's kept separate.
-function inHH(t){ if(!isCounted(t)) return false; const p=projOf(t); return !p||p.counted; }
+function inHH(t){ if(!isCounted(t)) return false; if(t.cat&&catKindOf(t.cat)==='ignore') return false; const p=projOf(t); return !p||p.counted; }
 function isCounted(t){ const a=state.accounts[t.acct]; if(a&&a.type==='loan') return false; return !a||a.counted!==false; }
 function acctTxCount(a){ return state.txns.filter(t=>t.acct===a).length; }
 function acctCard(a){
@@ -2238,7 +2243,7 @@ function acctDragStart(e,id,sel){
 // How money moved through one account: put in, spent (real spending), moved out (transfers to your other accounts).
 function isXferTx(t){ const c=t.cat?catById(t.cat):null; return (c&&c.kind==='transfer')||(!t.cat&&t.sug==='transfer'); }
 function acctFlow(a,from,to){
-  const tx=state.txns.filter(t=>t.acct===a&&inPeriod(t,from,to));
+  const tx=state.txns.filter(t=>t.acct===a&&inPeriod(t,from,to)&&catKindOf(t.cat)!=='ignore');
   let putIn=0,spent=0,movedOut=0; const byCat={};
   tx.forEach(t=>{ if(t.amount>0){ putIn+=t.amount; return; } if(isXferTx(t)){ movedOut+=-t.amount; return; } spent+=-t.amount; const k=t.cat||'_none'; byCat[k]=(byCat[k]||0)-t.amount; });
   return {putIn,spent,movedOut,net:putIn-spent-movedOut,byCat,n:tx.length};
@@ -2259,7 +2264,7 @@ function renderAcctDetail(el,a){
       <div class="card"><h2>Transfers with your accounts</h2>${mentions.length?txnList(mentions,true):'<p class="muted small">None.</p>'}</div>`;
     return;
   }
-  const inP=state.txns.filter(t=>t.acct===a&&inPeriod(t,pr.from,pr.to));
+  const inP=state.txns.filter(t=>t.acct===a&&inPeriod(t,pr.from,pr.to)&&catKindOf(t.cat)!=='ignore');
   const moneyIn=inP.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0), moneyOut=inP.filter(t=>t.amount<0).reduce((s,t)=>s-t.amount,0);
   const q=acctQ.toUpperCase();
   const list=state.txns.filter(t=>t.acct===a&&(!q||t.desc.toUpperCase().includes(q))).sort((p,r)=>r.date.localeCompare(p.date)||p.id.localeCompare(r.id));
@@ -2414,7 +2419,7 @@ function confirmBox(msg){ try{ return window.confirm(msg); }catch(e){ return tru
 // Membership: a transaction's own project tag if set, otherwise the project its category belongs to.
 function projById(id){ return (state.projects||[]).find(p=>p.id===id)||null; }
 function projOf(t){ if(t.proj!==undefined) return t.proj?projById(t.proj):null; if(!t.cat) return null; return (state.projects||[]).find(p=>(p.cats||[]).includes(t.cat))||null; }
-function projTxns(p,from,to){ return state.txns.filter(t=>projOf(t)===p&&catKindOf(t.cat)!=='transfer'&&(!from||inPeriod(t,from,to))); }
+function projTxns(p,from,to){ return state.txns.filter(t=>projOf(t)===p&&catKindOf(t.cat)!=='transfer'&&catKindOf(t.cat)!=='ignore'&&(!from||inPeriod(t,from,to))); }
 function projSum(p,from,to){ const tx=projTxns(p,from,to); const inn=tx.filter(t=>t.amount>0).reduce((a,t)=>a+t.amount,0), out=tx.filter(t=>t.amount<0).reduce((a,t)=>a-t.amount,0); return {tx,inn,out,net:inn-out}; }
 function matchBox(t){
   const mt=matchFor(t); if(!mt) return '';
