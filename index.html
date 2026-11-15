@@ -574,7 +574,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.52';
+const APP_VERSION='0.53';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -855,11 +855,15 @@ function latestYM(){
 // Pay that lands a day or two before a fortnight starts (e.g. paid Thursday night, cycle starts Friday)
 // counts as income for the fortnight it's meant for. Spending always stays strictly within the dates.
 function earlyPayDays(){ const n=state.payCycle&&state.payCycle.early; return n==null?2:n; }
-function isPayCat(id){ const c=id?catById(id):null; return !!c&&c.kind==='income'&&(id==='wages'||/wage|salary|\bpay\b|payroll/i.test(c.name)); }
+// Which income counts as pay: the categories ticked in Settings → Pay cycle; by default Wages & Salary,
+// Business income and anything named like wages, salary or pay.
+function payCatIds(){ const pc=state.payCycle; if(pc&&Array.isArray(pc.payCats)) return pc.payCats; return catsOfKind('income').filter(c=>c.id==='wages'||c.id==='business'||/wage|salary|\bpay\b|payroll|business/i.test(c.name)).map(c=>c.id); }
+function isPayCat(id){ return !!id&&catKindOf(id)==='income'&&payCatIds().includes(id); }
+function setPayCat(id,on){ const ids=new Set(payCatIds()); if(on) ids.add(id); else ids.delete(id); state.payCycle={...(state.payCycle||{start:payRef()}),payCats:[...ids]}; save(); render(); }
 function isFortRange(from,to){ return isoAdd(from,13)===to&&fortStartFor(from)===from; }
 function incomeDate(t,from,to){
   const n=earlyPayDays(); if(!n||t.amount<=0||!isFortRange(from,to)) return t.date;
-  const pay=isPayCat(t.cat)||(!t.cat&&/\b(PAY|SALARY|WAGES?|PAYROLL)\b/i.test(t.desc)); if(!pay) return t.date;
+  const pay=isPayCat(t.cat)||((!t.cat||catKindOf(t.cat)==='income')&&/\b(PAY|SALARY|WAGES?|PAYROLL)\b/i.test(t.desc)); if(!pay) return t.date;
   const next=fortStartFor(isoAdd(t.date,n)); return next>t.date?next:t.date;
 }
 function inPeriod(t,from,to){ const d=incomeDate(t,from,to); return d>=from&&d<=to; }
@@ -2860,7 +2864,9 @@ function payCycleCard(){
     <input type="date" value="${set?state.payCycle.start:''}" onchange="if(this.value) setPayStart(this.value)">
     <label class="ce-lbl" style="margin-top:12px">Count early pay in the next fortnight</label>
     <select onchange="setEarlyPay(+this.value)">${[0,1,2,3].map(n=>`<option value="${n}" ${earlyPayDays()===n?'selected':''}>${n===0?'Off (count it on the day it arrives)':`Up to ${n} day${n>1?'s':''} early`}</option>`).join('')}</select>
-    <p class="small muted" style="margin:6px 0 0">Applies to Wages &amp; Salary only. Spending always stays within the fortnight's dates.</p>
+    <div class="small muted" style="margin:10px 0 6px">Which income counts as pay?</div>
+    <div class="projpick">${catsOfKind('income').map(c=>`<button class="${isPayCat(c.id)?'on':''}" onclick="setPayCat('${c.id}',${!isPayCat(c.id)})">${esc(c.name)}</button>`).join('')}</div>
+    <p class="small muted" style="margin:8px 0 0">Anything with "Pay", "Salary" or "Wages" in its description also counts. Spending always stays within the fortnight's dates.</p>
     <p class="small muted" style="margin:8px 0 0">${set?`Fortnights start on <b>${['Sundays','Mondays','Tuesdays','Wednesdays','Thursdays','Fridays','Saturdays'][new Date(payRef()+'T00:00:00').getDay()]}</b>. Current fortnight: <b>${shortDay(cur)} – ${shortDay(isoAdd(cur,13))}</b>.`:'Not set yet, so fortnights start on Mondays for now.'}</p>
   </div>`;
 }
