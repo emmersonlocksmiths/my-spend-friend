@@ -607,7 +607,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.71';
+const APP_VERSION='0.72';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1169,28 +1169,70 @@ function renderDashboard(el){
     ${staleBanner()}
     ${needs?`<div class="banner"><span>${needs}</span><button class="btn" onclick="rvMode=${n?"'sort'":"'check'"};go('review')">Review</button></div>`:''}
     ${periodControls()}
-    <div class="card dashhero">
-      <div class="k">${net<0?'Overspent':'Left over'}</div>
-      <div class="dh-big ${net<0?'neg':'pos'}">${net<0?'−':''}${money0(Math.abs(net))}</div>
-      <div class="dh-split">
-        <div class="stat"><div class="k">Money in</div><div class="v pos">${money0(s.moneyIn)}</div></div>
-        <div class="stat"><div class="k">Spent</div><div class="v neg">${money0(s.spend)}</div>${ch}</div>
-      </div>
-      ${pace.replace('dashpace small muted','small muted dh-pace')}
+    <div class="cols dashcols">
+    ${dashIncomeCard(pr)}
+    ${dashChangesCard(pr,s,pv,ps)}
+    ${dashGoalsCard()}
+    ${dashBankCard()}
+    ${dashLoanCards()}
     </div>
-    ${compareCard(pr,s,true)}
-    <div class="cols">
-    ${budMini(pr,s)}
-    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Where the money went</h2><button class="link small" onclick="go('cats')">Charts ›</button></div>
-      ${topN.length?catRows(topN):'<div class="catrow" style="pointer-events:none;display:flex;align-items:center"><p class="muted" style="margin:0">No sorted spending in this period yet.</p></div>'}${!dashAllCats?'<div class="catrow" aria-hidden="true" style="visibility:hidden;pointer-events:none"><div class="top"><span>&nbsp;</span><b>&nbsp;</b></div><div class="bar"><i style="width:0"></i></div><div class="budgetnote">&nbsp;</div></div>'.repeat(Math.max(0,5-topN.length-(topN.length?0:1))):''}
-      ${cats.length>5?`<button class="link small morecats" onclick="dashAllCats=!dashAllCats;render()">${dashAllCats?'Show top 5':'See all '+cats.length+' categories'}</button>`:`<span class="link small morecats" style="visibility:hidden" aria-hidden="true">See all</span>`}
-      ${s.uncatOut>0?`<div class="unrevnote" onclick="rvMode='sort';go('review')"><span>Plus <b>${money(s.uncatOut)}</b> not sorted yet</span><span class="link small">Review ›</span></div>`:`<div class="unrevnote" aria-hidden="true" style="visibility:hidden"><span>&nbsp;</span></div>`}
-    </div>
-    ${position}
-    </div>
-    ${recapCard()}
-    ${projDashSection()}
-    <p class="muted small" style="text-align:center">Transfers between your own accounts${P.some(p=>!p.counted)?' and projects kept separate':''} are left out of these totals.</p>`;
+    ${recapCard()}`;
+}
+
+// ----- Dashboard cards: quick versions of charts from around the app; tap one for the full view -----
+function dashHead(title,link,go){ return `<div style="display:flex;justify-content:space-between;align-items:baseline"><h2>${title}</h2><span class="link small">${link} ›</span></div>`; }
+function dashIncomeCard(pr){
+  const inc=catsOfKind('income').filter(c=>c.budget>0);
+  if(!inc.length) return `<div class="card" onclick="budEdit=true;go('budget')">${dashHead('Income vs expected','Set up')}<p class="muted small" style="margin:0">Add what you expect to earn in Edit budgets to compare it here.</p></div>`;
+  if(!pr.months) return `<div class="card" onclick="go('budget')">${dashHead('Income vs expected','Budget')}<p class="muted small" style="margin:0">Pick a fortnight, month or longer to compare.</p></div>`;
+  const rows=inc.map(c=>({c,b:budgetFor(c,pr),got:state.txns.filter(t=>t.cat===c.id&&t.amount>0&&inHH(t)&&inPeriod(t,pr.from,pr.to)).reduce((a,t)=>a+t.amount,0)}));
+  const B=rows.reduce((a,r)=>a+r.b,0), G=rows.reduce((a,r)=>a+r.got,0);
+  return `<div class="card" onclick="go('budget')">${dashHead('Income vs expected','Budget')}
+    <div class="snap-row" style="margin-bottom:6px"><div class="snap-v ${G+0.5<B?'':'pos'}">${money0(G)}<span class="small muted" style="font-weight:600"> of ${money0(B)}</span></div><span class="small ${G+0.5<B?'neg':'pos'}">${Math.abs(G-B)<1?'Right on':G<B?money0(B-G)+' short':money0(G-B)+' extra'}</span></div>
+    ${rows.map(r=>{ const pct=r.b?Math.min(100,r.got/r.b*100):100; return `<div class="catrow" style="pointer-events:none"><div class="top"><span><span class="dot" style="background:${r.c.color}"></span>${esc(r.c.name)}</span><b>${money0(r.got)}<span class="small muted"> / ${money0(r.b)}</span></b></div><div class="bar"><i style="width:${Math.max(pct,1.5)}%;background:${r.got+0.5>=r.b?'var(--good)':r.c.color}"></i></div></div>`; }).join('')}
+  </div>`;
+}
+function dashChangesCard(pr,s,pv,ps){
+  const head=`<div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Biggest changes</h2><span class="small muted">${pv?'vs '+esc(pv.short||'last period'):''}</span></div>`;
+  const ghost='<div class="lrow" aria-hidden="true" style="visibility:hidden"><span class="grow">&nbsp;<div class="small">&nbsp;</div></span></div>';
+  if(!ps) return `<div class="card">${head}<div class="small muted" style="margin:-4px 0 6px">Nothing to compare with yet</div>${ghost.repeat(5)}</div>`;
+  const ids=new Set([...Object.keys(s.byCat),...Object.keys(ps.byCat)].filter(id=>catKindOf(id)==='expense'));
+  const ch=[...ids].map(id=>({id,now:s.byCat[id]||0,was:ps.byCat[id]||0})).map(x=>({...x,d:x.now-x.was})).filter(x=>Math.abs(x.d)>=1).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d)).slice(0,5);
+  const tot=s.spend-ps.spend;
+  return `<div class="card">${head}
+    <div class="small muted" style="margin:-4px 0 6px">Spending overall ${Math.abs(tot)<1?'about the same':tot>0?`<b class="neg">up ${money0(tot)}</b>`:`<b class="pos">down ${money0(-tot)}</b>`}</div>
+    ${ch.map(x=>{ const c=catById(x.id); return `<div class="lrow" style="cursor:pointer" onclick="filterCat('${x.id}')"><span class="dot" style="background:${c.color}"></span><span class="grow">${esc(c.name)}<div class="small muted">${money0(x.now)} vs ${money0(x.was)}</div></span><b class="${x.d>0?'neg':'pos'}">${x.d>0?'▲':'▼'} ${money0(Math.abs(x.d))}</b></div>`; }).join('')}${ghost.repeat(Math.max(0,5-ch.length))}
+  </div>`;
+}
+function dashGoalsCard(){
+  const g=goalsCard();
+  if(!g) return `<div class="card" onclick="budEdit=true;go('budget')">${dashHead('Savings goals','Set up')}<p class="muted small" style="margin:0">Tick "Bank unspent money" on a category in Edit budgets, then add a goal amount and date.</p></div>`;
+  return g.replace('<div class="card"><h2>Savings goals</h2>',`<div class="card" onclick="go('budget')">${dashHead('Savings goals','Budget')}`).replace(/onclick="filterCat\(/g,'onclick="event.stopPropagation();filterCat(');
+}
+// All bank accounts added together, day by day.
+function bankSeries(){
+  const acs=Object.keys(state.accounts).filter(a=>!isLoanAcct(a)&&acctTxCount(a)&&state.accounts[a].counted!==false);
+  const per=acs.map(a=>acctDaily(a)).filter(d=>d.length);
+  const dates=[...new Set(per.flatMap(d=>d.map(p=>p.d)))].sort();
+  return dates.map(d=>({d,bal:per.reduce((sum,ser)=>{ let v=ser[0].bal; for(const p of ser){ if(p.d<=d) v=p.bal; else break; } return sum+v; },0)}));
+}
+function dashBankCard(){
+  const ser=bankSeries(); if(ser.length<2) return '';
+  const W=600,H=150,pl=8,pb=20,pt=18, vals=ser.map(p=>p.bal), min=Math.min(...vals), max=Math.max(...vals);
+  const t0=new Date(ser[0].d).getTime(), t1=new Date(ser[ser.length-1].d).getTime();
+  const X=d=>pl+(new Date(d).getTime()-t0)/Math.max(t1-t0,1)*(W-pl*2), Y=v=>pt+(max===min?.5:(max-v)/(max-min))*(H-pt-pb);
+  const pts=ser.map(p=>`${X(p.d).toFixed(1)},${Y(p.bal).toFixed(1)}`).join(' '), now=ser[ser.length-1].bal, first=ser[0].bal, col='var(--accent)';
+  return `<div class="card" data-mk="bankbal" onclick="go('accounts')">${dashHead('Bank balance over time','Accounts')}
+    <div class="snap-row"><div class="snap-v">${money0(now)}</div><span class="small ${now>=first?'pos':'neg'}">${now>=first?'▲':'▼'} ${money0(Math.abs(now-first))} since ${dayLabel(ser[0].d).replace(/ \d{4}$/,'')}</span></div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" style="margin-top:6px"><polyline points="${pl},${H-pb} ${pts} ${W-pl},${H-pb}" style="fill:color-mix(in srgb,${col} 14%,transparent);stroke:none"/><polyline points="${pts}" fill="none" style="stroke:${col}" stroke-width="2.5" stroke-linejoin="round"/>
+      <text x="${pl}" y="12" font-size="11" style="fill:var(--muted)">${money0(max)}</text><text x="${pl}" y="${H-5}" font-size="11" style="fill:var(--muted)">${dayLabel(ser[0].d).replace(/ \d{4}$/,'')}</text><text x="${W-pl}" y="${H-5}" text-anchor="end" font-size="11" style="fill:var(--muted)">${dayLabel(ser[ser.length-1].d).replace(/ \d{4}$/,'')}</text></svg>
+    <div class="small muted">All your bank accounts added together</div></div>`;
+}
+function dashLoanCards(){
+  return loanAccts().map(a=>{ const I=loanInfo(a), d=loanDaily(a), first=d[0], ch=first?first.owing-I.owing:0;
+    return `<div class="card" data-mk="loan-${a}" onclick="openLoan('${a}')">${dashHead(esc(acctName(a)),'Loan')}
+      <div class="snap-row"><div class="snap-v">${money0(I.owing)}<span class="small muted" style="font-weight:600"> owing</span></div>${first?`<span class="small ${ch>=0?'pos':'neg'}">${ch>=0?'▼':'▲'} ${money0(Math.abs(ch))} since ${dayLabel(first.d).replace(/ \d{4}$/,'')}</span>`:''}</div>
+      ${loanLineSVG(a,{h:150})||'<p class="muted small">The chart appears once there are a few weeks of loan transactions.</p>'}</div>`; }).join('');
 }
 let dashAllCats=false;
 // How bad is an overspend? A little over shows yellow; well over ($300+, or 50%+ and at least $50) shows red.
