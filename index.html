@@ -104,7 +104,7 @@ input[type=color]{background:none;border:1px solid var(--line)}
 .bar{height:7px;background:var(--track);border-radius:5px;margin-top:6px;overflow:hidden}
 .bar i{display:block;height:100%;border-radius:5px}
 .budgetnote{font-size:12px;color:var(--muted);margin-top:3px}
-.over{color:var(--bad)!important}
+.over{color:var(--bad)!important}.warnover,.warntxt{color:var(--accent)!important}
 .txn{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .txn:last-child{border-bottom:0}
 .txn .mid{flex:1;min-width:0}
@@ -587,7 +587,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.62';
+const APP_VERSION='0.63';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1085,9 +1085,9 @@ function renderDashboard(el){
     const before=ps?ps.byCat[id]||0:0;
     const diff=ps&&before?Math.round((amt-before)/before*100):null;
     return `<div class="catrow" onclick="filterCat('${id}')">
-      <div class="top"><span><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</span><span>${diff!==null&&diff!==0?`<span class="small ${diff>0?'neg':'pos'}" style="margin-right:8px">${diff>0?'▲':'▼'}${Math.abs(diff)}%</span>`:''}<b class="${over?'over':''}">${money(amt)}</b></span></div>
-      <div class="bar"><i style="width:${Math.max(pct,1.5)}%;background:${over?'var(--bad)':c.color}"></i></div>
-      ${bud?`<div class="budgetnote ${over?'over':''}">${over?money(amt-bud)+' over':money(bud-amt)+' left'} of ${money0(bud)} budget</div>`:''}
+      <div class="top"><span><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</span><span>${diff!==null&&diff!==0?`<span class="small ${diff>0?'neg':'pos'}" style="margin-right:8px">${diff>0?'▲':'▼'}${Math.abs(diff)}%</span>`:''}<b class="${over?(overLvl(amt,bud)==='bad'?'over':'warnover'):''}">${money(amt)}</b></span></div>
+      <div class="bar"><i style="width:${Math.max(pct,1.5)}%;background:${over?LVLCOL[overLvl(amt,bud)]:c.color}"></i></div>
+      ${bud?`<div class="budgetnote ${over?(overLvl(amt,bud)==='bad'?'over':'warnover'):''}">${over?money(amt-bud)+' over':money(bud-amt)+' left'} of ${money0(bud)} budget</div>`:''}
     </div>`;}).join('');
   const net=s.moneyIn-s.spend;
   // pace: a single quiet line under the totals (month view)
@@ -1144,6 +1144,9 @@ function renderDashboard(el){
     <p class="muted small" style="text-align:center">Transfers between your own accounts${P.some(p=>!p.counted)?' and projects kept separate':''} are left out of these totals.</p>`;
 }
 let dashAllCats=false;
+// How bad is an overspend? A little over shows yellow; well over ($300+, or 50%+ and at least $50) shows red.
+function overLvl(sp,b){ const o=sp-b; if(o<=0.004) return ''; return (o>=300||(o>=50&&(b<=0||o/b>=0.5)))?'bad':'mid'; }
+const LVLCOL={bad:'var(--bad)',mid:'var(--accent)'};
 // ----- Monthly summary -----
 function lastFullYM(){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function ymRange(ym){ const [y,m]=ym.split('-').map(Number); return {from:ym+'-01',to:new Date(y,m,0).toLocaleDateString('en-CA'),months:1,label:FULLMONTHS[m-1]+' '+y}; }
@@ -1183,8 +1186,8 @@ function staleBanner(){ const S=staleAccts(); if(!S.length) return '';
 function budMini(pr,s){
   const b=catsOfKind('expense').filter(c=>c.budget>0); if(!b.length||!pr.months) return '';
   const avail=c=>budgetFor(c,pr)+bankedFor(c,pr), bt=b.reduce((a,c)=>a+avail(c),0), sp=b.reduce((a,c)=>a+(s.byCat[c.id]||0),0), left=bt-sp, over=b.filter(c=>(s.byCat[c.id]||0)>avail(c)+0.004).length;
-  return `<div class="card snapcard" onclick="go('budget')"><div class="snap-k">Budget · ${esc(pr.label)}</div><div class="snap-row"><div class="snap-v ${left<0?'neg':''}">${money(Math.abs(left))}<span class="small muted" style="font-weight:600"> ${left<0?'over':'left'}</span></div><span class="link small">${over?`<span class="neg">${over} over</span> · `:''}Details ›</span></div>
-    <div class="bar" style="margin-top:8px"><i style="width:${bt>0?Math.min(100,sp/bt*100):100}%;background:${sp>bt?'var(--bad)':'var(--good)'}"></i></div></div>`;
+  return `<div class="card snapcard" onclick="go('budget')"><div class="snap-k">Budget · ${esc(pr.label)}</div><div class="snap-row"><div class="snap-v ${left<0?(overLvl(sp,bt)==='bad'?'neg':'warntxt'):''}">${money(Math.abs(left))}<span class="small muted" style="font-weight:600"> ${left<0?'over':'left'}</span></div><span class="link small">${over?`<span class="neg">${over} over</span> · `:''}Details ›</span></div>
+    <div class="bar" style="margin-top:8px"><i style="width:${bt>0?Math.min(100,sp/bt*100):100}%;background:${sp>bt?LVLCOL[overLvl(sp,bt)]:'var(--good)'}"></i></div></div>`;
 }
 const BILL_IDS=new Set(['rent','utilities','water','phone','insurance','subs']);
 function isBillCat(id){ const c=catById(id); return BILL_IDS.has(id)||(!!c&&/rent|mortgage|power|electric|water|\bgas\b|internet|phone|insurance|rates|subscription|kindy|kinder|childcare|school fee|council|rego/i.test(c.name)); }
@@ -1843,8 +1846,8 @@ function renderCharts(el){
       <div class="crow-top"><span class="dot" style="background:${c.color};margin:0"></span><span class="crow-name">${esc(c.name)}</span>
         ${diff!==null&&diff!==0?`<span class="crow-chg ${diff>0?'neg':'pos'}">${diff>0?'▲':'▼'}${Math.abs(diff)}%</span>`:''}
         <span class="crow-pct">${bud?(over?'over':Math.round(fill)+'% of budget'):share+'%'}</span>
-        <b class="crow-amt ${over?'over':''}">${money(amt)}</b><span class="crow-chev">${open?'▾':'›'}</span></div>
-      <div class="crow-bar"><i style="width:${Math.max(fill,1)}%;background:${over?'var(--bad)':c.color}"></i></div>
+        <b class="crow-amt ${over?(overLvl(amt,bud)==='bad'?'over':'warnover'):''}">${money(amt)}</b><span class="crow-chev">${open?'▾':'›'}</span></div>
+      <div class="crow-bar"><i style="width:${Math.max(fill,1)}%;background:${over?LVLCOL[overLvl(amt,bud)]:c.color}"></i></div>
       ${detail}</div>`;
   };
   // ---- 12-month trend
@@ -2789,32 +2792,33 @@ function renderBudget(el){
   const current=today>=pr.from&&today<=isoAdd(pr.from,days-1);
   const elapsed=current?dayGap(pr.from,today)+1:days, frac=elapsed/days, used=bTot?spTot/bTot:0;
   let status, scls;
-  if(used>1){ status='Over budget'; scls='bad'; }
+  if(used>1){ status='Over budget'; scls=overLvl(spTot,bTot); }
   else if(!current&&!coversFrom(pr.from)){ status='Part period'; scls='mid'; }
   else if(!current){ status=`Came in ${money0(left)} under`; scls='good'; }
   else if(used>frac+0.08){ status='Spending faster than planned'; scls='mid'; }
   else { status='On track'; scls='good'; }
   const unb=Object.entries(s.byCat).filter(([id,x])=>x>0.004&&!(catById(id)?.budget>0)&&catKindOf(id)==='expense').sort((a,b)=>b[1]-a[1]);
   const unbTot=unb.reduce((a,[,x])=>a+x,0)+(s.uncatOut||0);
+  rows.forEach(r=>{ r.lvl=r.p>1?overLvl(r.sp,r.b):''; });
   const over=rows.filter(r=>r.p>1), close=rows.filter(r=>r.p>=0.9&&r.p<=1), billFlags=bills.filter(b=>b.i.cls==='bad');
-  const row=r=>{ const pct=Math.min(100,r.p*100), cls=r.p>1?'bad':r.p>=0.9?'mid':'';
+  const row=r=>{ const pct=Math.min(100,r.p*100), cls=r.p>1?r.lvl:r.p>=0.9?'mid':'';
     return `<div class="catrow budrow" onclick="filterCat('${r.c.id}')">
-      <div class="top"><span><span class="dot" style="background:${r.c.color}"></span>${esc(r.c.name)}</span><b class="${r.p>1?'neg':''}">${money(r.sp)}<span class="small muted"> / ${money0(Math.max(0,r.b))}</span></b></div>
-      <div class="bar budbar ${cls}"><i style="width:${Math.max(pct,1.5)}%;background:${r.p>1?'var(--bad)':r.p>=0.9?'var(--accent)':r.c.color}"></i>${current?`<span class="pace" style="left:${frac*100}%"></span>`:''}</div>
+      <div class="top"><span><span class="dot" style="background:${r.c.color}"></span>${esc(r.c.name)}</span><b class="${r.lvl==='bad'?'neg':r.lvl==='mid'?'warntxt':''}">${money(r.sp)}<span class="small muted"> / ${money0(Math.max(0,r.b))}</span></b></div>
+      <div class="bar budbar ${cls}"><i style="width:${Math.max(pct,1.5)}%;background:${r.p>1?LVLCOL[r.lvl]:r.p>=0.9?'var(--accent)':r.c.color}"></i>${current?`<span class="pace" style="left:${frac*100}%"></span>`:''}</div>
       <div class="budnote ${cls}">${r.p>1?`${money(r.sp-r.b)} over`:`${money(r.b-r.sp)} left`}${Math.abs(r.bank)>=0.5?` · <span class="${r.bank>0?'banked':'short'}">${r.bank>0?`${money0(r.bank)} banked from before`:`${money0(-r.bank)} short from before`}</span>`:''}${budPer(r.c)!==state.view.mode&&state.view.mode!=='3m'&&state.view.mode!=='year'?` · ${money0(r.c.budget)} per ${budPer(r.c)}`:''}</div></div>`; };
   const incRows=incB.map(c=>({c,b:budgetFor(c,pr),got:state.txns.filter(t=>t.cat===c.id&&t.amount>0&&inHH(t)&&inPeriod(t,pr.from,pr.to)).reduce((a,t)=>a+t.amount,0),info:c.billFreq?billInfo(c,pr):null}));
   el.innerHTML=`${budTop}${periodControls()}
     ${compareCard(pr,s,false)}
     <div class="card budhero">
-      <div class="budtop"><div><div class="k">${left>=0?'Left to spend':'Over budget by'}</div><div class="budbig ${left<0?'neg':''}">${money(Math.abs(left))}</div></div><span class="budpill ${scls}">${status}</span></div>
-      <div class="bar budbar big"><i style="width:${Math.min(100,used*100)}%;background:${used>1?'var(--bad)':used>frac+0.08&&current?'var(--accent)':'var(--good)'}"></i>${current?`<span class="pace" style="left:${frac*100}%"></span>`:''}</div>
+      <div class="budtop"><div><div class="k">${left>=0?'Left to spend':'Over budget by'}</div><div class="budbig ${left<0?(overLvl(spTot,bTot)==='bad'?'neg':'warntxt'):''}">${money(Math.abs(left))}</div></div><span class="budpill ${scls}">${status}</span></div>
+      <div class="bar budbar big"><i style="width:${Math.min(100,used*100)}%;background:${used>1?LVLCOL[overLvl(spTot,bTot)]:used>frac+0.08&&current?'var(--accent)':'var(--good)'}"></i>${current?`<span class="pace" style="left:${frac*100}%"></span>`:''}</div>
       <div class="budmeta small muted"><span>Spent <b>${money(spTot)}</b> of ${money(bTot)}</span><span>${current?`Day ${elapsed} of ${days}`:'Finished'}</span></div>
       ${(()=>{ const bk=rows.reduce((x,r)=>x+r.bank,0); return Math.abs(bk)>=0.5?`<div class="small muted" style="margin-top:6px">Includes <span class="${bk>0?'banked':'short'}">${bk>0?money0(bk)+' banked':money0(-bk)+' short'}</span> carried over from earlier.</div>`:''; })()}
       ${!coversFrom(pr.from)?`<div class="small muted" style="margin-top:6px">Your imported transactions start partway through this period, so these numbers are incomplete.</div>`:''}
       ${current?`<div class="small muted" style="margin-top:6px">You've used <b>${Math.round(used*100)}%</b> of the budget and you're <b>${Math.round(frac*100)}%</b> of the way through.</div>`:''}
     </div>
     ${goalsCard()}
-    ${over.length||close.length||billFlags.length?`<div class="card"><h2>Needs attention</h2>${billFlags.map(b=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${b.c.id}')"><span class="dot" style="background:var(--bad)"></span><span class="grow">${esc(b.c.name)}<div class="small muted">Bill · ${freqLabel(b.c.billFreq)}</div></span><b class="neg">${esc(b.i.status)}</b></div>`).join('')}${over.map(r=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${r.c.id}')"><span class="dot" style="background:var(--bad)"></span><span class="grow">${esc(r.c.name)}<div class="small muted">${money(r.sp)} of ${money0(r.b)}</div></span><b class="neg">${money(r.sp-r.b)} over</b></div>`).join('')}${close.map(r=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${r.c.id}')"><span class="dot" style="background:var(--accent)"></span><span class="grow">${esc(r.c.name)}<div class="small muted">${Math.round(r.p*100)}% used</div></span><b>${money(r.b-r.sp)} left</b></div>`).join('')}</div>`:''}
+    ${over.length||close.length||billFlags.length?`<div class="card"><h2>Needs attention</h2>${billFlags.map(b=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${b.c.id}')"><span class="dot" style="background:var(--bad)"></span><span class="grow">${esc(b.c.name)}<div class="small muted">Bill · ${freqLabel(b.c.billFreq)}</div></span><b class="neg">${esc(b.i.status)}</b></div>`).join('')}${over.map(r=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${r.c.id}')"><span class="dot" style="background:${LVLCOL[r.lvl]}"></span><span class="grow">${esc(r.c.name)}<div class="small muted">${money(r.sp)} of ${money0(r.b)}</div></span><b class="${r.lvl==='bad'?'neg':'warntxt'}">${money(r.sp-r.b)} over</b></div>`).join('')}${close.map(r=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${r.c.id}')"><span class="dot" style="background:var(--accent)"></span><span class="grow">${esc(r.c.name)}<div class="small muted">${Math.round(r.p*100)}% used</div></span><b>${money(r.b-r.sp)} left</b></div>`).join('')}</div>`:''}
     <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Budgets</h2><button class="pill" onclick="budEdit=true;render();window.scrollTo({top:0})">✏️ Edit budgets</button></div>
       ${current?`<p class="small muted" style="margin:-4px 0 6px">The thin line on each bar shows where you'd be if spending was spread evenly.</p>`:''}
       ${rows.length?rows.map(row).join(''):'<p class="muted small">No everyday budgets yet.</p>'}${rows.some(r=>r.c.roll)?rollControl():''}</div>
