@@ -471,6 +471,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .dupcard{border:1px solid color-mix(in srgb,var(--accent) 55%,transparent);background:color-mix(in srgb,var(--accent) 7%,var(--card))}
 .duphead{display:flex;gap:10px;align-items:flex-start;margin-bottom:6px}.dupicon{font-size:20px;line-height:1.2}.dupn{display:inline-block;min-width:20px;padding:1px 6px;border-radius:10px;background:var(--accent);color:#1a1300;font-size:12px;vertical-align:middle;text-align:center}
 .dupitem{border-top:1px solid var(--line);padding:10px 0 4px;margin-top:8px}.duprow{display:flex;gap:10px;align-items:center;padding:4px 0}.duprow .grow{min-width:0}.duprow b{white-space:nowrap}
+.linklist{max-height:52vh;overflow:auto;display:grid;gap:6px}.linkrow{display:flex;gap:10px;align-items:center;padding:10px;border-radius:12px;border:1px solid var(--line);cursor:pointer}.linkrow.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--card))}.linkrow input{width:auto;flex:none}.linkrow .grow{min-width:0}
 .dupacct{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px}.dupacct .acctag{font-size:11px}
 .dupnote{margin:6px 0 0}.duptype{font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);margin-bottom:2px}.duplab{flex:none;width:58px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}.dupbtns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.dupbtns .btn{padding:8px 14px;font-size:14px}
 .dupfoot{display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
@@ -528,7 +529,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.39';
+const APP_VERSION='0.40';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1065,10 +1066,11 @@ function autoPick(t){
   const s=suggestionsFor(t,true).filter(x=>catKindOf(x.id)!=='transfer'||looksXfer(t));
   return s.length?s[0].id:null;
 }
+let lastAutoXfer=0;
 function autoCategorise(){
-  if(!autoOn()) return 0; let n=0;
+  if(!autoOn()) return 0; let n=0; lastAutoXfer=0;
   const todo=state.txns.filter(t=>!t.cat&&isCounted(t)).sort((a,b)=>a.date.localeCompare(b.date));
-  for(const t of todo){ const c=autoPick(t); if(c){ t.cat=c; t.auto=true; n++; } }
+  for(const t of todo){ const c=autoPick(t); if(c){ t.cat=c; t.auto=true; n++; if(catKindOf(c)==='transfer') lastAutoXfer++; } }
   return n;
 }
 function setAutoCat(on){ state.autoCat=on; let n=0; if(on) n=autoCategorise(); save(); render(); toast(on?(n?`Sorted ${n} automatically`:'Automatic sorting on'):'Automatic sorting off'); }
@@ -1196,7 +1198,7 @@ function reviewSave(catId,btn){
     applyCategory(t,catId);
     rv.done++;
     animateNext('left'); save(); render(); window.scrollTo({top:0});
-    toast(catById(catId).name);
+    setTimeout(()=>{ if(!askLinked(t,catId)) toast(catById(catId).name); },60);
   });
 }
 function reviewStep(d){
@@ -1227,8 +1229,16 @@ function transferPairs(){
   const sig=state.txns.length+'|'+Object.keys(state.accounts).length+'|'+(state.txns[0]&&state.txns[0].id);
   if(_pairsMemo.sig===sig&&_pairsMemo.list===state.txns&&_pairsMemo.first===state.txns[0]&&_pairsMemo.last===state.txns[state.txns.length-1]) return _pairsMemo;
   const ins=new Map(), used=new Set(), pairs=[], partner=new Map();
-  for(const t of state.txns) if(t.amount>0&&state.accounts[t.acct]){ const k=t.amount.toFixed(2); if(!ins.has(k)) ins.set(k,[]); ins.get(k).push(t); }
-  const outs=state.txns.filter(t=>t.amount<0&&state.accounts[t.acct]).sort((a,b)=>a.date.localeCompare(b.date));
+  // 1) Bankwest puts the same reference number on both sides of an internet transfer ("IB TRANSFER 1063515367 TO/FROM ...").
+  const byRef=new Map();
+  for(const t of state.txns){ if(!state.accounts[t.acct]) continue; const m=t.desc.match(/IB TRANSFER\s+(\d{6,})/i); if(!m) continue; if(!byRef.has(m[1])) byRef.set(m[1],[]); byRef.get(m[1]).push(t); }
+  for(const list of byRef.values()){
+    const o=list.find(t=>t.amount<0), i=list.find(t=>t.amount>0&&t.acct!==(o&&o.acct));
+    if(o&&i&&Math.abs(o.amount+i.amount)<0.005){ used.add(o.id); used.add(i.id); pairs.push([o,i]); partner.set(o.id,i); partner.set(i.id,o); }
+  }
+  // 2) Everything else: same amount out of one account and into another within 3 days.
+  for(const t of state.txns) if(t.amount>0&&state.accounts[t.acct]&&!used.has(t.id)){ const k=t.amount.toFixed(2); if(!ins.has(k)) ins.set(k,[]); ins.get(k).push(t); }
+  const outs=state.txns.filter(t=>t.amount<0&&state.accounts[t.acct]&&!used.has(t.id)).sort((a,b)=>a.date.localeCompare(b.date));
   for(const o of outs){
     const c=ins.get((-o.amount).toFixed(2)); if(!c) continue;
     let best=null, bd=9;
@@ -1457,7 +1467,52 @@ function drawPicker(){
     </div>
   </div></div>`;
 }
-function choose(catId){ applyCategory(pick.t,catId); save(); closePicker(); render(); toast('Saved'); }
+function choose(catId){ const t=pick.t; applyCategory(t,catId); save(); closePicker(); render(); setTimeout(()=>{ if(!askLinked(t,catId)) toast('Saved'); },230); }
+// After you set a category by hand, offer to set the same for every other transaction from that place.
+function linkedTxns(t,newCat){
+  const k=merchantKey(t), out=t.amount<0, partner=transferPairs().partner, toXfer=catKindOf(newCat)==='transfer';
+  return state.txns.filter(x=>x!==t&&isCounted(x)&&(x.amount<0)===out&&merchantKey(x)===k&&x.cat!==newCat&&(toXfer||!partner.has(x.id)));
+}
+let linkAsk=null;
+function askLinked(t,newCat){
+  const L=linkedTxns(t,newCat); if(!L.length) return false;
+  linkAsk={ids:L.map(x=>x.id),cat:newCat,place:titleCase(merchantKey(t).toLowerCase())};
+  const by={}; L.forEach(x=>{ const k=x.cat?catById(x.cat)?.name||'Other':'Not sorted yet'; by[k]=(by[k]||0)+1; });
+  const c=catById(newCat), tot=L.reduce((a,x)=>a+Math.abs(x.amount),0);
+  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)linkApply(false)"><div class="modal">
+    <div style="font-size:28px">🔗</div>
+    <h2 style="margin:6px 0 4px">Change the others too?</h2>
+    <p style="margin:0 0 10px">There ${L.length===1?'is':'are'} <b>${L.length}</b> other transaction${L.length===1?'':'s'} from <b>${esc(linkAsk.place)}</b> (${money(tot)}). Set ${L.length===1?'it':'them all'} to <span class="chip" style="background:${c.color}22">${esc(c.name)}</span> as well?</p>
+    <div class="small muted" style="margin-bottom:6px">Currently:</div>
+    ${Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<div class="lrow"><span class="grow">${esc(k)}</span><b>${n}</b></div>`).join('')}
+    <details style="margin-top:8px"><summary class="small" style="cursor:pointer">Show them</summary><div style="max-height:220px;overflow:auto;margin-top:6px">${L.sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<div class="lrow small"><span class="grow">${shortDay(x.date)} · ${esc(acctName(x.acct))}</span><b>${money(Math.abs(x.amount))}</b></div>`).join('')}</div></details>
+    <div style="display:grid;gap:8px;margin-top:14px"><button class="btn" onclick="linkApply(true)">Change all ${L.length}</button>${L.length>1?`<button class="btn ghost" onclick="linkPick()">Choose which ones</button>`:''}<button class="btn ghost" onclick="linkApply(false)">Just this one</button></div>
+    <p class="small muted" style="margin:10px 0 0">New ones from ${esc(linkAsk.place)} will follow what you pick most often here.</p>
+  </div></div>`;
+  return true;
+}
+// Go through them one by one: everything ticked to start with, untick the ones to leave as they are.
+function linkPick(){
+  const a=linkAsk; if(!a) return; if(!a.sel) a.sel=new Set(a.ids);
+  const c=catById(a.cat), L=state.txns.filter(x=>a.ids.includes(x.id)).sort((p,q)=>q.date.localeCompare(p.date));
+  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg"><div class="modal">
+    <h2 style="margin:0 0 4px">Choose which to change</h2>
+    <p class="small muted" style="margin:0 0 8px">Ticked ones will be set to <b>${esc(c.name)}</b>. Untick any that should stay as they are.</p>
+    <div style="display:flex;gap:14px;margin-bottom:6px"><button class="link small" onclick="linkAsk.sel=new Set(linkAsk.ids);linkPick()">Tick all</button><button class="link small" onclick="linkAsk.sel=new Set();linkPick()">Untick all</button></div>
+    <div class="linklist">${L.map(x=>{ const cc=x.cat?catById(x.cat):null, on=a.sel.has(x.id); return `<label class="linkrow ${on?'on':''}"><input type="checkbox" ${on?'checked':''} onchange="linkToggle('${encodeURIComponent(x.id)}',this.checked,this)">
+      <span class="grow"><b>${esc(titleCase(cleanDesc(x.desc)))}</b><span class="small muted" style="display:block">${shortDay(x.date)} · ${esc(acctName(x.acct))} · ${cc?esc(cc.name):'Not sorted yet'}${x.auto?' (auto)':''}</span></span>
+      <b class="${x.amount>0?'pos':'neg'}">${money(Math.abs(x.amount))}</b></label>`; }).join('')}</div>
+    <div style="display:grid;gap:8px;margin-top:12px"><button class="btn" id="linkgo" ${a.sel.size?'':'disabled'} onclick="linkApplySel()">Change ${a.sel.size} selected</button><button class="btn ghost" onclick="linkApply(false)">Cancel</button></div>
+  </div></div>`;
+}
+function linkToggle(enc,on,el){ const id=decodeURIComponent(enc); if(on) linkAsk.sel.add(id); else linkAsk.sel.delete(id);
+  if(el) el.closest('.linkrow').classList.toggle('on',on);
+  const btn=document.getElementById('linkgo'); if(btn){ btn.textContent=`Change ${linkAsk.sel.size} selected`; btn.disabled=!linkAsk.sel.size; } }
+function linkApplySel(){ const a=linkAsk; if(!a) return; a.ids=[...a.sel]; linkApply(true); }
+function linkApply(all){
+  const a=linkAsk; linkAsk=null; closeModal(); if(!a) return;
+  if(all){ rv.undo=snapshot(); const ids=new Set(a.ids); state.txns.forEach(x=>{ if(ids.has(x.id)) applyCategory(x,a.cat); }); save(); render(); toast(`Changed ${a.ids.length} more to ${catById(a.cat).name}`); }
+}
 function clearCat(){ pick.t.cat=null; save(); closePicker(); render(); toast('Back in Review'); }
 function closePicker(){ closeModal(); pick=null; }
 
@@ -2152,11 +2207,11 @@ async function handleFiles(files){
     try{ const r=importBankwest(await f.text()); for(const k in tot) tot[k]+=r[k]; }
     catch(e){ errs.push(f.name+': '+e.message); }
   }
-  const sorted=autoCategorise(); const left=uncatCount();
+  const sorted=autoCategorise(), xferN=lastAutoXfer, left=uncatCount();
   state.imports.push({at:new Date().toISOString(),files:files.length,...tot,sorted});
   if(tot.added) state.view.anchor=latestYM();
   save();
-  lastResult=`<b>${tot.added} new transaction${tot.added===1?'':'s'} added</b>${autoOn()?`<br><span class="small">${sorted} sorted automatically · ${left} still need${left===1?'s':''} a category</span>`:` · ${tot.review} to review`}${tot.loanTx?` · ${tot.loanTx} home loan transaction${tot.loanTx===1?'':'s'} added`:''}<br>
+  lastResult=`<b>${tot.added} new transaction${tot.added===1?'':'s'} added</b>${autoOn()?`<br><span class="small">${sorted} sorted automatically${xferN?` (including ${xferN} transfers matched between your accounts)`:''} · ${left} still need${left===1?'s':''} a category</span>`:` · ${tot.review} to review`}${tot.loanTx?` · ${tot.loanTx} home loan transaction${tot.loanTx===1?'':'s'} added`:''}<br>
     <span class="small">${tot.dupes} already imported (skipped) · ${tot.pending} pending (skipped)</span>
     ${tot.loansFound?`<div class="small" style="margin-top:6px">🏠 Found a home loan account. It's kept out of Review and spending; see it on the Dashboard.</div>`:''}
     ${errs.length?`<div class="small over" style="margin-top:6px">${errs.map(esc).join('<br>')}</div>`:''}
