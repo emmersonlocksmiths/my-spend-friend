@@ -490,6 +490,8 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .budedhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .budedrow{padding:12px 0;border-top:1px solid var(--line)}.budedname{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .budedctl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.budseg{margin:0}.budseg button{padding:8px 10px;font-size:13px}.budavg{margin-top:6px}
+.chartcats .top>span:last-child{white-space:nowrap;flex:none}.chartcats .top{gap:8px}
+.ccthead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.ccseg{margin:0}.ccseg button{padding:7px 12px;font-size:13px}
 .periodbar{position:sticky;top:0;z-index:6;margin:0 -14px 12px;padding:10px 14px 8px;padding-top:calc(10px + env(safe-area-inset-top));
   background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
 .periodbar.stuck{border-bottom-color:var(--line);box-shadow:0 6px 18px rgba(0,0,0,.18)}
@@ -520,7 +522,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.36';
+const APP_VERSION='0.37';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1504,6 +1506,28 @@ function barChartSVG(labels,series,opts={}){
 function monthsBack(end,n){ const a=[]; for(let i=n-1;i>=0;i--) a.push(ymAdd(end,-i)); return a; }
 
 /* ============ Charts tab ============ */
+// Every category with its total for the period; tap one to see its transactions.
+let chartCatKind='expense';
+function chartCatsCard(pr){
+  const kind=chartCatKind, tot={}, cnt={};
+  let unsorted=0, unsortedN=0;
+  for(const t of state.txns){
+    if(!isCounted(t)||!inPeriod(t,pr.from,pr.to)) continue;
+    if(!t.cat){ if((kind==='expense')===(t.amount<0)&&!(t.sug==='transfer'&&OWN_XFER.test(t.desc))){ unsorted+=Math.abs(t.amount); unsortedN++; } continue; }
+    if(catKindOf(t.cat)!==kind) continue;
+    const v=kind==='expense'?-t.amount:t.amount; tot[t.cat]=(tot[t.cat]||0)+v; cnt[t.cat]=(cnt[t.cat]||0)+1;
+  }
+  const rows=Object.entries(tot).filter(([,v])=>Math.abs(v)>0.004).sort((a,b)=>b[1]-a[1]);
+  const sum=rows.reduce((a,[,v])=>a+v,0), max=Math.max(...rows.map(r=>r[1]),1);
+  return `<div class="card chartcats"><div class="ccthead"><h2 style="margin:0">Categories</h2>
+      <div class="seg ccseg"><button class="${kind==='expense'?'on':''}" onclick="chartCatKind='expense';render()">Spending</button><button class="${kind==='income'?'on':''}" onclick="chartCatKind='income';render()">Income</button></div></div>
+    <div class="small muted" style="margin:6px 0 4px">${rows.length?`${money(sum)} across ${rows.length} categor${rows.length===1?'y':'ies'} · tap one to see its transactions`:`No ${kind==='expense'?'spending':'income'} sorted in this period yet.`}</div>
+    ${rows.map(([id,v])=>{ const c=catById(id); return `<div class="catrow" onclick="filterCat('${id}')">
+      <div class="top"><span><span class="dot" style="background:${c.color}"></span>${esc(c.name)} <span class="small muted">· ${cnt[id]}</span></span><span><span class="small muted" style="margin-right:8px">${sum?Math.round(v/sum*100):0}%</span><b>${money(v)}</b> <span class="muted">›</span></span></div>
+      <div class="bar"><i style="width:${Math.max(v/max*100,1.5)}%;background:${c.color}"></i></div></div>`; }).join('')}
+    ${unsortedN?`<div class="lrow" style="cursor:pointer;margin-top:4px" onclick="tab='accounts';acctSel='__all';txReset({dir:'review',when:'period'});render();window.scrollTo({top:0})"><span class="dot" style="background:var(--muted)"></span><span class="grow">Not sorted yet <span class="small muted">· ${unsortedN}</span></span><b>${money(unsorted)}</b> <span class="muted">›</span></div>`:''}
+  </div>`;
+}
 function renderCharts(el){
   const hasLoan=loanAccts().length>0;
   if(!hasLoan) chartsMode='spend';
@@ -1577,6 +1601,7 @@ function renderCharts(el){
   const xfer=inP.filter(t=>catById(t.cat)?.kind==='transfer');
   el.innerHTML=`${toggle}${periodControls()}
     ${s.uncatOut>0?`<div class="banner"><span>${money(s.uncatOut)} not reviewed yet</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
+    ${chartCatsCard(pr)}
     <div class="cols">
     <div class="card"><h2>At a glance</h2>
       <div class="mini3">
