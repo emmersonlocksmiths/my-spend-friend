@@ -494,7 +494,7 @@ input[type=date]{-webkit-appearance:none;appearance:none;display:block;width:100
 input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
 input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
 .card select,.card input{max-width:100%;box-sizing:border-box}
-@media(min-width:1000px){ nav .navset{margin-top:auto} }
+@media(min-width:1000px){ #avatarBtn,.usermenu{display:none!important} }
 nav button .ic{filter:none!important;opacity:1!important;display:flex;justify-content:center;line-height:0}
 nav button .lic{color:var(--muted);transition:color .2s,transform .2s}
 nav button.on .lic{color:var(--accent)}
@@ -514,6 +514,10 @@ nav button.on .lic{color:var(--accent)}
 .rvxfer button.sel{outline:2px solid var(--accent)}
 .rvxfer.likely button{border-style:solid;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--card))}
 .budtopbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.budtopbar .btn{flex:none}
+.dashhero{text-align:center}.dashhero>.k{font-size:13px;color:var(--muted);font-weight:600}.dh-big{font-size:40px;font-weight:800;letter-spacing:-1px;margin:2px 0 10px}
+.dh-split{display:grid;grid-template-columns:1fr 1fr;gap:10px;border-top:1px solid var(--line);padding-top:12px}.dh-split .stat{background:none;border:0;box-shadow:none;padding:0}.dh-pace{margin:10px 0 0}
+.posrow{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line);cursor:pointer}.posrow:first-of-type{border-top:0}.posrow .grow{min-width:0}.posrow b{white-space:nowrap}.posic{width:32px;height:32px;border-radius:10px;background:var(--card2);display:inline-flex;align-items:center;justify-content:center;flex:none;color:var(--muted);font-size:16px}
+.rvmodes{margin-bottom:12px}.rvn{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--card2);font-size:11px;margin-left:4px}.rvn.warn{background:color-mix(in srgb,var(--accent) 30%,transparent)}
 .budempty{text-align:center}.budstart{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:14px 0 8px}
 .budtop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.budtop .k{font-size:13px;color:var(--muted);font-weight:600}.budbig{font-size:34px;font-weight:800;letter-spacing:-.8px;margin-top:2px}
 .budpill{font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;white-space:nowrap}.budpill.good{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}.budpill.mid{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}.budpill.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
@@ -559,7 +563,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.44';
+const APP_VERSION='0.45';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -845,7 +849,7 @@ const ICONS={
 function icon(name,size){ return `<svg class="lic" width="${size||22}" height="${size||22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`; }
 const TABS=[['dashboard','📊','Dashboard'],['budget','🎯','Budget'],['cats','📈','Charts'],['accounts','🏦','Accounts'],['review','✅','Review']];
 function renderNav(){
-  const nav=document.getElementById('nav'), n=uncatCount();
+  const nav=document.getElementById('nav'), n=uncatCount()+doubleUps().length;
   const hasLoan=loanAccts().length>0?'1':'0';
   if(!nav.querySelector('button')||nav.dataset.loan!==hasLoan){
     nav.dataset.loan=hasLoan;
@@ -1027,47 +1031,51 @@ function renderDashboard(el){
     const avg=s.spend/Math.max(daysSoFar,1);
     pace=`<p class="dashpace small muted">${money0(avg)} a day on average${current?` · on track for <b>${money0(avg*dim)}</b> this month`:''}</p>`;
   }
-  // bills: only what's been categorised as a bill
-  const bills=cats.filter(([id])=>isBillCat(id));
-  const billsTot=bills.reduce((t,[,x])=>t+x,0);
-  const billsHtml=bills.length?bills.map(([id,amt])=>{ const c=catById(id); const tx=spendTxns(pr.from,pr.to).filter(t=>t.cat===id); const last=tx.reduce((m,t)=>t.date>m?t.date:m,'');
-      return `<div class="lrow" style="cursor:pointer" onclick="filterCat('${id}')"><span class="dot" style="background:${c.color}"></span><span class="grow">${esc(c.name)}<div class="small muted">${tx.length} payment${tx.length===1?'':'s'}${last?' · last '+shortDay(last):''}</div></span><b>${money(amt)}</b></div>`; }).join('')
-    :`<p class="muted small">Bills you've categorised (rent, power, water, phone, insurance, subscriptions) will show here.</p>`;
-  // money snapshot
+  // things that need you: to sort + worth a check, in one line
+  const nCheck=doubleUps().length;
+  const needs=[n?`<b>${n}</b> new transaction${n===1?'':'s'}`:'',nCheck?`<b>${nCheck}</b> worth a check`:''].filter(Boolean).join(' · ');
+  // your position: bank, home loan, projects
   const bank=acctSort(Object.keys(state.accounts)).filter(a=>{ const x=state.accounts[a]; return x.bal!=null&&x.counted!==false&&!isLoanAcct(a); });
   const bankTot=bank.reduce((t,a)=>t+state.accounts[a].bal,0);
-  const snap=bank.length?`<div class="card snapcard" onclick="go('accounts')"><div class="snap-k">In the bank</div><div class="snap-row"><div class="snap-v ${bankTot<0?'neg':''}">${money(bankTot)}</div><span class="link small">${bank.length} account${bank.length===1?'':'s'} ›</span></div></div>`:'';
+  const L=loanAccts();
+  const loanRows=L.map(a=>{ const I=loanInfo(a), pj=loanProject(I,0); return `<div class="posrow" onclick="openLoan('${a}')"><span class="posic">${icon('loan',18)}</span><span class="grow">${esc(acctName(a))}<div class="small muted">${I.offsetSet?`${money0(I.eff)} after offset · `:''}${pj&&!pj.never?`paid off ~${monthYear(pj.date)}`:'owing'}</div></span><b>${money0(I.owing)}</b><span class="muted">›</span></div>`; }).join('');
+  const P=state.projects||[];
+  const projRows=P.map(p=>{ const q=projSum(p,pr.from,pr.to); return `<div class="posrow" onclick="openProject('${p.id}')"><span class="posic">${esc(p.emoji||'📁')}</span><span class="grow">${esc(p.name)}<div class="small muted">${q.tx.length} transaction${q.tx.length===1?'':'s'} this period</div></span><b class="${q.net<0?'neg':'pos'}">${q.net<0?'−':'+'}${money0(Math.abs(q.net))}</b><span class="muted">›</span></div>`; }).join('');
+  const position=(bank.length||L.length)?`<div class="card"><h2>Your position</h2>
+      ${bank.length?`<div class="posrow" onclick="go('accounts')"><span class="posic">${icon('accounts',18)}</span><span class="grow">In the bank<div class="small muted">${bank.length} account${bank.length===1?'':'s'}</div></span><b class="${bankTot<0?'neg':''}">${money0(bankTot)}</b><span class="muted">›</span></div>`:''}
+      ${loanRows}</div>`:'';
+  const ch=ps?changeTag(s.spend,ps.spend,pv.short):'';
   const topN=dashAllCats?cats:cats.slice(0,5);
   el.innerHTML=`
     ${daysSince!==null&&daysSince>=7?`<div class="banner"><span>Last import was <b>${daysSince} days ago</b></span><button class="btn" onclick="go('settings')">Import</button></div>`:''}
-    ${n?`<div class="banner"><span><b>${n}</b> transaction${n>1?'s':''} to review</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
-    ${dupCard()}
+    ${needs?`<div class="banner"><span>${needs}</span><button class="btn" onclick="rvMode=${n?"'sort'":"'check'"};go('review')">Review</button></div>`:''}
     ${periodControls()}
-    <div class="stats">
-      <div class="stat"><div class="k">Money in</div><div class="v pos">${money0(s.moneyIn)}</div></div>
-      <div class="stat"><div class="k">Spent</div><div class="v neg">${money0(s.spend)}</div>${ps?changeTag(s.spend,ps.spend,pv.short):''}</div>
-      <div class="stat"><div class="k">Left over</div><div class="v ${net<0?'neg':'pos'}">${net<0?'−':''}${money0(Math.abs(net))}</div></div>
+    <div class="card dashhero">
+      <div class="k">${net<0?'Overspent':'Left over'}</div>
+      <div class="dh-big ${net<0?'neg':'pos'}">${net<0?'−':''}${money0(Math.abs(net))}</div>
+      <div class="dh-split">
+        <div class="stat"><div class="k">Money in</div><div class="v pos">${money0(s.moneyIn)}</div></div>
+        <div class="stat"><div class="k">Spent</div><div class="v neg">${money0(s.spend)}</div>${ch}</div>
+      </div>
+      ${pace.replace('dashpace small muted','small muted dh-pace')}
     </div>
-    ${pace}
     <div class="cols">
-    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Where the money went</h2><button class="link small" onclick="go('cats')">Charts ›</button></div>
-      ${topN.length?catRows(topN):'<p class="muted">No reviewed spending in this period yet.</p>'}
-      ${cats.length>5?`<button class="link small morecats" onclick="dashAllCats=!dashAllCats;render()">${dashAllCats?'Show top 5':'See all '+cats.length+' categories'}</button>`:''}
-      ${s.uncatOut>0?`<div class="unrevnote" onclick="go('review')"><span>Plus <b>${money(s.uncatOut)}</b> not reviewed yet</span><span class="link small">Review ›</span></div>`:''}
-    </div>
-    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Bills</h2>${bills.length?`<b>${money(billsTot)}</b>`:''}</div>${billsHtml}</div>
     ${budMini(pr,s)}
-    ${snap}
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Where the money went</h2><button class="link small" onclick="go('cats')">Charts ›</button></div>
+      ${topN.length?catRows(topN):'<p class="muted">No sorted spending in this period yet.</p>'}
+      ${cats.length>5?`<button class="link small morecats" onclick="dashAllCats=!dashAllCats;render()">${dashAllCats?'Show top 5':'See all '+cats.length+' categories'}</button>`:''}
+      ${s.uncatOut>0?`<div class="unrevnote" onclick="rvMode='sort';go('review')"><span>Plus <b>${money(s.uncatOut)}</b> not sorted yet</span><span class="link small">Review ›</span></div>`:''}
     </div>
-    ${loanDashSection()}
+    ${position}
+    </div>
     ${projDashSection()}
-    <p class="muted small" style="text-align:center">Transfers between your own accounts are left out of these totals.</p>`;
+    <p class="muted small" style="text-align:center">Transfers between your own accounts${P.some(p=>!p.counted)?' and projects kept separate':''} are left out of these totals.</p>`;
 }
 let dashAllCats=false;
 function budMini(pr,s){
   const b=catsOfKind('expense').filter(c=>c.budget>0); if(!b.length||!pr.months) return '';
   const bt=b.reduce((a,c)=>a+budgetFor(c,pr),0), sp=b.reduce((a,c)=>a+(s.byCat[c.id]||0),0), left=bt-sp, over=b.filter(c=>(s.byCat[c.id]||0)>budgetFor(c,pr)).length;
-  return `<div class="card snapcard" onclick="go('budget')"><div class="snap-k">Budget</div><div class="snap-row"><div class="snap-v ${left<0?'neg':''}">${money(Math.abs(left))}<span class="small muted" style="font-weight:600"> ${left<0?'over':'left'}</span></div><span class="link small">${over?`<span class="neg">${over} over</span> · `:''}Details ›</span></div>
+  return `<div class="card snapcard" onclick="go('budget')"><div class="snap-k">Budget · ${esc(pr.label)}</div><div class="snap-row"><div class="snap-v ${left<0?'neg':''}">${money(Math.abs(left))}<span class="small muted" style="font-weight:600"> ${left<0?'over':'left'}</span></div><span class="link small">${over?`<span class="neg">${over} over</span> · `:''}Details ›</span></div>
     <div class="bar" style="margin-top:8px"><i style="width:${Math.min(100,sp/bt*100)}%;background:${sp>bt?'var(--bad)':'var(--good)'}"></i></div></div>`;
 }
 const BILL_IDS=new Set(['rent','utilities','water','phone','insurance','subs']);
@@ -1167,12 +1175,22 @@ function groupedCatGrid(t,clickFn,selId){
   const xfer=xferBlock(t,clickFn,selId);
   return xfer+gs.filter(g=>g.kind!=='transfer').map(g=>`<div class="catgroup">${KIND_LABEL[g.kind]}</div><div class="catgrid">${g.ids.map(id=>{const c=catById(id); return `<button class="${selId===id?'sel':''}" onclick="${clickFn}('${id}',this)"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`;}).join('')}</div>`).join('');
 }
+let rvMode='sort';
+function reviewModeBar(nSort,nCheck){
+  if(!nCheck&&rvMode==='sort') return '';
+  return `<div class="seg rvmodes"><button class="${rvMode==='sort'?'on':''}" onclick="rvMode='sort';render()">New transactions${nSort?` <b class="rvn">${nSort}</b>`:''}</button><button class="${rvMode==='check'?'on':''}" onclick="rvMode='check';render()">Worth a check${nCheck?` <b class="rvn warn">${nCheck}</b>`:''}</button></div>`;
+}
 function renderReview(el){
+  const nCheck=doubleUps().length, nSort=reviewQueue(true).length;
+  if(rvMode==='check'){
+    el.innerHTML=reviewModeBar(nSort,nCheck)+(nCheck?`<p class="small muted" style="margin:0 2px 10px">These already have a category, but it looks wrong. The app cross-checks your accounts for double-ups and transfers that don't add up.</p>`+dupCard(false):`<div class="card" style="text-align:center"><div style="font-size:40px">✅</div><h2>Nothing to check</h2><p class="muted">No double-ups or unmatched transfers found.</p></div>`);
+    return;
+  }
   // Review works on one account at a time.
   const allQ=reviewQueue(true), perAcct={}; allQ.forEach(t=>{ perAcct[t.acct]=(perAcct[t.acct]||0)+1; });
   if(!allQ.length){
     rv.done=0; rv.acct=null;
-    el.innerHTML=`<div class="card" style="text-align:center"><div style="font-size:44px">🎉</div><h2>All caught up</h2><p class="muted">Every transaction in every account has been reviewed.</p>
+    el.innerHTML=reviewModeBar(0,nCheck)+`<div class="card" style="text-align:center"><div style="font-size:44px">🎉</div><h2>All caught up</h2><p class="muted">Every transaction in every account has been reviewed.</p>
       ${rv.undo?`<button class="btn ghost" onclick="reviewUndo()">↶ Undo last</button> `:''}<button class="btn ghost" onclick="go('dashboard')">Back to dashboard</button></div>`;
     return;
   }
@@ -1181,7 +1199,7 @@ function renderReview(el){
   const chip=a=>`<button class="${rv.acct===a?'on':''}" onclick="rvSwitch('${a}')"><span class="dot" style="background:${acctColor(a)};margin-right:6px"></span>${esc(acctName(a))} <b>${perAcct[a]||0}</b></button>`;
   const shown=[...new Set([rv.acct,...accts])];
   const filter=`<div class="small muted" style="margin:0 2px 6px">Reviewing account</div><div class="acctfilter">${shown.map(chip).join('')}</div>`;
-  const dupTop=dupCard(true)+(dupReviewOpen&&doubleUps().length?`<div style="text-align:right;margin:-6px 0 10px"><button class="link small" onclick="dupReviewOpen=false;render()">Hide</button></div>`:'');
+  const dupTop=reviewModeBar(allQ.length,nCheck);
   const toggle=dupTop+`<div class="seg" style="margin-bottom:12px"><button class="${!rv.list?'on':''}" onclick="rv.list=false;render()">One at a time</button><button class="${rv.list?'on':''}" onclick="rv.list=true;render()">List</button></div>`;
   const q=reviewQueue();
   if(!q.length){
@@ -2370,7 +2388,7 @@ function projDashSection(){
   return `<div class="sectionhead"><span>📁 Projects</span><button class="link small" onclick="go('settings');setTimeout(()=>document.getElementById('projset')?.scrollIntoView({behavior:'smooth'}),80)">Manage ›</button></div>
     <div class="loangrid">${P.map(p=>{ const s=projSum(p,pr.from,pr.to); return `<div class="card loancard" onclick="openProject('${p.id}')">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>${esc(p.emoji||'📁')} ${esc(p.name)}</h2><span class="link small">Details ›</span></div>
-      <div class="loanbig ${s.net<0?'neg':'pos'}">${s.net<0?'−':'+'}${money(Math.abs(s.net))}<span class="small muted"> ${s.net<0?'loss':'profit'}</span></div>
+      ${s.tx.length?`<div class="loanbig ${s.net<0?'neg':'pos'}">${s.net<0?'−':'+'}${money(Math.abs(s.net))}<span class="small muted"> ${s.net<0?'loss':'profit'}</span></div>`:`<div class="loanbig muted" style="font-size:20px">No activity this period</div>`}
       <div class="mini3" style="margin-top:8px"><div><div class="k">Money in</div><div class="v pos" style="font-size:16px">${money0(s.inn)}</div></div><div><div class="k">Money out</div><div class="v neg" style="font-size:16px">${money0(s.out)}</div></div><div><div class="k">Transactions</div><div class="v" style="font-size:16px">${s.tx.length}</div></div></div>
       <p class="small muted" style="margin:6px 0 0">${esc(pr.label)} · ${p.counted?'included in':'kept out of'} household totals</p></div>`; }).join('')}</div>`;
 }
