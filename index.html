@@ -494,6 +494,12 @@ input[type=date]{-webkit-appearance:none;appearance:none;display:block;width:100
 input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
 input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
 .card select,.card input{max-width:100%;box-sizing:border-box}
+@media(min-width:1000px){ nav .navset{margin-top:auto} }
+nav button .ic{filter:none!important;opacity:1!important;display:flex;justify-content:center;line-height:0}
+nav button .lic{color:var(--muted);transition:color .2s,transform .2s}
+nav button.on .lic{color:var(--accent)}
+@media(min-width:1000px){ nav button .ic{display:inline-flex} nav button .lic{width:20px;height:20px} }
+.usermenu>button .lic{color:var(--muted);flex:none}.usermenu>button.um-out .lic{color:var(--bad)}
 .pickbar{display:flex;justify-content:space-between;align-items:center;margin:-2px 0 12px}
 .dupacct{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px}.dupacct .acctag{font-size:11px}
 .dupnote{margin:6px 0 0}.duptype{font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);margin-bottom:2px}.duplab{flex:none;width:58px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}.dupbtns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.dupbtns .btn{padding:8px 14px;font-size:14px}
@@ -552,7 +558,7 @@ input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.42';
+const APP_VERSION='0.43';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -822,13 +828,27 @@ function uncatCount(){ return state.txns.filter(t=>!t.cat&&isCounted(t)).length;
 
 /* ============ Navigation ============ */
 let tab='dashboard';
+// Line icons (outline style, drawn in the current text colour).
+const ICONS={
+  dashboard:'<rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5" rx="1.5"/><rect x="13.5" y="11" width="7.5" height="10" rx="1.5"/><rect x="3" y="15" width="7.5" height="6" rx="1.5"/>',
+  budget:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>',
+  cats:'<path d="M3 3v18h18"/><path d="M7 16v-4"/><path d="M11.5 16V8"/><path d="M16 16v-6"/><path d="M20.5 16V5"/>',
+  accounts:'<path d="M3 9.5 12 4l9 5.5"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8"/><path d="M3 21h18"/>',
+  review:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.6 2.6L16.5 9"/>',
+  loan:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5.5h4V20"/>',
+  project:'<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/>',
+  settings:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  import:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
+  signout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'
+};
+function icon(name,size){ return `<svg class="lic" width="${size||22}" height="${size||22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`; }
 const TABS=[['dashboard','📊','Dashboard'],['budget','🎯','Budget'],['cats','📈','Charts'],['accounts','🏦','Accounts'],['review','✅','Review']];
 function renderNav(){
   const nav=document.getElementById('nav'), n=uncatCount();
   const hasLoan=loanAccts().length>0?'1':'0';
   if(!nav.querySelector('button')||nav.dataset.loan!==hasLoan){
     nav.dataset.loan=hasLoan;
-    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div>'+[...TABS,...(hasLoan==='1'?[['loan','🏠','Home loan']]:[]),['project','📁','Projects']].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='loan'||id==='project'?'navdesk':''}" onclick="go('${id}')"><span class="ic">${ic}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
+    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div>'+[...TABS,...(hasLoan==='1'?[['loan','🏠','Home loan']]:[]),['project','📁','Projects'],['settings','⚙️','Settings']].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='loan'||id==='project'||id==='settings'?'navdesk':''}${id==='settings'?' navset':''}" onclick="go('${id}')"><span class="ic">${icon(id)}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
   }
   nav.querySelectorAll('button').forEach(b=>{
     b.classList.toggle('on',b.dataset.tab===tab);
@@ -2224,11 +2244,11 @@ function toggleUserMenu(e){
   const th=window.getThemePref?getThemePref():'auto';
   const m=document.createElement('div'); m.id='usermenu'; m.className='usermenu';
   m.innerHTML=`<div class="um-head"><span class="avatar big">${esc(userInitial())}</span><div style="min-width:0"><b>${esc(userName())}</b><div class="small muted" style="overflow:hidden;text-overflow:ellipsis">${esc(userEmail()||'Signed in')}${admin?' · admin':''}</div></div></div>
-    <button onclick="closeUserMenu();go('settings')">⚙️ <span>Settings</span></button>
-    <button onclick="closeUserMenu();go('settings');setTimeout(()=>document.getElementById('fileIn')?.click(),150)">📥 <span>Import CSV files</span></button>
-    <button onclick="closeUserMenu();go('settings');setTimeout(()=>document.getElementById('projset')?.scrollIntoView({behavior:'smooth'}),120)">📁 <span>Projects</span></button>
+    <button onclick="closeUserMenu();go('settings')">${icon('settings',20)} <span>Settings</span></button>
+    <button onclick="closeUserMenu();go('settings');setTimeout(()=>document.getElementById('fileIn')?.click(),150)">${icon('import',20)} <span>Import CSV files</span></button>
+    <button onclick="closeUserMenu();go('settings');setTimeout(()=>document.getElementById('projset')?.scrollIntoView({behavior:'smooth'}),120)">${icon('project',20)} <span>Projects</span></button>
     <div class="um-theme"><span class="small muted">Appearance</span><div class="seg">${[['auto','Auto'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button class="${th===v?'on':''}" onclick="setThemePref('${v}');closeUserMenu();toggleUserMenu();if(tab==='settings')render()">${l}</button>`).join('')}</div></div>
-    <button class="um-out" onclick="closeUserMenu();window.cloudApi&&cloudApi.logout()">↪️ <span>Sign out</span></button>
+    <button class="um-out" onclick="closeUserMenu();window.cloudApi&&cloudApi.logout()">${icon('signout',20)} <span>Sign out</span></button>
     <div class="small muted" style="text-align:center;padding:6px 0 2px">My Spend Friend v${APP_VERSION}</div>`;
   document.querySelector('header').appendChild(m);
   setTimeout(()=>document.addEventListener('click',userMenuOutside,true),0);
@@ -2267,8 +2287,8 @@ function renderSettings(el){
       <p class="small muted">Pending ("Authorisation only") transactions are skipped. They come through once they settle, in your next export.</p></details>
   </div>
   <div class="card"><h2>Accounts</h2><p class="small muted" style="margin-top:-6px">Nicknames, types, colours and each account's transactions are now in the Accounts tab.</p><button class="btn ghost" onclick="go('accounts')">🏦 Open Accounts</button></div>
-  <div class="card"><h2>Categories & monthly budgets</h2>
-    <p class="small muted" style="margin-top:-6px">Add, rename, recolour, reorder or delete categories, and set a monthly budget for each.</p>
+  <div class="card"><h2>Categories</h2>
+    <p class="small muted" style="margin-top:-6px">Add, rename, recolour, reorder or delete categories. Budgets are set on the Budget tab.</p>
     ${['income','expense'].map(k=>`<div class="catgroup">${KIND_LABEL[k]}</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${catsOfKind(k).map(c=>`<span class="chip"><span class="dot" style="background:${c.color};width:8px;height:8px;margin-right:5px"></span>${esc(c.name)}${c.budget?` · ${money0(c.budget)}`:''}</span>`).join('')}</div>`).join('')}
     <div style="display:flex;gap:8px"><button class="btn" onclick="openCatEditor()">✏️ Edit categories</button><button class="btn ghost" onclick="openCatEditor();setTimeout(()=>document.getElementById('newCat')?.focus(),60)">＋ New</button></div>
   </div>
