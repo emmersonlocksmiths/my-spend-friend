@@ -567,7 +567,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.48';
+const APP_VERSION='0.49';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -860,20 +860,20 @@ const ICONS={
   signout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'
 };
 function icon(name,size){ return `<svg class="lic" width="${size||22}" height="${size||22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`; }
-const TABS=[['dashboard','📊','Dashboard'],['budget','🎯','Budget'],['cats','📈','Charts'],['accounts','🏦','Accounts'],['review','✅','Review']];
+const TABS=[['dashboard','📊','Dashboard'],['budget','🎯','Budget'],['cats','📈','Charts'],['accounts','🏦','Accounts'],['review','✅','Review'],['project','📁','Projects']];
 function renderNav(){
   const nav=document.getElementById('nav'), n=uncatCount()+doubleUps().length;
   const hasLoan=loanAccts().length>0?'1':'0';
   if(!nav.querySelector('button')||nav.dataset.loan!==hasLoan){
     nav.dataset.loan=hasLoan;
-    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div>'+[...TABS,['project','📁','Projects'],['settings','⚙️','Settings']].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='loan'||id==='project'||id==='settings'?'navdesk':''}${id==='settings'?' navset':''}" onclick="go('${id}')"><span class="ic">${icon(id)}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
+    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div>'+[...TABS,['settings','⚙️','Settings']].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='settings'?'navdesk':''}${id==='settings'?' navset':''}" onclick="go('${id}')"><span class="ic">${icon(id)}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
   }
   nav.querySelectorAll('button').forEach(b=>{
     b.classList.toggle('on',b.dataset.tab===tab||(tab==='loan'&&b.dataset.tab==='project'));
     const bd=b.querySelector('.badge'); const show=b.dataset.tab==='review'&&n>0;
     if(bd){ if(show&&bd.textContent!==String(n)){ bd.textContent=n; bd.classList.remove('bump'); void bd.offsetWidth; bd.classList.add('bump'); } bd.style.display=show?'':'none'; }
   });
-  nav.style.setProperty('--i',Math.max(0,TABS.findIndex(t=>t[0]===tab)));
+  nav.style.setProperty('--i',Math.max(0,TABS.findIndex(t=>t[0]===(tab==='loan'?'project':tab))));
   const onBtn=nav.querySelector('button.on'); if(onBtn) nav.style.setProperty('--top',(onBtn.offsetTop+onBtn.offsetHeight/2-15)+'px');
   nav.style.setProperty('--n',TABS.length);
 }
@@ -2278,7 +2278,7 @@ function toggleUserMenu(e){
   m.innerHTML=`<div class="um-head"><span class="avatar big">${esc(userInitial())}</span><div style="min-width:0"><b>${esc(userName())}</b><div class="small muted" style="overflow:hidden;text-overflow:ellipsis">${esc(userEmail()||'Signed in')}${admin?' · admin':''}</div></div></div>
     <button onclick="closeUserMenu();go('settings')">${icon('settings',20)} <span>Settings</span></button>
     <button onclick="closeUserMenu();go('settings');setTimeout(()=>document.getElementById('fileIn')?.click(),150)">${icon('import',20)} <span>Import CSV files</span></button>
-    <button onclick="closeUserMenu();go('project')">${icon('project',20)} <span>Projects</span></button>
+    
     <div class="um-theme"><span class="small muted">Appearance</span><div class="seg">${[['auto','Auto'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button class="${th===v?'on':''}" onclick="setThemePref('${v}');closeUserMenu();toggleUserMenu();if(tab==='settings')render()">${l}</button>`).join('')}</div></div>
     <button class="um-out" onclick="closeUserMenu();window.cloudApi&&cloudApi.logout()">${icon('signout',20)} <span>Sign out</span></button>
     <div class="small muted" style="text-align:center;padding:6px 0 2px">My Spend Friend v${APP_VERSION}</div>`;
