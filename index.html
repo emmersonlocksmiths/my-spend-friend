@@ -547,7 +547,7 @@ nav button.on .lic{color:var(--accent)}
 .budedhead .btn{white-space:nowrap;flex:none}.budedhead>span{text-align:left}
 .budedhead{display:flex;gap:10px;justify-content:space-between;align-items:center;margin-bottom:12px}
 .budedrow{padding:12px 0;border-top:1px solid var(--line)}.budedname{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.budedctl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.budseg{margin:0}.budseg button{padding:8px 10px;font-size:13px}.budavg{margin-top:6px}
+.budedctl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.budseg{margin:0}.budseg button{padding:8px 10px;font-size:13px}.budavg{margin-top:6px}.budmode{margin:4px 0 8px!important;display:inline-grid!important;grid-template-columns:1fr 1fr;width:200px!important;max-width:100%}.budmode button{white-space:nowrap;padding:6px 8px!important;font-size:13px!important;min-width:0;width:100%}.budhint{margin-top:4px;font-size:12.5px}
 .chartcats .top>span:last-child{white-space:nowrap;flex:none}.chartcats .top{gap:8px}
 .ccthead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.ccseg{margin:0}.ccseg button{padding:7px 12px;font-size:13px}
 .loanfacts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 10px;margin-top:16px;text-align:left;padding-top:14px;border-top:1px solid var(--line)}
@@ -587,7 +587,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.59';
+const APP_VERSION='0.60';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -703,6 +703,8 @@ try{ const v=JSON.parse(localStorage.getItem(VIEW_KEY)||'null'); if(v) state.vie
 // Keep older household settings in step with category changes made since they were created.
 function runMigrations(){
   const c=id=>state.categories.find(x=>x.id===id);
+  // v0.60: income budgets are always "counted when it comes in"
+  state.categories.forEach(x=>{ if(x.kind==='income'&&x.budget&&!x.billFreq) x.billFreq=x.budgetPer==='fortnight'?'fortnightly':'monthly'; });
   // income categories (v0.13)
   if(c('income')&&c('income').name==='Income') c('income').name='Other income';
   const gone=new Set(state.catDeleted||[]);
@@ -2581,7 +2583,7 @@ function deleteProject(){ const id=projEd.id; state.projects=(state.projects||[]
 /* ============ Budget ============ */
 // Each expense category can have a budget per fortnight or per month; it's scaled to whatever period you're viewing.
 function budPer(c){ return c.budgetPer==='fortnight'?'fortnight':'month'; }
-function budgetFor(c,pr){ if(!c||!c.budget||!pr.months) return 0; if(c.billFreq) return billInfo(c,pr).budget; return c.budget*pr.months*(budPer(c)==='fortnight'?26/12:1); }
+function budgetFor(c,pr){ if(!c||!c.budget||!pr.months) return 0; if(c.billFreq){ if(billAnchor(c)) return billInfo(c,pr).budget; return c.budget*({weekly:52,fortnightly:26,monthly:12,quarterly:4,yearly:1}[c.billFreq]||12)/12*pr.months; } return c.budget*pr.months*(budPer(c)==='fortnight'?26/12:1); }
 // Bills: a set amount that comes weekly, fortnightly, monthly, quarterly or yearly. The full amount is
 // budgeted in the period it's due (worked out from when you last paid it), and $0 in periods with nothing due.
 const BILL_FREQS=[['weekly','Weekly'],['fortnightly','Fortnightly'],['monthly','Monthly'],['quarterly','Quarterly'],['yearly','Yearly']];
@@ -2616,6 +2618,10 @@ function billInfo(c,pr){
   return {due,pays,paid,budget,status,cls,count};
 }
 function freqLabel(f){ return (BILL_FREQS.find(x=>x[0]===f)||['',''])[1].toLowerCase(); }
+function setBudMode(id,mode){ const c=catObj(id);
+  if(mode==='bill'&&!c.billFreq){ c.billFreq=budPer(c)==='fortnight'?'fortnightly':'monthly'; }
+  else if(mode==='even'&&c.billFreq){ c.budgetPer=(c.billFreq==='weekly'||c.billFreq==='fortnightly')?'fortnight':'month'; if(c.billFreq==='weekly'&&c.budget) c.budget=c.budget*2; if(c.billFreq==='quarterly'&&c.budget) c.budget=roundBud(c.budget/3); if(c.billFreq==='yearly'&&c.budget) c.budget=roundBud(c.budget/12); delete c.billFreq; }
+  else return; save(); render(); }
 function setBillFreq(id,v){ const c=catObj(id);
   if(v==='fortnight'||v==='month'){ if(c.billFreq){ delete c.billFreq; c.budgetPer=v; } else return setBudPer(id,v); }
   else { if(!c.billFreq&&c.budget&&budPer(c)==='fortnight'&&v==='monthly') c.budget=roundBud(c.budget*26/12); c.billFreq=v; }
@@ -2636,7 +2642,7 @@ function avgSpend(c,per){
 }
 function roundBud(x){ return x<=0?0:x<100?Math.ceil(x/5)*5:Math.ceil(x/10)*10; }
 let budEdit=false;
-function budInput(id,v){ const c=catObj(id); c.budget=Math.max(0,parseFloat(String(v).replace(/[$,]/g,''))||0); save(); const t=document.getElementById('budTotal'); if(t) t.innerHTML=budTotalText(); }
+function budInput(id,v){ const c=catObj(id); if(c.kind==='income'&&!c.billFreq) c.billFreq=budPer(c)==='fortnight'?'fortnightly':'monthly'; c.budget=Math.max(0,parseFloat(String(v).replace(/[$,]/g,''))||0); save(); const t=document.getElementById('budTotal'); if(t) t.innerHTML=budTotalText(); }
 function budTotalText(){ const perYear={weekly:52,fortnightly:26,monthly:12,quarterly:4,yearly:1}; let f=0,m=0; catsOfKind('expense').forEach(c=>{ if(!c.budget) return; const y=c.billFreq?c.budget*perYear[c.billFreq]:c.budget*(budPer(c)==='fortnight'?26:12); f+=y/26; m+=y/12; }); return `Spending ≈ ${money0(f)} a fortnight · ${money0(m)} a month`; }
 async function budSave(){ if(document.activeElement) document.activeElement.blur(); save(); try{ if(cloud&&cloud.flushMeta) await cloud.flushMeta(); toast('Budgets saved'); }catch(e){ toast('Couldn’t save. Check your connection and try again.'); return; } budEdit=false; render(); window.scrollTo({top:0}); }
 function setBud(id,v){ const c=catObj(id); c.budget=Math.max(0,parseFloat(String(v).replace(/[$,]/g,''))||0); save(); render(); }
@@ -2723,11 +2729,11 @@ function renderBudget(el){
 }
 function budEditRow(c){ const per=budPer(c), bill=c.billFreq, avg=bill?billAvg(c):avgSpend(c,per), nx=bill?billNext(c):null, last=bill?billPays(c).slice(-1)[0]:null;
         const sel=bill||per;
-        return `<div class="budedrow ${bill?'isbill':''}"><div class="budedname"><span class="dot" style="background:${c.color}"></span><b>${esc(c.name)}</b>${bill?`<span class="billtag">${c.kind==='income'?'Regular':'Bill'}</span>`:''}</div>
+        return `<div class="budedrow ${bill?'isbill':''}"><div class="budedname"><span class="dot" style="background:${c.color}"></span><b>${esc(c.name)}</b>${bill&&c.kind!=='income'?`<span class="billtag">Bill</span>`:''}</div>
+          ${c.kind==='expense'?`<div class="seg budseg budmode"><button class="${bill?'':'on'}" onclick="setBudMode('${c.id}','even')">Everyday</button><button class="${bill?'on':''}" onclick="setBudMode('${c.id}','bill')">Bill</button></div>`:''}
           <div class="budedctl"><div class="ce-money"><span>$</span><input type="text" inputmode="decimal" placeholder="${c.kind==='income'?'Not set':'No budget'}" value="${c.budget||''}" oninput="budInput('${c.id}',this.value)"></div>
-            <select class="budfreq" onchange="setBillFreq('${c.id}',this.value)">
-              <optgroup label="Spread evenly"><option value="fortnight" ${sel==='fortnight'?'selected':''}>per fortnight</option><option value="month" ${sel==='month'?'selected':''}>per month</option></optgroup>
-              <optgroup label="${c.kind==='income'?'Comes in regularly':'A bill that comes'}">${BILL_FREQS.map(([v,l])=>`<option value="${v}" ${sel===v?'selected':''}>${c.kind==='income'?'Regular':'Bill'} · ${l.toLowerCase()}</option>`).join('')}</optgroup></select></div>
+            <select class="budfreq" onchange="setBillFreq('${c.id}',this.value)">${(c.kind==='income'||bill)?BILL_FREQS.map(([v])=>`<option value="${v}" ${(bill||(per==='fortnight'?'fortnightly':'monthly'))===v?'selected':''}>${{weekly:'every week',fortnightly:'every fortnight',monthly:'every month',quarterly:'every quarter',yearly:'every year'}[v]}</option>`).join(''):`<option value="fortnight" ${per==='fortnight'?'selected':''}>per fortnight</option><option value="month" ${per==='month'?'selected':''}>per month</option>`}</select></div>
+          <div class="small muted budhint">${c.kind==='income'?'Counted on the day it arrives.':bill?'The full amount counts in the fortnight or month it’s due.':'Spread evenly, like groceries or fuel.'}</div>
           <div class="small muted budavg">${bill?`${last?`Last ${c.kind==='income'?'received':'paid'} ${money(Math.abs(last.amount))} on ${shortDay(last.date)}`:'None yet'}${nx?` · next ~${shortDay(nx)}`:''}${avg>0.5?` · <button class="link small" onclick="setBud('${c.id}',${Math.round(avg)})">Use ${money0(avg)}</button>`:''}`
             :(avg>0.5?`Usually about <b>${money0(avg)}</b> a ${per} · <button class="link small" onclick="useAvg('${c.id}')">Use this</button>`:(c.kind==='income'?'Nothing received recently':'No recent spending'))}</div></div>`; }
 function renderBudgetEdit(el){
@@ -2735,7 +2741,7 @@ function renderBudgetEdit(el){
   const perYear={weekly:52,fortnightly:26,monthly:12,quarterly:4,yearly:1};
   const total={fortnight:0,month:0}; exp.forEach(c=>{ if(!c.budget) return; const y=c.billFreq?c.budget*perYear[c.billFreq]:c.budget*(budPer(c)==='fortnight'?26:12); total.fortnight+=y/26; total.month+=y/12; });
   el.innerHTML=`<div class="budedhead"><span class="small muted" id="budTotal">${budTotalText()}</span><button class="btn" onclick="budSave()">Save</button></div>
-    <div class="card"><h2>Edit budgets</h2><p class="small muted" style="margin-top:-6px">Set what you expect to earn and spend for each category. Everyday spending is spread evenly per fortnight or month. Pick <b>Bill</b> for things like electricity or internet: the full amount is counted in the period it's due, so you won't look over one fortnight and under the next.</p>
+    <div class="card"><h2>Edit budgets</h2><p class="small muted" style="margin-top:-6px">Set what you expect to earn and spend. For spending, pick <b>Everyday spending</b> for things like groceries (spread evenly), or <b>A bill</b> for things like electricity (counted when it's due).</p>
       ${empty?`<button class="btn ghost" style="margin:4px 0 8px" onclick="useAvgAll()">Fill the ${empty} empty ones from my averages</button>`:''}
       <div class="catgroup" style="margin-top:6px">Expected income</div>
       ${catsOfKind('income').map(budEditRow).join('')}
