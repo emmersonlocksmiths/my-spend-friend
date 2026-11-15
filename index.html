@@ -571,7 +571,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.50';
+const APP_VERSION='0.51';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -581,7 +581,7 @@ let cloud=null;                 // set once signed in: {saveMeta(meta), saveTxns
 let synced=new Map();           // transaction id -> JSON as last synced
 let lastMeta='';                // household settings JSON as last synced
 let metaDirty=false;            // local settings change not yet sent
-function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false,projects:s.projects||[],projSeeded:!!s.projSeeded}; }
+function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false,projects:s.projects||[],projSeeded:!!s.projSeeded,catDeleted:(s.catDeleted||[]).slice(-100)}; }
 function save(){
   try{ localStorage.setItem(VIEW_KEY,JSON.stringify(state.view)); }catch(e){}
   if(!cloud) return;
@@ -598,14 +598,39 @@ function scheduleRender(){ if(renderQueued) return; renderQueued=true; requestAn
 function applyCloudMeta(meta){
   if(metaDirty) return; // our own newer change is on its way
   if(!meta){ return; }
+  const localNewer={projects:state.projects,projSeeded:state.projSeeded,dupOk:state.dupOk,autoCat:state.autoCat,catDeleted:state.catDeleted};
   state.categories=meta.categories||state.categories; state.rules=meta.rules||state.rules;
   state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null; state.dupOk=meta.dupOk||[]; state.autoCat=meta.autoCat!==false; state.projects=meta.projects||[]; state.projSeeded=!!meta.projSeeded;
+  // An older version of the app on another device may have saved without these newer settings: keep ours.
+  let repaired=false;
+  for(const k of ['projects','projSeeded','dupOk','autoCat','catDeleted']){ if(!(k in meta)&&localNewer[k]!==undefined){ state[k]=localNewer[k]; repaired=true; } }
+  if('catDeleted' in meta) state.catDeleted=meta.catDeleted||[];
   runMigrations();
+  const merged=mergeDuplicateCats();
   lastMeta=JSON.stringify(metaOf(state));
-  if(seedProjects()) save();
+  if(seedProjects()||repaired||merged) { lastMeta=''; save(); }
   scheduleRender();
 }
 // One-time: start the Projects tab with a Farm project.
+function normCat(n){ return String(n||'').toLowerCase().replace(/&/g,'and').replace(/[^a-z0-9]/g,''); }
+// Two categories of the same kind with the same name: keep the one with more transactions, move everything over.
+function mergeDuplicateCats(){
+  const seen=new Map(); let changed=false;
+  for(const c of [...state.categories]){
+    const k=c.kind+'|'+normCat(c.name);
+    if(!seen.has(k)){ seen.set(k,c); continue; }
+    const a=seen.get(k), cnt=x=>state.txns.filter(t=>t.cat===x.id).length;
+    const keep=cnt(c)>cnt(a)?c:a, drop=keep===a?c:a;
+    state.txns.forEach(t=>{ if(t.cat===drop.id) t.cat=keep.id; if(t.sug===drop.id) t.sug=keep.id; });
+    state.rules.forEach(r=>{ if(r.cat===drop.id) r.cat=keep.id; });
+    (state.projects||[]).forEach(p=>{ if((p.cats||[]).includes(drop.id)){ p.cats=[...new Set(p.cats.map(x=>x===drop.id?keep.id:x))]; } });
+    if(!keep.budget&&drop.budget){ keep.budget=drop.budget; keep.budgetPer=drop.budgetPer; if(drop.billFreq) keep.billFreq=drop.billFreq; }
+    state.categories=state.categories.filter(x=>x!==drop);
+    state.catDeleted=[...new Set([...(state.catDeleted||[]),drop.id])];
+    seen.set(k,keep); changed=true;
+  }
+  return changed;
+}
 function seedProjects(){
   if(state.projSeeded) return false;
   state.projSeeded=true;
@@ -664,7 +689,8 @@ function runMigrations(){
   const c=id=>state.categories.find(x=>x.id===id);
   // income categories (v0.13)
   if(c('income')&&c('income').name==='Income') c('income').name='Other income';
-  INCOME_DEFAULTS.forEach(([id,name,color])=>{ if(!c(id)){ const i=state.categories.findIndex(x=>x.id==='income'); state.categories.splice(i<0?state.categories.length:i,0,{id,name,color,kind:'income',budget:0}); } });
+  const gone=new Set(state.catDeleted||[]);
+  INCOME_DEFAULTS.forEach(([id,name,color])=>{ if(!c(id)&&!gone.has(id)&&!state.categories.some(x=>x.kind==='income'&&normCat(x.name)===normCat(name))){ const i=state.categories.findIndex(x=>x.id==='income'); state.categories.splice(i<0?state.categories.length:i,0,{id,name,color,kind:'income',budget:0}); } });
   for(const [cat,kws] of Object.entries(INCOME_RULES)) kws.forEach(kw=>{ if(!state.rules.some(r=>r.kw===kw&&r.dir==='in')) state.rules.push({kw,cat,dir:'in',user:false}); });
   if(c('rent')&&c('rent').name==='Rent / Mortgage') c('rent').name='Rent';
   if(c('car')&&c('car').name==='Car') c('car').name='Car servicing';
@@ -2726,6 +2752,8 @@ function catDelete(id){
   state.txns.forEach(t=>{ if(t.cat===id){ t.cat=to||null; } if(t.sug===id) t.sug=to||null; });
   if(to) state.rules.forEach(r=>{ if(r.cat===id) r.cat=to; }); else state.rules=state.rules.filter(r=>r.cat!==id);
   state.categories=state.categories.filter(x=>x.id!==id);
+  state.catDeleted=[...new Set([...(state.catDeleted||[]),id])];
+  (state.projects||[]).forEach(p=>{ p.cats=(p.cats||[]).filter(x=>x!==id); });
   if(pick&&pick.cat===id) pick.cat=null;
   catEd.delId=null; save(); drawCatEditor(); toast(`Deleted "${c.name}"`);
 }
@@ -2934,7 +2962,7 @@ function startSync(householdId){
   let gotMeta = false, gotTx = false;
   const ready = () => { if (gotMeta && gotTx && appScreen !== "app") showScreen("app"); };
   window.cloud = cloud = {
-    saveMeta(meta){ clearTimeout(metaTimer); metaTimer = setTimeout(() => { setDoc(doc(db, "households", hid), meta).finally(() => { metaDirty = false; }); }, 400); },
+    saveMeta(meta){ clearTimeout(metaTimer); metaTimer = setTimeout(() => { setDoc(doc(db, "households", hid), meta, { mergeFields: Object.keys(meta) }).finally(() => { metaDirty = false; }); }, 400); },
     async saveTxns(sets, dels){
       const ops = [...sets.map(t => ["set", t]), ...dels.map(id => ["del", id])];
       for (let i = 0; i < ops.length; i += 400) {
