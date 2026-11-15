@@ -475,6 +475,8 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .dupfoot{display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
 .chip.warnchip{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
 .xferhint{display:flex;gap:10px;align-items:center;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--accent) 12%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);font-size:14px}.xferhint .grow{min-width:0}.xferhint .btn{padding:8px 14px;font-size:14px;flex:none}
+.autotag{font-style:normal;font-size:10px;font-weight:700;letter-spacing:.3px;margin-left:5px;opacity:.6;text-transform:uppercase}
+.autorow{display:flex;gap:10px;align-items:flex-start;margin-top:12px;cursor:pointer}.autorow input{width:auto;margin-top:3px;flex:none}
 .periodbar{position:sticky;top:0;z-index:6;margin:0 -14px 12px;padding:10px 14px 8px;padding-top:calc(10px + env(safe-area-inset-top));
   background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
 .periodbar.stuck{border-bottom-color:var(--line);box-shadow:0 6px 18px rgba(0,0,0,.18)}
@@ -505,7 +507,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.33';
+const APP_VERSION='0.34';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -515,7 +517,7 @@ let cloud=null;                 // set once signed in: {saveMeta(meta), saveTxns
 let synced=new Map();           // transaction id -> JSON as last synced
 let lastMeta='';                // household settings JSON as last synced
 let metaDirty=false;            // local settings change not yet sent
-function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300)}; }
+function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false}; }
 function save(){
   try{ localStorage.setItem(VIEW_KEY,JSON.stringify(state.view)); }catch(e){}
   if(!cloud) return;
@@ -533,7 +535,7 @@ function applyCloudMeta(meta){
   if(metaDirty) return; // our own newer change is on its way
   if(!meta){ return; }
   state.categories=meta.categories||state.categories; state.rules=meta.rules||state.rules;
-  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null; state.dupOk=meta.dupOk||[];
+  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null; state.dupOk=meta.dupOk||[]; state.autoCat=meta.autoCat!==false;
   runMigrations();
   lastMeta=JSON.stringify(metaOf(state));
   scheduleRender();
@@ -541,6 +543,7 @@ function applyCloudMeta(meta){
 function applyCloudTxns(list){
   state.txns=list;
   synced=new Map(list.map(t=>[t.id,JSON.stringify(t)]));
+  if(autoOn()&&list.some(t=>!t.cat&&isCounted(t))&&autoCategorise()) save();
   scheduleRender();
 }
 
@@ -1025,16 +1028,32 @@ function filterCat(id){ txReset({cat:id,when:'period'}); txAdv=true; txLimit=150
 let rv={idx:0,done:0,list:false,kw:null,kwFor:null,remember:true,undo:null};
 function rvSwitch(a){ rv.acct=a; rv.idx=0; rv.done=0; rv.undo=null; animateNext('fade'); render(); window.scrollTo({top:0}); }
 function reviewQueue(all){ return state.txns.filter(t=>!t.cat&&isCounted(t)&&(all||!rv.acct||t.acct===rv.acct)).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id)); }
+// Automatic sorting: transfers between your own accounts, then what you've picked before for this place,
+// then the keyword rules. Anything with no match is left for Review.
+function autoOn(){ return state.autoCat!==false; }
+function autoPick(t){
+  if(OWN_XFER.test(t.desc)||transferPairs().partner.has(t.id)) return transferCatId();
+  // Learn only from categories you chose yourself, and never call something a transfer unless it looks like one.
+  const s=suggestionsFor(t,true).filter(x=>catKindOf(x.id)!=='transfer'||looksXfer(t));
+  return s.length?s[0].id:null;
+}
+function autoCategorise(){
+  if(!autoOn()) return 0; let n=0;
+  const todo=state.txns.filter(t=>!t.cat&&isCounted(t)).sort((a,b)=>a.date.localeCompare(b.date));
+  for(const t of todo){ const c=autoPick(t); if(c){ t.cat=c; t.auto=true; n++; } }
+  return n;
+}
+function setAutoCat(on){ state.autoCat=on; let n=0; if(on) n=autoCategorise(); save(); render(); toast(on?(n?`Sorted ${n} automatically`:'Automatic sorting on'):'Automatic sorting off'); }
 function applyCategory(t,catId){
-  t.cat=catId;
+  t.cat=catId; delete t.auto;
   state.recent=[catId,...(state.recent||[]).filter(x=>x!==catId)].slice(0,8);
 }
 // Suggestions: what you've picked before for this place (same direction), then any rule match.
-function suggestionsFor(t){
+function suggestionsFor(t,manualOnly){
   const out=[]; const add=(id,why)=>{ if(id&&catById(id)&&!out.some(x=>x.id===id)) out.push({id,why}); };
   if(OWN_XFER.test(t.desc)) add('transfer','Between your accounts');
   const k=merchantKey(t), dirOut=t.amount<0, hist={};
-  for(const x of state.txns){ if(x!==t&&x.cat&&(x.amount<0)===dirOut&&merchantKey(x)===k) hist[x.cat]=(hist[x.cat]||0)+1; }
+  for(const x of state.txns){ if(x!==t&&x.cat&&!(manualOnly&&x.auto)&&(x.amount<0)===dirOut&&merchantKey(x)===k) hist[x.cat]=(hist[x.cat]||0)+1; }
   Object.entries(hist).sort((a,b)=>b[1]-a[1]).forEach(([id,n])=>add(id,`Picked ${n}× here`));
   if(t.sug){ const r=findRule(t); add(t.sug, r?`Matches "${titleCase(r.kw)}"`:'Suggested'); }
   return out.slice(0,3);
@@ -1288,6 +1307,7 @@ function txnsCard(fixedAcct){
     if(f.dir==='in'&&(t.amount<=0||isXferTx(t))) return false;
     if(f.dir==='review'&&t.cat) return false;
     if(f.dir==='xfer'&&!isXferTx(t)) return false;
+    if(f.dir==='auto'&&!t.auto) return false;
     const amt=Math.abs(t.amount);
     if(!isNaN(min)&&amt<min) return false;
     if(!isNaN(max)&&amt>max) return false;
@@ -1308,7 +1328,7 @@ function txnsCard(fixedAcct){
     ${fixedAcct?`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h2>Transactions</h2></div>`:''}
     <div class="txsearch"><input id="txq" class="full" type="search" placeholder="Search name or amount…" value="${esc(f.q)}" oninput="txSet('q',this.value,'txq')">
       <button class="btn ghost txfbtn ${txAdv?'on':''}" onclick="txAdv=!txAdv;render()">Filters${advCount?` <span class="txbadge">${advCount}</span>`:''}</button></div>
-    <div class="txchips">${chip('','All')}${chip('out','Money out')}${chip('in','Money in')}${chip('review','To review')}${chip('xfer','Transfers')}</div>
+    <div class="txchips">${chip('','All')}${chip('out','Money out')}${chip('in','Money in')}${chip('review','To review')}${chip('xfer','Transfers')}${chip('auto','Auto-sorted')}</div>
     ${txAdv?`<div class="txadv">
       <label>Category<select onchange="txSet('cat',this.value)">${catOpts}</select></label>
       ${fixedAcct?'':`<label>Account<select onchange="txSet('acct',this.value)">${acctOpts}</select></label>`}
@@ -1336,7 +1356,7 @@ function txnList(list,groupDays){
   for(const t of list){
     if(groupDays&&t.date!==last){ html+=`<div class="dayhdr">${dayLabel(t.date)}</div>`; last=t.date; }
     const c=t.cat?catById(t.cat):null;
-    const chip=c?`<span class="chip">${esc(c.name)}</span>`:`<span class="chip none">To review${t.sug&&catById(t.sug)?' · '+esc(catById(t.sug).name)+'?':''}</span>`;
+    const chip=c?`<span class="chip">${esc(c.name)}${t.auto?'<i class="autotag">auto</i>':''}</span>`:`<span class="chip none">To review${t.sug&&catById(t.sug)?' · '+esc(catById(t.sug).name)+'?':''}</span>`;
     html+=`<div class="txn" onclick="openPicker('${encodeURIComponent(t.id)}')">
       <span class="dot" style="background:${c?c.color:'#f5b301'};margin:0"></span>
       <div class="mid"><div class="d">${esc(cleanDesc(t.desc))}</div><div class="s">${chip}${groupDays?'':dayLabel(t.date)+' · '}${acctTag(t.acct)}</div></div>
@@ -1953,6 +1973,7 @@ function renderSettings(el){
       <div style="font-size:28px">📄</div><b>Tap to choose Bankwest CSV file(s)</b><div class="small muted">or drag them here. You can pick several accounts at once.</div>
     </div>
     <input type="file" id="fileIn" accept=".csv,text/csv" multiple class="hidden" onchange="handleFiles(this.files)">
+    <label class="autorow"><input type="checkbox" ${autoOn()?'checked':''} onchange="setAutoCat(this.checked)"><span><b>Sort transactions automatically</b><br><span class="small muted">Uses what you've picked before for each place, then keyword rules. Anything it can't match waits in Review. Change any of them under Accounts.</span></span></label>
     ${lastResult?`<div class="banner ok" style="margin-top:12px">${lastResult}</div>`:''}
     ${latest?`<div class="small muted" style="margin:14px 2px 6px">Your accounts. Drag ⋮⋮ to match the order in your bank</div><div class="implist">${latest}</div>
       <p class="small muted" style="margin-bottom:0">Next time, export from a few days <i>before</i> these dates. Overlap is fine because duplicates are skipped.</p>`:''}
@@ -1996,14 +2017,15 @@ async function handleFiles(files){
     try{ const r=importBankwest(await f.text()); for(const k in tot) tot[k]+=r[k]; }
     catch(e){ errs.push(f.name+': '+e.message); }
   }
-  state.imports.push({at:new Date().toISOString(),files:files.length,...tot});
+  const sorted=autoCategorise(); const left=uncatCount();
+  state.imports.push({at:new Date().toISOString(),files:files.length,...tot,sorted});
   if(tot.added) state.view.anchor=latestYM();
   save();
-  lastResult=`<b>${tot.review} new transaction${tot.review===1?'':'s'} ready to review</b>${tot.review?` · ${tot.auto} with a suggestion`:''}${tot.loanTx?` · ${tot.loanTx} home loan transaction${tot.loanTx===1?'':'s'} added`:''}<br>
+  lastResult=`<b>${tot.added} new transaction${tot.added===1?'':'s'} added</b>${autoOn()?`<br><span class="small">${sorted} sorted automatically · ${left} still need${left===1?'s':''} a category</span>`:` · ${tot.review} to review`}${tot.loanTx?` · ${tot.loanTx} home loan transaction${tot.loanTx===1?'':'s'} added`:''}<br>
     <span class="small">${tot.dupes} already imported (skipped) · ${tot.pending} pending (skipped)</span>
     ${tot.loansFound?`<div class="small" style="margin-top:6px">🏠 Found a home loan account. It's kept out of Review and spending; see it on the Dashboard.</div>`:''}
     ${errs.length?`<div class="small over" style="margin-top:6px">${errs.map(esc).join('<br>')}</div>`:''}
-    ${tot.review?`<div style="margin-top:8px"><button class="btn" onclick="go('review')">Start reviewing</button></div>`:''}${tot.loanTx&&!tot.review?`<div style="margin-top:8px"><button class="btn" onclick="go('loan')">🏠 View home loan</button></div>`:''}`;
+    ${uncatCount()?`<div style="margin-top:8px"><button class="btn" onclick="go('review')">Sort the rest (${uncatCount()})</button></div>`:''}${autoOn()&&sorted?` <button class="btn ghost" style="margin-top:8px" onclick="tab='accounts';txReset({dir:'auto'});acctSel='__all';render()">Check auto-sorted</button>`:''}${tot.loanTx&&!tot.review?`<div style="margin-top:8px"><button class="btn" onclick="go('loan')">🏠 View home loan</button></div>`:''}`;
   render();
 }
 function delRule(i){ state.rules.splice(i,1); save(); render(); toast('Rule removed'); }
