@@ -489,6 +489,14 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .usermenu{position:absolute;right:10px;top:56px;width:270px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.28);padding:8px;z-index:30;animation:umIn .16s ease}
 .usermenu>button{display:flex;gap:12px;align-items:center;width:100%;padding:11px 12px;border:0;background:none;color:var(--ink);font:inherit;font-size:15px;border-radius:10px;cursor:pointer;text-align:left}.usermenu>button:hover{background:var(--card2)}
 .um-head{display:flex;gap:12px;align-items:center;padding:8px 10px 12px;border-bottom:1px solid var(--line);margin-bottom:4px}.um-theme{padding:8px 12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:4px 0}.um-theme .seg{margin:6px 0 0}.um-theme .seg button{padding:6px 8px;font-size:13px}.um-out{color:var(--bad)!important}
+
+.avatar{overflow:hidden}.avatar img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}
+.avatar.photo{background:#222}
+.avatar.um-photo{position:relative;cursor:pointer}.um-cam{position:absolute;left:0;right:0;bottom:0;font-size:9px;font-weight:800;background:rgba(0,0,0,.55);color:#fff;text-align:center;line-height:14px}
+.profrow{display:flex;gap:14px;align-items:center}.avatar.prof{width:72px;height:72px;font-size:28px}
+.navme{display:none}
+@media(min-width:1000px){ .navme{display:flex;gap:10px;align-items:center;width:100%;margin:-6px 0 14px;padding:8px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);cursor:pointer;text-align:left;font:inherit}
+  .navme .avatar.big{width:38px;height:38px;font-size:15px}.navme-txt{display:flex;flex-direction:column;min-width:0;font-size:14px}.navme.on{border-color:var(--accent)} }
 @keyframes umIn{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
 @media(min-width:780px){.avatar{right:22px;top:18px;width:42px;height:42px}.usermenu{right:22px;top:68px}}
 @media(min-width:1000px){.avatar{right:30px;top:24px}.usermenu{right:30px;top:76px}}
@@ -597,7 +605,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.65';
+const APP_VERSION='0.66';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -607,7 +615,7 @@ let cloud=null;                 // set once signed in: {saveMeta(meta), saveTxns
 let synced=new Map();           // transaction id -> JSON as last synced
 let lastMeta='';                // household settings JSON as last synced
 let metaDirty=false, metaPending=0, metaWaiting=null, metaLast=null;            // local settings change not yet sent
-function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false,projects:s.projects||[],projSeeded:!!s.projSeeded,catDeleted:(s.catDeleted||[]).slice(-100),budRoll:s.budRoll||null}; }
+function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false,projects:s.projects||[],projSeeded:!!s.projSeeded,catDeleted:(s.catDeleted||[]).slice(-100),budRoll:s.budRoll||null,avatars:s.avatars||{}}; }
 function save(){
   recordBudChanges();
   try{ localStorage.setItem(VIEW_KEY,JSON.stringify(state.view)); }catch(e){}
@@ -625,12 +633,12 @@ function scheduleRender(){ if(renderQueued) return; renderQueued=true; requestAn
 function applyCloudMeta(meta){
   if(metaDirty) return; // our own newer change is on its way
   if(!meta){ return; }
-  const localNewer={projects:state.projects,projSeeded:state.projSeeded,dupOk:state.dupOk,autoCat:state.autoCat,catDeleted:state.catDeleted,budRoll:state.budRoll};
+  const localNewer={projects:state.projects,projSeeded:state.projSeeded,dupOk:state.dupOk,autoCat:state.autoCat,catDeleted:state.catDeleted,budRoll:state.budRoll,avatars:state.avatars};
   state.categories=meta.categories||state.categories; state.rules=meta.rules||state.rules;
-  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null; state.dupOk=meta.dupOk||[]; state.autoCat=meta.autoCat!==false; state.projects=meta.projects||[]; state.projSeeded=!!meta.projSeeded; state.budRoll=meta.budRoll||null;
+  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null; state.dupOk=meta.dupOk||[]; state.autoCat=meta.autoCat!==false; state.projects=meta.projects||[]; state.projSeeded=!!meta.projSeeded; state.budRoll=meta.budRoll||null; state.avatars=meta.avatars||{};
   // An older version of the app on another device may have saved without these newer settings: keep ours.
   let repaired=false;
-  for(const k of ['projects','projSeeded','dupOk','autoCat','catDeleted','budRoll']){ if(!(k in meta)&&localNewer[k]!==undefined){ state[k]=localNewer[k]; repaired=true; } }
+  for(const k of ['projects','projSeeded','dupOk','autoCat','catDeleted','budRoll','avatars']){ if(!(k in meta)&&localNewer[k]!==undefined){ state[k]=localNewer[k]; repaired=true; } }
   if('catDeleted' in meta) state.catDeleted=meta.catDeleted||[];
   runMigrations();
   const merged=mergeDuplicateCats();
@@ -932,7 +940,7 @@ function renderNav(){
   const hasLoan=loanAccts().length>0?'1':'0';
   if(!nav.querySelector('button')||nav.dataset.loan!==hasLoan){
     nav.dataset.loan=hasLoan;
-    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div>'+[...TABS,['settings','⚙️','Settings']].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='settings'?'navdesk':''}${id==='settings'?' navset':''}" onclick="go('${id}')"><span class="ic">${icon(id)}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
+    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div><button class="navme" id="navMe" onclick="go(\'settings\')"></button>'+[...TABS,['settings','⚙️','Settings']].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='settings'?'navdesk':''}${id==='settings'?' navset':''}" onclick="go('${id}')"><span class="ic">${icon(id)}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
   }
   nav.querySelectorAll('button').forEach(b=>{
     b.classList.toggle('on',b.dataset.tab===tab||(tab==='loan'&&b.dataset.tab==='project'));
@@ -1033,7 +1041,8 @@ function render(){
   if(appScreen!=='app') return;
   renderNav(); _loneSet=null; _matchMap=null;
   const vt=document.getElementById('verTag'); if(vt){ vt.textContent='v'+APP_VERSION; vt.hidden=tab!=='dashboard'; }
-  const av=document.getElementById('avatarBtn'); if(av){ av.hidden=false; av.textContent=userInitial(); av.classList.toggle('on',tab==='settings'); }
+  const av=document.getElementById('avatarBtn'); if(av){ av.hidden=false; av.innerHTML=avatarInner(); av.classList.toggle('photo',!!myPhoto()); av.classList.toggle('on',tab==='settings'); }
+  const nm=document.getElementById('navMe'); if(nm){ nm.innerHTML=`<span class="avatar big ${myPhoto()?'photo':''}">${avatarInner()}</span><span class="navme-txt"><b>${esc(userName())}</b><span class="small muted">Profile & settings</span></span>`; nm.classList.toggle('on',tab==='settings'); }
   const el=document.getElementById('app');
   ({dashboard:renderDashboard,budget:renderBudget,project:renderProject,review:renderReview,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
   placePills();
@@ -2409,6 +2418,22 @@ let lastResult=null;
 function userEmail(){ return (window.cloudApi&&cloudApi.email())||''; }
 function userName(){ const e=userEmail(); if(!e) return 'You'; const n=e.split('@')[0].split(/[._-]/)[0]; return n.charAt(0).toUpperCase()+n.slice(1); }
 function userInitial(){ return userName().charAt(0).toUpperCase()||'?'; }
+// Profile photos are kept per login (by email) so each person in the household has their own.
+function myPhoto(){ const e=userEmail().toLowerCase(); return (state.avatars||{})[e]||''; }
+function avatarInner(){ const ph=myPhoto(); return ph?`<img src="${ph}" alt="">`:esc(userInitial()); }
+function pickPhoto(){ const i=document.createElement('input'); i.type='file'; i.accept='image/*'; i.onchange=()=>{ const f=i.files&&i.files[0]; if(f) setPhoto(f); }; i.click(); }
+function setPhoto(file){
+  const fr=new FileReader();
+  fr.onload=()=>{ const img=new Image(); img.onload=()=>{
+      const S=192, c=document.createElement('canvas'); c.width=c.height=S; const g=c.getContext('2d');
+      const side=Math.min(img.width,img.height), sx=(img.width-side)/2, sy=(img.height-side)/2; // square crop from the middle
+      g.drawImage(img,sx,sy,side,side,0,0,S,S);
+      const url=c.toDataURL('image/jpeg',0.82); state.avatars=Object.assign({},state.avatars,{[userEmail().toLowerCase()]:url});
+      save(); render(); closeUserMenu(); toast('Profile photo updated'); };
+    img.onerror=()=>toast('Couldn’t read that picture. Try a JPG or PNG.'); img.src=fr.result; };
+  fr.readAsDataURL(file);
+}
+function removePhoto(){ const a=Object.assign({},state.avatars); delete a[userEmail().toLowerCase()]; state.avatars=a; save(); render(); toast('Profile photo removed'); }
 function closeUserMenu(){ const m=document.getElementById('usermenu'); if(m) m.remove(); document.removeEventListener('click',userMenuOutside,true); }
 function userMenuOutside(e){ const m=document.getElementById('usermenu'); if(m&&!m.contains(e.target)&&e.target.id!=='avatarBtn') closeUserMenu(); }
 function toggleUserMenu(e){
@@ -2417,7 +2442,7 @@ function toggleUserMenu(e){
   const admin=window.cloudApi&&cloudApi.isAdmin&&cloudApi.isAdmin();
   const th=window.getThemePref?getThemePref():'auto';
   const m=document.createElement('div'); m.id='usermenu'; m.className='usermenu';
-  m.innerHTML=`<div class="um-head"><span class="avatar big">${esc(userInitial())}</span><div style="min-width:0"><b>${esc(userName())}</b><div class="small muted" style="overflow:hidden;text-overflow:ellipsis">${esc(userEmail()||'Signed in')}${admin?' · admin':''}</div></div></div>
+  m.innerHTML=`<div class="um-head"><button class="avatar big ${myPhoto()?'photo':''} um-photo" onclick="pickPhoto()" title="Change photo">${avatarInner()}<span class="um-cam">${myPhoto()?'Edit':'Add'}</span></button><div style="min-width:0"><b>${esc(userName())}</b><div class="small muted" style="overflow:hidden;text-overflow:ellipsis">${esc(userEmail()||'Signed in')}${admin?' · admin':''}</div></div></div>
     <button onclick="closeUserMenu();go('settings')">${icon('settings',20)} <span>Settings</span></button>
     <button onclick="closeUserMenu();go('settings');setTimeout(()=>document.getElementById('fileIn')?.click(),150)">${icon('import',20)} <span>Import CSV files</span></button>
     
@@ -3088,7 +3113,10 @@ function setPayStart(d){ state.payCycle={...(state.payCycle||{}),start:d}; state
 let people=null, personForm=false;
 function accountSection(){
   const admin=window.cloudApi&&cloudApi.isAdmin();
-  return `<div class="card"><h2>Login</h2>
+  return `<div class="card"><h2>Profile</h2>
+    <div class="profrow"><span class="avatar big prof ${myPhoto()?'photo':''}">${avatarInner()}</span><div class="grow"><b>${esc(userName())}</b><div class="small muted">Your photo shows in the top corner. Each person in the household has their own.</div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn" onclick="pickPhoto()">${myPhoto()?'Change photo':'Add a photo'}</button>${myPhoto()?'<button class="btn ghost" onclick="removePhoto()">Remove</button>':''}</div></div></div></div>
+  <div class="card"><h2>Login</h2>
     <div class="row" style="margin:0"><span class="grow small">Signed in as <b>${esc(window.cloudApi?cloudApi.email():'')}</b>${admin?' · admin':''}</span><button class="btn ghost" onclick="cloudApi.logout()">Sign out</button></div>
   </div>
   ${admin?`<div class="card"><h2>People</h2>
