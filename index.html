@@ -476,11 +476,20 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .chip.warnchip{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
 .xferhint{display:flex;gap:10px;align-items:center;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--accent) 12%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);font-size:14px}.xferhint .grow{min-width:0}.xferhint .btn{padding:8px 14px;font-size:14px;flex:none}
 .autotag{font-style:normal;font-size:10px;font-weight:700;letter-spacing:.3px;margin-left:5px;opacity:.6;text-transform:uppercase}
+.lonetag{color:var(--bad);opacity:1}
 .autorow{display:flex;gap:10px;align-items:flex-start;margin-top:12px;cursor:pointer}.autorow input{width:auto;margin-top:3px;flex:none}
 .rvxfer{display:grid;gap:8px;margin:0 0 14px}.rvxfer button{display:flex;gap:12px;align-items:center;text-align:left;width:100%;padding:12px 14px;border-radius:14px;border:1px dashed var(--line);background:var(--card2);color:var(--ink);cursor:pointer;font:inherit;transition:transform .15s,border-color .2s}
 .rvxfer button:active{transform:scale(.98)}.rvxfer .xfic{font-size:20px}.rvxfer .why{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .rvxfer button.sel{outline:2px solid var(--accent)}
 .rvxfer.likely button{border-style:solid;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--card))}
+.budempty{text-align:center}.budstart{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:14px 0 8px}
+.budtop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.budtop .k{font-size:13px;color:var(--muted);font-weight:600}.budbig{font-size:34px;font-weight:800;letter-spacing:-.8px;margin-top:2px}
+.budpill{font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;white-space:nowrap}.budpill.good{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}.budpill.mid{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}.budpill.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.budbar{position:relative;overflow:visible}.budbar.big{height:12px;margin:14px 0 8px}.budbar .pace{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.45;border-radius:2px}
+.budmeta{display:flex;justify-content:space-between}.budnote{font-size:12px;color:var(--muted);margin-top:4px}.budnote.bad{color:var(--bad);font-weight:600}.budnote.mid{color:var(--accent);font-weight:600}
+.budedhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.budedrow{padding:12px 0;border-top:1px solid var(--line)}.budedname{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.budedctl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.budseg{margin:0}.budseg button{padding:8px 10px;font-size:13px}.budavg{margin-top:6px}
 .periodbar{position:sticky;top:0;z-index:6;margin:0 -14px 12px;padding:10px 14px 8px;padding-top:calc(10px + env(safe-area-inset-top));
   background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
 .periodbar.stuck{border-bottom-color:var(--line);box-shadow:0 6px 18px rgba(0,0,0,.18)}
@@ -511,7 +520,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.35';
+const APP_VERSION='0.36';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -779,7 +788,7 @@ function uncatCount(){ return state.txns.filter(t=>!t.cat&&isCounted(t)).length;
 
 /* ============ Navigation ============ */
 let tab='dashboard';
-const TABS=[['dashboard','📊','Dashboard'],['cats','📈','Charts'],['accounts','🏦','Accounts'],['review','✅','Review'],['settings','⚙️','Settings']];
+const TABS=[['dashboard','📊','Dashboard'],['budget','🎯','Budget'],['cats','📈','Charts'],['accounts','🏦','Accounts'],['review','✅','Review'],['settings','⚙️','Settings']];
 function renderNav(){
   const nav=document.getElementById('nav'), n=uncatCount();
   const hasLoan=loanAccts().length>0?'1':'0';
@@ -856,10 +865,10 @@ function animateNext(kind){ nextAnim=kind; }
 function go(t){ if(t!==tab) animateNext('tab'); if(t==='accounts'&&(tab==='accounts'||tab!=='accounts')) acctSel=null; tab=t; render(); window.scrollTo({top:0}); }
 function render(){
   if(appScreen!=='app') return;
-  renderNav();
+  renderNav(); _loneSet=null;
   const vt=document.getElementById('verTag'); if(vt){ vt.textContent='v'+APP_VERSION; vt.hidden=tab!=='dashboard'; }
   const el=document.getElementById('app');
-  ({dashboard:renderDashboard,review:renderReview,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
+  ({dashboard:renderDashboard,budget:renderBudget,review:renderReview,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
   placePills();
   animateNumbers(el);
   morphAfterRender(el,morphNext); morphNext=false;
@@ -940,7 +949,7 @@ function renderDashboard(el){
   const cats=Object.entries(s.byCat).filter(([,x])=>Math.abs(x)>0.004).sort((a,b)=>b[1]-a[1]);
   const max=Math.max(...cats.map(c=>c[1]),1);
   const catRows=list=>list.map(([id,amt])=>{
-    const c=catById(id); const bud=c.budget*pr.months;
+    const c=catById(id); const bud=budgetFor(c,pr);
     const pct=bud? Math.min(100,amt/bud*100) : amt/max*100;
     const over=bud&&amt>bud;
     const before=ps?ps.byCat[id]||0:0;
@@ -991,12 +1000,19 @@ function renderDashboard(el){
       ${s.uncatOut>0?`<div class="unrevnote" onclick="go('review')"><span>Plus <b>${money(s.uncatOut)}</b> not reviewed yet</span><span class="link small">Review ›</span></div>`:''}
     </div>
     <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Bills</h2>${bills.length?`<b>${money(billsTot)}</b>`:''}</div>${billsHtml}</div>
+    ${budMini(pr,s)}
     ${snap}
     </div>
     ${loanDashSection()}
     <p class="muted small" style="text-align:center">Transfers between your own accounts are left out of these totals.</p>`;
 }
 let dashAllCats=false;
+function budMini(pr,s){
+  const b=catsOfKind('expense').filter(c=>c.budget>0); if(!b.length||!pr.months) return '';
+  const bt=b.reduce((a,c)=>a+budgetFor(c,pr),0), sp=b.reduce((a,c)=>a+(s.byCat[c.id]||0),0), left=bt-sp, over=b.filter(c=>(s.byCat[c.id]||0)>budgetFor(c,pr)).length;
+  return `<div class="card snapcard" onclick="go('budget')"><div class="snap-k">Budget</div><div class="snap-row"><div class="snap-v ${left<0?'neg':''}">${money(Math.abs(left))}<span class="small muted" style="font-weight:600"> ${left<0?'over':'left'}</span></div><span class="link small">${over?`<span class="neg">${over} over</span> · `:''}Details ›</span></div>
+    <div class="bar" style="margin-top:8px"><i style="width:${Math.min(100,sp/bt*100)}%;background:${sp>bt?'var(--bad)':'var(--good)'}"></i></div></div>`;
+}
 const BILL_IDS=new Set(['rent','utilities','water','phone','insurance','subs']);
 function isBillCat(id){ const c=catById(id); return BILL_IDS.has(id)||(!!c&&/rent|mortgage|power|electric|water|\bgas\b|internet|phone|insurance|rates|subscription|kindy|kinder|childcare|school fee|council|rego/i.test(c.name)); }
 function balancesCard(){
@@ -1255,27 +1271,60 @@ function doubleUps(){
     if(t.amount<0) consider(t,[t]);
     else if(catKindOf(t.cat)==='income'){ const key='i'+shortHash(t.id); if(!ok.has(key)) out.push({type:'income',key,sides:[t],inc:t,other:m[2]}); }
   }
+  // Reconcile: every transaction marked Transfer needs its other side, the same amount going the other way
+  // in another of your accounts within 3 days. One without a partner may really be spending (or income).
+  for(const u of unmatchedTransfers()){ const key='u'+shortHash(u.t.id); if(!ok.has(key)) out.push({type:'unmatched',key,sides:[u.t],other:u.other,notImported:u.notImported}); }
+  return out;
+}
+function transferMatches(){
+  const {partner}=transferPairs(), used=new Set(partner.keys()), match=new Map(partner);
+  const xf=state.txns.filter(t=>catKindOf(t.cat)==='transfer'&&!partner.has(t.id)&&state.accounts[t.acct]).sort((a,b)=>a.date.localeCompare(b.date));
+  const byAmt=new Map(); for(const x of state.txns){ if(used.has(x.id)||!state.accounts[x.acct]) continue; const k=Math.abs(x.amount).toFixed(2); if(!byAmt.has(k)) byAmt.set(k,[]); byAmt.get(k).push(x); }
+  for(const t of xf){
+    if(used.has(t.id)) continue;
+    const c=(byAmt.get(Math.abs(t.amount).toFixed(2))||[]).filter(x=>!used.has(x.id)&&x.acct!==t.acct&&Math.sign(x.amount)===-Math.sign(t.amount)&&dayGap(x.date,t.date)<=3);
+    if(!c.length) continue;
+    c.sort((a,b)=>(catKindOf(b.cat)==='transfer')-(catKindOf(a.cat)==='transfer')||dayGap(a.date,t.date)-dayGap(b.date,t.date));
+    used.add(t.id); used.add(c[0].id); match.set(t.id,c[0]); match.set(c[0].id,t);
+  }
+  return match;
+}
+let _loneSet=null;
+function loneSet(){ if(!_loneSet) _loneSet=new Set(unmatchedTransfers().map(u=>u.t.id)); return _loneSet; }
+function unmatchedTransfers(){
+  const match=transferMatches(), late=isoAdd(latestDate()||'9999-12-31',-3), out=[];
+  for(const t of state.txns){
+    if(catKindOf(t.cat)!=='transfer'||match.has(t.id)||!state.accounts[t.acct]||!isCounted(t)) continue;
+    if(t.date>late) continue; // the other side may not be in a file yet
+    const m=t.desc.match(OWN_XFER), other=m?m[2]:null;
+    out.push({t,other,notImported:!!other&&!state.accounts[other]});
+  }
   return out;
 }
 function dupApply(d,tid){ d.sides.forEach(t=>{ if(catKindOf(t.cat)!=='transfer') t.cat=tid; }); }
 function dupFix(key){ const d=doubleUps().find(x=>x.key===key); if(!d) return; rv.undo=snapshot(); dupApply(d,transferCatId()); save(); render(); toast('Marked as transfer'); }
 function dupKeep(key){ state.dupOk=[...(state.dupOk||[]),key]; save(); render(); toast('Okay, left as is'); }
-function dupFixAll(){ const ds=doubleUps(), tid=transferCatId(); rv.undo=snapshot(); ds.forEach(d=>dupApply(d,tid)); save(); render(); toast(ds.length+' fixed'); }
+function dupFixAll(){ const ds=doubleUps().filter(d=>d.type!=='unmatched'), tid=transferCatId(); rv.undo=snapshot(); ds.forEach(d=>dupApply(d,tid)); save(); render(); toast(ds.length+' fixed'); }
 let dupOpen=false, dupReviewOpen=false;
 function dupCard(compact){
   const ds=doubleUps(); if(!ds.length) return '';
   if(compact&&!dupReviewOpen) return `<div class="banner dupbanner" onclick="dupReviewOpen=true;render()"><span>⚠️ <b>${ds.length}</b> thing${ds.length>1?'s':''} to check</span><button class="btn ghost">Check</button></div>`;
   const row=(t,label)=>{ const c=t.cat?catById(t.cat):null; return `<div class="duprow">${label?`<span class="duplab">${label}</span>`:''}<span class="grow"><b>${esc(titleCase(cleanDesc(t.desc)))}</b><div class="small muted">${esc(acctName(t.acct))} · ${shortDay(t.date)} · <span class="chip ${c?(c.kind==='transfer'?'':(label==='Bill'?'':'warnchip')):'none'}">${c?esc(c.name):'To review'}</span></div></span><b class="${t.amount>0?'pos':'neg'}">${t.amount>0?'+':'−'}${money(Math.abs(t.amount))}</b></div>`; };
   const shown=dupOpen?ds:ds.slice(0,2);
-  const doubles=ds.filter(d=>d.type==='double'), incs=ds.filter(d=>d.type==='income');
+  const doubles=ds.filter(d=>d.type==='double'), incs=ds.filter(d=>d.type==='income'), lone=ds.filter(d=>d.type==='unmatched');
   const twice=doubles.reduce((s,d)=>s-d.xfer.amount,0), extraIn=incs.reduce((s,d)=>s+d.inc.amount,0);
-  const bits=[twice?`${money(twice)} spent counted twice`:'',extraIn?`${money(extraIn)} of transfers counted as income`:''].filter(Boolean).join(' and ');
+  const bits=[twice?`${money(twice)} spent counted twice`:'',extraIn?`${money(extraIn)} of transfers counted as income`:'',lone.length?`${lone.length} transfer${lone.length>1?'s':''} with no other side`:''].filter(Boolean).join(', ');
   const item=d=>{
     if(d.type==='double'){ const c=catById(d.bill.cat);
       return `<div class="dupitem"><div class="duptype">Double-up</div>
         ${d.sides.map(t=>row(t,'Transfer')).join('')}${row(d.bill,'Bill')}
         <div class="small muted dupnote">The transfer and the real bill are both in <b>${esc(c.name)}</b>, so it's counted twice.</div>
         <div class="dupbtns"><button class="btn" onclick="dupFix('${d.key}')">Make the transfer a Transfer</button><button class="btn ghost" onclick="dupKeep('${d.key}')">Not a double-up</button></div></div>`; }
+    if(d.type==='unmatched'){ const t=d.sides[0], out=t.amount<0;
+      return `<div class="dupitem"><div class="duptype">Transfer with no other side</div>
+        ${row(t,out?'Out':'In')}
+        <div class="small muted dupnote">${d.notImported?`It mentions account …${esc(d.other.slice(-4))}, which hasn't been imported, so it can't be matched.`:`There's no matching ${out?'+':'−'}${money(Math.abs(t.amount))} in any of your other accounts within 3 days. If this money ${out?'went to someone else, it was spending':'came from someone else, it was income'}.`}</div>
+        <div class="dupbtns"><button class="btn" onclick="openPicker('${encodeURIComponent(t.id)}')">Change category</button><button class="btn ghost" onclick="dupKeep('${d.key}')">It's a real transfer</button></div></div>`; }
     const from=d.sides.length>1?d.sides[0].acct:d.other;
     return `<div class="dupitem"><div class="duptype">Transfer counted as income</div>
       ${d.sides.map(t=>row(t,t.amount<0?'Out':'In')).join('')}
@@ -1286,7 +1335,7 @@ function dupCard(compact){
     <div class="duphead"><span class="dupicon">⚠️</span><div class="grow"><h2 style="margin:0">Worth a check <span class="dupn">${ds.length}</span></h2>
       <div class="small muted">Looks like ${bits}.</div></div></div>
     ${shown.map(item).join('')}
-    ${ds.length>2?`<div class="dupfoot"><button class="link small" onclick="dupOpen=!dupOpen;render()">${dupOpen?'Show fewer':'Show all '+ds.length}</button><button class="link small" onclick="dupFixAll()">Fix all</button></div>`:''}
+    ${ds.length>2?`<div class="dupfoot"><button class="link small" onclick="dupOpen=!dupOpen;render()">${dupOpen?'Show fewer':'Show all '+ds.length}</button>${ds.some(d=>d.type!=='unmatched')?`<button class="link small" onclick="dupFixAll()">Fix double-ups</button>`:''}</div>`:''}
   </div>`;
 }
 /* ============ Transactions ============ */
@@ -1368,7 +1417,7 @@ function txnList(list,groupDays){
   for(const t of list){
     if(groupDays&&t.date!==last){ html+=`<div class="dayhdr">${dayLabel(t.date)}</div>`; last=t.date; }
     const c=t.cat?catById(t.cat):null;
-    const chip=c?`<span class="chip">${esc(c.name)}${t.auto?'<i class="autotag">auto</i>':''}</span>`:`<span class="chip none">To review${t.sug&&catById(t.sug)?' · '+esc(catById(t.sug).name)+'?':''}</span>`;
+    const chip=c?`<span class="chip">${esc(c.name)}${t.auto?'<i class="autotag">auto</i>':''}${c.kind==='transfer'&&loneSet().has(t.id)?'<i class="autotag lonetag">no match</i>':''}</span>`:`<span class="chip none">To review${t.sug&&catById(t.sug)?' · '+esc(catById(t.sug).name)+'?':''}</span>`;
     html+=`<div class="txn" onclick="openPicker('${encodeURIComponent(t.id)}')">
       <span class="dot" style="background:${c?c.color:'#f5b301'};margin:0"></span>
       <div class="mid"><div class="d">${esc(cleanDesc(t.desc))}</div><div class="s">${chip}${groupDays?'':dayLabel(t.date)+' · '}${acctTag(t.acct)}</div></div>
@@ -1476,7 +1525,7 @@ function renderCharts(el){
   const datesIn=inP.map(t=>t.date).sort(); const spanDays=datesIn.length?Math.round((new Date(datesIn[datesIn.length-1])-new Date(datesIn[0]))/86400000)+1:0;
   const placesN=new Set(purchases.map(merchantKey)).size;
   const avgBuy=purchases.length?purchases.reduce((a,t)=>a-t.amount,0)/purchases.length:0;
-  const budgeted=exp.filter(c=>c.budget>0); const budTotal=budgeted.reduce((a,c)=>a+c.budget*pr.months,0);
+  const budgeted=exp.filter(c=>c.budget>0); const budTotal=budgeted.reduce((a,c)=>a+budgetFor(c,pr),0);
   const budSpent=budgeted.reduce((a,c)=>a+(s.byCat[c.id]||0),0);
   // ---- donut
   const parts=spent.filter(r=>r.amt>0).map(r=>({v:r.amt,c:r.c.color,n:r.c.name}));
@@ -1484,7 +1533,7 @@ function renderCharts(el){
   const legend=parts.slice(0,8).map(p=>`<div class="lg"><span class="dot" style="background:${p.c}"></span><span class="grow">${esc(p.n)}</span><b>${Math.round(p.v/total*100)}%</b></div>`).join('')+(parts.length>8?`<div class="small muted">+${parts.length-8} more below</div>`:'');
   // ---- category breakdown rows (tap for details)
   const card=(r)=>{
-    const c=r.c, amt=r.amt, bud=c.budget*pr.months, over=bud&&amt>bud;
+    const c=r.c, amt=r.amt, bud=budgetFor(c,pr), over=bud&&amt>bud;
     const before=ps?ps.byCat[c.id]||0:0; const diff=ps&&before?Math.round((amt-before)/before*100):null;
     const sp=r.tx.filter(t=>t.amount<0);
     const avg=sp.length?sp.reduce((a,t)=>a-t.amount,0)/sp.length:0;
@@ -2047,6 +2096,91 @@ async function restoreBackup(f){ if(!f) return; try{ const s=JSON.parse(await f.
 function wipe(){ if(!confirmBox('Delete ALL transactions, rules and settings? This cannot be undone.')) return; { const v=state.view; state=freshState(); state.view=v; } save(); render(); toast('All data deleted'); }
 function confirmBox(msg){ try{ return window.confirm(msg); }catch(e){ return true; } }
 
+/* ============ Budget ============ */
+// Each expense category can have a budget per fortnight or per month; it's scaled to whatever period you're viewing.
+function budPer(c){ return c.budgetPer==='fortnight'?'fortnight':'month'; }
+function budgetFor(c,pr){ if(!c||!c.budget||!pr.months) return 0; return c.budget*pr.months*(budPer(c)==='fortnight'?26/12:1); }
+function periodDays(pr){
+  const v=state.view;
+  if(v.mode==='fortnight') return 14;
+  const [y,m]=(v.anchor||latestYM()).split('-').map(Number); const end=new Date(y,m,0);
+  const start=new Date(pr.from+'T00:00:00'); return Math.round((end-start)/864e5)+1;
+}
+function avgSpend(c,per){
+  const end=latestDate(); if(!end) return 0;
+  const first=state.txns.reduce((m,t)=>t.date<m?t.date:m,end);
+  const days=Math.max(14,Math.min(90,dayGap(first,end)+1)), start=isoAdd(end,-(days-1));
+  const tot=state.txns.filter(t=>t.cat===c.id&&t.amount<0&&isCounted(t)&&t.date>=start&&t.date<=end).reduce((a,t)=>a-t.amount,0);
+  return tot/days*(per==='fortnight'?14:365.25/12);
+}
+function roundBud(x){ return x<=0?0:x<100?Math.ceil(x/5)*5:Math.ceil(x/10)*10; }
+let budEdit=false;
+function setBud(id,v){ const c=catObj(id); c.budget=Math.max(0,parseFloat(String(v).replace(/[$,]/g,''))||0); save(); render(); }
+function setBudPer(id,per){ const c=catObj(id); if(budPer(c)===per) return; if(c.budget) c.budget=roundBud(c.budget*(per==='fortnight'?12/26:26/12)); c.budgetPer=per; save(); render(); }
+function useAvg(id){ const c=catObj(id); c.budget=roundBud(avgSpend(c,budPer(c))); save(); render(); toast(c.budget?`${c.name}: ${money0(c.budget)} per ${budPer(c)}`:'No recent spending in '+c.name); }
+function useAvgAll(){ let n=0; catsOfKind('expense').forEach(c=>{ if(!c.budget){ const a=roundBud(avgSpend(c,budPer(c))); if(a){ c.budget=a; n++; } } }); save(); render(); toast(n?`Filled ${n} budget${n>1?'s':''} from your averages`:'Nothing to fill'); }
+function startBudgets(per){ catsOfKind('expense').forEach(c=>{ if(!c.budget) c.budgetPer=per; }); budEdit=true; save(); render(); window.scrollTo({top:0}); }
+function renderBudget(el){
+  const pr=periodRange(), s=summarise(pr.from,pr.to), exp=catsOfKind('expense');
+  const budgeted=exp.filter(c=>c.budget>0);
+  if(budEdit) return renderBudgetEdit(el);
+  if(!budgeted.length){
+    el.innerHTML=`${periodControls()}<div class="card budempty"><div style="font-size:40px">🎯</div><h2>Set your budgets</h2>
+      <p class="muted">Give each spending category a limit per fortnight or per month. You'll see what's left, what's gone over, and whether you're on track.</p>
+      <div class="budstart"><button class="btn" onclick="startBudgets('fortnight')">Budget per fortnight</button><button class="btn ghost" onclick="startBudgets('month')">Per month</button></div>
+      <p class="small muted">You can mix them: groceries per fortnight, car servicing per month.</p></div>`;
+    return;
+  }
+  if(!pr.months){ el.innerHTML=`${periodControls()}<div class="card"><p class="muted" style="margin:0">Pick a fortnight, month or longer period to compare against your budgets.</p></div>`; return; }
+  const rows=budgeted.map(c=>{ const b=budgetFor(c,pr), sp=s.byCat[c.id]||0; return {c,b,sp,p:sp/b}; }).sort((x,y)=>y.p-x.p);
+  const bTot=rows.reduce((a,r)=>a+r.b,0), spTot=rows.reduce((a,r)=>a+r.sp,0), left=bTot-spTot;
+  const today=new Date().toLocaleDateString('en-CA'), days=periodDays(pr);
+  const current=today>=pr.from&&today<=isoAdd(pr.from,days-1);
+  const elapsed=current?dayGap(pr.from,today)+1:days, frac=elapsed/days, used=bTot?spTot/bTot:0;
+  let status, scls;
+  if(used>1){ status='Over budget'; scls='bad'; }
+  else if(!current&&!coversFrom(pr.from)){ status='Part period'; scls='mid'; }
+  else if(!current){ status=`Came in ${money0(left)} under`; scls='good'; }
+  else if(used>frac+0.08){ status='Spending faster than planned'; scls='mid'; }
+  else { status='On track'; scls='good'; }
+  const unb=Object.entries(s.byCat).filter(([id,x])=>x>0.004&&!(catById(id)?.budget>0)&&catKindOf(id)==='expense').sort((a,b)=>b[1]-a[1]);
+  const unbTot=unb.reduce((a,[,x])=>a+x,0)+(s.uncatOut||0);
+  const over=rows.filter(r=>r.p>1), close=rows.filter(r=>r.p>=0.9&&r.p<=1);
+  const row=r=>{ const pct=Math.min(100,r.p*100), cls=r.p>1?'bad':r.p>=0.9?'mid':'';
+    return `<div class="catrow budrow" onclick="filterCat('${r.c.id}')">
+      <div class="top"><span><span class="dot" style="background:${r.c.color}"></span>${esc(r.c.name)}</span><b class="${r.p>1?'neg':''}">${money(r.sp)}<span class="small muted"> / ${money0(r.b)}</span></b></div>
+      <div class="bar budbar ${cls}"><i style="width:${Math.max(pct,1.5)}%;background:${r.p>1?'var(--bad)':r.p>=0.9?'var(--accent)':r.c.color}"></i>${current?`<span class="pace" style="left:${frac*100}%"></span>`:''}</div>
+      <div class="budnote ${cls}">${r.p>1?`${money(r.sp-r.b)} over`:`${money(r.b-r.sp)} left`}${budPer(r.c)!==state.view.mode&&state.view.mode!=='3m'&&state.view.mode!=='year'?` · ${money0(r.c.budget)} per ${budPer(r.c)}`:''}</div></div>`; };
+  el.innerHTML=`${periodControls()}
+    <div class="card budhero">
+      <div class="budtop"><div><div class="k">${left>=0?'Left to spend':'Over budget by'}</div><div class="budbig ${left<0?'neg':''}">${money(Math.abs(left))}</div></div><span class="budpill ${scls}">${status}</span></div>
+      <div class="bar budbar big"><i style="width:${Math.min(100,used*100)}%;background:${used>1?'var(--bad)':used>frac+0.08&&current?'var(--accent)':'var(--good)'}"></i>${current?`<span class="pace" style="left:${frac*100}%"></span>`:''}</div>
+      <div class="budmeta small muted"><span>Spent <b>${money(spTot)}</b> of ${money(bTot)}</span><span>${current?`Day ${elapsed} of ${days}`:'Finished'}</span></div>
+      ${!coversFrom(pr.from)?`<div class="small muted" style="margin-top:6px">Your imported transactions start partway through this period, so these numbers are incomplete.</div>`:''}
+      ${current?`<div class="small muted" style="margin-top:6px">You've used <b>${Math.round(used*100)}%</b> of the budget and you're <b>${Math.round(frac*100)}%</b> of the way through.</div>`:''}
+    </div>
+    ${over.length||close.length?`<div class="card"><h2>Needs attention</h2>${over.map(r=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${r.c.id}')"><span class="dot" style="background:var(--bad)"></span><span class="grow">${esc(r.c.name)}<div class="small muted">${money(r.sp)} of ${money0(r.b)}</div></span><b class="neg">${money(r.sp-r.b)} over</b></div>`).join('')}${close.map(r=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${r.c.id}')"><span class="dot" style="background:var(--accent)"></span><span class="grow">${esc(r.c.name)}<div class="small muted">${Math.round(r.p*100)}% used</div></span><b>${money(r.b-r.sp)} left</b></div>`).join('')}</div>`:''}
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Budgets</h2><button class="pill" onclick="budEdit=true;render();window.scrollTo({top:0})">✏️ Edit budgets</button></div>
+      ${current?`<p class="small muted" style="margin:-4px 0 6px">The thin line on each bar shows where you'd be if spending was spread evenly.</p>`:''}
+      ${rows.map(row).join('')}</div>
+    ${unbTot>0.004?`<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Not in a budget</h2><b>${money(unbTot)}</b></div>
+      ${unb.slice(0,6).map(([id,x])=>{ const c=catById(id); return `<div class="lrow"><span class="dot" style="background:${c.color}"></span><span class="grow" style="cursor:pointer" onclick="filterCat('${id}')">${esc(c.name)}</span><b>${money(x)}</b><button class="link small" style="margin-left:10px" onclick="budEdit=true;render();window.scrollTo({top:0})">+ Budget</button></div>`; }).join('')}
+      ${s.uncatOut>0.004?`<div class="lrow"><span class="dot" style="background:var(--muted)"></span><span class="grow" style="cursor:pointer" onclick="go('review')">Not sorted yet</span><b>${money(s.uncatOut)}</b></div>`:''}</div>`:''}`;
+}
+function renderBudgetEdit(el){
+  const exp=catsOfKind('expense'), empty=exp.filter(c=>!c.budget).length;
+  const total={fortnight:0,month:0}; exp.forEach(c=>{ if(c.budget){ total.fortnight+=c.budget*(budPer(c)==='fortnight'?1:12/26); total.month+=c.budget*(budPer(c)==='month'?1:26/12); } });
+  el.innerHTML=`<div class="budedhead"><button class="btn ghost" onclick="budEdit=false;render()">‹ Done</button><span class="small muted">≈ ${money0(total.fortnight)} a fortnight · ${money0(total.month)} a month</span></div>
+    <div class="card"><h2>Edit budgets</h2><p class="small muted" style="margin-top:-6px">Set an amount and choose per fortnight or per month. Leave blank for no budget. "Usually" is your average over the last 3 months.</p>
+      ${empty?`<button class="btn ghost" style="margin:4px 0 8px" onclick="useAvgAll()">Fill the ${empty} empty ones from my averages</button>`:''}
+      ${exp.map(c=>{ const per=budPer(c), avg=avgSpend(c,per);
+        return `<div class="budedrow"><div class="budedname"><span class="dot" style="background:${c.color}"></span><b>${esc(c.name)}</b></div>
+          <div class="budedctl"><div class="ce-money"><span>$</span><input type="text" inputmode="decimal" placeholder="No budget" value="${c.budget||''}" onchange="setBud('${c.id}',this.value)"></div>
+            <div class="seg budseg"><button class="${per==='fortnight'?'on':''}" onclick="setBudPer('${c.id}','fortnight')">Fortnight</button><button class="${per==='month'?'on':''}" onclick="setBudPer('${c.id}','month')">Month</button></div></div>
+          <div class="small muted budavg">${avg>0.5?`Usually about <b>${money0(avg)}</b> a ${per} · <button class="link small" onclick="useAvg('${c.id}')">Use this</button>`:'No recent spending'}</div></div>`; }).join('')}
+    </div>
+    <div style="text-align:center;margin-bottom:20px"><button class="btn" onclick="budEdit=false;render();window.scrollTo({top:0})">Done</button></div>`;
+}
 /* ============ Category editor ============ */
 let catEd={delId:null,returnTo:null};
 function openCatEditor(returnTo){ catEd={delId:null,openId:null,newKind:'expense',drawn:false,returnTo:returnTo||null}; drawCatEditor(); }
@@ -2059,7 +2193,7 @@ function drawCatEditor(){
         <span class="ce-handle" title="Drag to reorder" onpointerdown="ceDragStart(event,'${c.id}')" onclick="event.stopPropagation()">⋮⋮</span>
         <span class="ce-dot" style="background:${c.color}"></span>
         <span class="ce-name">${esc(c.name)}<span class="ce-sub">${n} transaction${n===1?'':'s'}</span></span>
-        ${c.kind==='expense'?`<span class="ce-budget ${c.budget?'':'none'}">${c.budget?money0(c.budget)+'/mth':'No budget'}</span>`:''}
+        ${c.kind==='expense'?`<span class="ce-budget ${c.budget?'':'none'}">${c.budget?money0(c.budget)+(budPer(c)==='fortnight'?'/fn':'/mth'):'No budget'}</span>`:''}
         <span class="ce-chev">${open?'▾':'›'}</span>
       </div>`;
     if(open){
@@ -2068,7 +2202,7 @@ function drawCatEditor(){
         <input value="${esc(c.name)}" onchange="catRename('${c.id}',this.value);drawCatEditor()">
         ${locked?'':`<label class="ce-lbl">Type</label>
         <div class="seg" style="margin:0"><button class="${c.kind==='expense'?'on':''}" onclick="catKind('${c.id}','expense')">Expense (money out)</button><button class="${c.kind==='income'?'on':''}" onclick="catKind('${c.id}','income')">Income (money in)</button></div>`}
-        ${c.kind==='expense'?`<label class="ce-lbl">Monthly budget</label>
+        ${c.kind==='expense'?`<label class="ce-lbl">Budget per ${budPer(c)} (change on the Budget tab)</label>
         <div class="ce-money"><span>$</span><input type="number" inputmode="decimal" min="0" step="10" placeholder="No budget" value="${c.budget||''}" onchange="catBudget('${c.id}',this.value);drawCatEditor()"></div>`:''}
         <label class="ce-lbl">Colour</label>
         <div class="ce-colours">${PALETTE.concat(['#4cd964','#20c997','#74c0fc','#a9e34b']).filter((x,i,a)=>a.indexOf(x)===i).map(col=>`<button class="ce-swatch ${c.color.toLowerCase()===col.toLowerCase()?'sel':''}" style="background:${col}" onclick="catColor('${c.id}','${col}');drawCatEditor()" aria-label="Colour"></button>`).join('')}
