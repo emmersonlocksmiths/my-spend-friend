@@ -232,6 +232,16 @@ details[open]>summary~*{animation:openDown .2s ease}
 button,.btn,.catrow,.crow,.txn,.lrow,.chip,.seg button,.qpgrid button,.suggrow button,.catgrid button,.period button{transition:transform .12s ease,background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s}
 button:active:not(:disabled),.txn:active,.catrow:active,.crow:active{transform:scale(.97)}
 .txn:active,.crow:active,.catrow:active{transform:scale(.99)}
+[onclick]:not(button):not(input):not(select):not(.modal-bg):not(.modal):not(#app):not(body){transition:transform .14s ease,background-color .2s,box-shadow .2s}
+[onclick]:not(button):not(input):not(select):not(.modal-bg):not(.modal):not(#app):not(body):not(.card):active{transform:scale(.985)}
+.card[onclick]:active,.snapcard:active,.recapcard:active,.cmpcard[onclick]:active{transform:scale(.99)}
+label.rolltog:active,label.linkrow:active,.chip:active{transform:scale(.98)}
+.seg button,.chip,.pill,.btn,.link{transition:transform .14s ease,background-color .22s ease,color .22s ease,border-color .22s ease,box-shadow .22s ease}
+.donut-in{animation:donutIn .7s cubic-bezier(.2,.7,.2,1)}
+@keyframes donutIn{from{transform:rotate(-100deg) scale(.82);opacity:0}to{transform:none;opacity:1}}
+.donut{transform-origin:50% 50%}
+.budnote,.budgetnote,.budhint,.goalrow{transition:color .25s ease}
+@media (prefers-reduced-motion: reduce){ .donut-in{animation:none} [onclick]:active{transform:none!important} }
 .bar i,.crow-bar i,.sharebar i{transition:width .35s cubic-bezier(.2,.7,.2,1)}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 .donutwrap{display:flex;align-items:center;gap:14px}
@@ -587,7 +597,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.63';
+const APP_VERSION='0.64';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -938,28 +948,46 @@ let nextAnim=null, periodDir=null, pillFrom=null, morphNext=false;
 // Seamless period changes: bars and chart columns move from their old size to the new one.
 const barMemo={}, rectMemo={};
 function morphKey(n){ const r=n.closest('.catrow,.crow,.lrow,.card,.stat'); const lab=r?(r.querySelector('.crow-name,.top>span,h2')?.textContent||''):''; return tab+'|'+(acctSel||'')+'|'+(loanSel||'')+'|'+lab; }
-function morphAfterRender(el,animate){
-  const anim=animate&&!reducedMotion();
+const lineMemo={}, donutMemo={};
+const EASE='cubic-bezier(.2,.7,.2,1)';
+function morphAfterRender(el){
+  if(reducedMotion()) return;
   const counts={};
+  // progress bars: slide from their old width, or grow in from empty the first time
   el.querySelectorAll('.bar i,.crow-bar i,.sharebar i').forEach(n=>{
     let k=morphKey(n); counts[k]=(counts[k]||0)+1; k+='#'+counts[k];
     const target=n.style.width, prev=barMemo[k]; barMemo[k]=target;
-    if(anim&&prev!=null&&prev!==target){ n.style.transition='none'; n.style.width=prev; void n.offsetWidth; n.style.transition='width .5s cubic-bezier(.2,.7,.2,1)'; n.style.width=target; }
-    else if(anim&&prev==null){ n.style.transition='none'; n.style.width='0%'; void n.offsetWidth; n.style.transition='width .5s cubic-bezier(.2,.7,.2,1)'; n.style.width=target; }
+    if(prev===target) return;
+    n.style.transition='none'; n.style.width=prev==null?'0%':prev; void n.offsetWidth; n.style.transition=`width .55s ${EASE}`; n.style.width=target;
   });
   el.querySelectorAll('svg').forEach((svg,si)=>{
-    const card=svg.closest('.card'); const lab=tab+'|'+(acctSel||'')+'|'+((card&&card.querySelector('h2')?.textContent)||si);
+    if(svg.closest('.lic,.navic,button')||svg.classList.contains('lic')) return;
+    const card=svg.closest('.card,.modal'); const lab=tab+'|'+(acctSel||'')+'|'+(projSel||'')+'|'+((card&&card.querySelector('h2,h3')?.textContent)||si);
     let changed=false;
+    // chart columns: move from old height, or rise from the baseline the first time
     svg.querySelectorAll('rect').forEach((r,ri)=>{
       if(r.getAttribute('fill')==='transparent'||!r.hasAttribute('height')) return;
       const k=lab+'|'+ri, y=+r.getAttribute('y'), h=+r.getAttribute('height'), prev=rectMemo[k]; rectMemo[k]={y,h};
-      if(anim&&prev&&(Math.abs(prev.y-y)>.5||Math.abs(prev.h-h)>.5)){ changed=true;
-        r.setAttribute('y',prev.y); r.setAttribute('height',prev.h);
-        const t0=performance.now(), D=480; const step=now=>{ const q=Math.min(1,(now-t0)/D), e=1-Math.pow(1-q,3);
-          r.setAttribute('y',prev.y+(y-prev.y)*e); r.setAttribute('height',Math.max(0,prev.h+(h-prev.h)*e)); if(q<1&&r.isConnected) requestAnimationFrame(step); };
-        requestAnimationFrame(step); }
+      const from=prev||{y:y+h,h:0};
+      if(Math.abs(from.y-y)<=.5&&Math.abs(from.h-h)<=.5) return; changed=true;
+      r.setAttribute('y',from.y); r.setAttribute('height',from.h);
+      const t0=performance.now()+(prev?0:ri*18), D=prev?480:620;
+      const step=now=>{ const q=Math.max(0,Math.min(1,(now-t0)/D)), e=1-Math.pow(1-q,3); r.setAttribute('y',from.y+(y-from.y)*e); r.setAttribute('height',Math.max(0,from.h+(h-from.h)*e)); if(q<1&&r.isConnected) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
     });
-    if(changed) svg.querySelectorAll('text').forEach(t=>{ t.style.opacity='0'; t.style.transition='opacity .25s ease .35s'; requestAnimationFrame(()=>requestAnimationFrame(()=>{ t.style.opacity='1'; })); });
+    // line charts: draw the line along, fade the shaded area in
+    svg.querySelectorAll('polyline').forEach((pl,pi)=>{
+      const k=lab+'|L'+pi, pts=pl.getAttribute('points'), prev=lineMemo[k]; lineMemo[k]=pts; if(prev===pts) return; changed=true;
+      if(pl.getAttribute('fill')==='none'&&!pl.hasAttribute('stroke-dasharray')&&pl.getAttribute('vector-effect')!=='non-scaling-stroke'){
+        let L=0; try{ L=pl.getTotalLength(); }catch(e){} if(!L) return;
+        pl.style.transition='none'; pl.style.strokeDasharray=L; pl.style.strokeDashoffset=L; void pl.getBoundingClientRect();
+        pl.style.transition=`stroke-dashoffset .8s ${EASE}`; pl.style.strokeDashoffset='0';
+        pl.addEventListener('transitionend',()=>{ pl.style.strokeDasharray=''; pl.style.strokeDashoffset=''; },{once:true});
+      } else { const o=pl.getAttribute('opacity')||'1'; pl.style.transition='none'; pl.style.opacity='0'; void pl.getBoundingClientRect(); pl.style.transition='opacity .7s ease .1s'; pl.style.opacity=o; }
+    });
+    // pie charts: sweep round when they first appear or their slices change
+    if(svg.classList.contains('donut')){ const sig=[...svg.querySelectorAll('path,circle')].map(x=>x.getAttribute('d')||x.getAttribute('stroke')).join('|'); if(donutMemo[lab]!==sig){ donutMemo[lab]=sig; svg.classList.remove('donut-in'); void svg.getBoundingClientRect(); svg.classList.add('donut-in'); } }
+    if(changed) svg.querySelectorAll('text').forEach(t=>{ t.style.opacity='0'; t.style.transition='opacity .3s ease .35s'; requestAnimationFrame(()=>requestAnimationFrame(()=>{ t.style.opacity='1'; })); });
   });
 }
 // Sliding gold highlight on the period selector
@@ -971,22 +999,26 @@ function placePills(){
   pillFrom=null;
 }
 addEventListener('resize',()=>placePills());
-// Count figures up or down to their new value when the period changes
+// Count figures up or down to their new value. Figures seen for the first time count up from zero.
 const numMemo={};
+const NUM_SEL='.stat .v, .mini2 .v, .mini3 .v, .loanbig, .crow-amt, .ar-bal, .dh-big, .budbig, .snap-v, .catrow .top b, .lrow > b, .posrow b, .billrow > b, .recapgrid .v, .cmpgrid > span, .ce-budget, .acctrow b, .loancard b, .v';
+function numKey(n){ const row=n.closest('.catrow,.crow,.lrow,.posrow,.billrow,.acctrow,.stat,.recapgrid>div,.card'); const lab=row?(row.querySelector('.crow-name,.top>span,.grow,.k,h2')?.textContent||'').trim().slice(0,40):''; return tab+':'+(acctSel||'')+':'+(projSel||'')+':'+lab+':'+n.className; }
 function animateNumbers(el){
-  const nodes=el.querySelectorAll('.stat .v, .mini2 .v, .mini3 .v, .loanbig, .crow-amt, .ar-bal');
-  const seen=new Set();
-  nodes.forEach((n,i)=>{
+  if(reducedMotion()) return;
+  const counts={};
+  [...new Set(el.querySelectorAll(NUM_SEL))].forEach(n=>{
+    if(n.closest('.modal-bg')&&!n.closest('.recap')) return;
     const tn=[...n.childNodes].find(c=>c.nodeType===3&&c.textContent.trim()); if(!tn) return;
-    const txt=tn.textContent.trim(), m=txt.match(/^([+−-]?)(\$?)([\d,]+(?:\.(\d+))?)(%?)$/); if(!m) return;
-    const key=tab+':'+(acctSel||'')+':'+(n.closest('.card,.stat')?.querySelector('.k,h2')?.textContent||'')+':'+i; seen.add(key);
+    const txt=tn.textContent, core=txt.trim(), m=core.match(/^([+−-]?)(\$?)([\d,]+(?:\.(\d+))?)(%?)$/); if(!m) return;
+    let key=numKey(n); counts[key]=(counts[key]||0)+1; key+='#'+counts[key];
     const val=(m[1]==='−'||m[1]==='-'?-1:1)*parseFloat(m[3].replace(/,/g,'')), dec=m[4]?m[4].length:0;
     const prev=numMemo[key]; numMemo[key]=val;
-    if(prev==null||prev===val||reducedMotion()||Math.abs(prev-val)<0.005) return;
+    const from=prev==null?0:prev; if(from===val||Math.abs(from-val)<0.005) return;
     const fmt=v=>{ const neg=v<0; const body=Math.abs(v).toLocaleString('en-AU',{minimumFractionDigits:dec,maximumFractionDigits:dec}); return (neg?'−':(m[1]==='+'?'+':''))+m[2]+body+m[5]; };
-    const t0=performance.now(), D=420;
-    const step=now=>{ const k=Math.min(1,(now-t0)/D), e=1-Math.pow(1-k,3); tn.textContent=fmt(prev+(val-prev)*e)+(txt.endsWith(' ')?' ':''); if(k<1&&tn.isConnected) requestAnimationFrame(step); else tn.textContent=txt; };
-    requestAnimationFrame(step);
+    const lead=txt.match(/^\s*/)[0], trail=txt.match(/\s*$/)[0];
+    const t0=performance.now(), D=prev==null?650:450;
+    const step=now=>{ const k=Math.min(1,(now-t0)/D), e=1-Math.pow(1-k,3); if(!tn.isConnected) return; if(k<1){ tn.textContent=lead+fmt(from+(val-from)*e)+trail; requestAnimationFrame(step); } else tn.textContent=txt; };
+    tn.textContent=lead+fmt(from)+trail; requestAnimationFrame(step);
   });
 }
 function animateNext(kind){ nextAnim=kind; }
@@ -1000,7 +1032,7 @@ function render(){
   ({dashboard:renderDashboard,budget:renderBudget,project:renderProject,review:renderReview,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
   placePills();
   animateNumbers(el);
-  morphAfterRender(el,morphNext); morphNext=false;
+  morphAfterRender(el); morphNext=false;
   if(periodDir){ const l=el.querySelector('.periodbar .lbl span'); if(l){ l.classList.add('lbl-'+periodDir); } periodDir=null; }
   if(nextAnim&&el.querySelector(':scope > .periodbar')&&nextAnim!=='tab'){
     // animate everything except the sticky period bar so it stays put
