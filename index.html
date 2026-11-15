@@ -492,6 +492,11 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .budedctl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.budseg{margin:0}.budseg button{padding:8px 10px;font-size:13px}.budavg{margin-top:6px}
 .chartcats .top>span:last-child{white-space:nowrap;flex:none}.chartcats .top{gap:8px}
 .ccthead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.ccseg{margin:0}.ccseg button{padding:7px 12px;font-size:13px}
+.loanfacts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 10px;margin-top:16px;text-align:left;padding-top:14px;border-top:1px solid var(--line)}
+.loanfacts .k{font-size:11.5px;color:var(--muted);font-weight:600}.loanfacts .v{font-size:16px;font-weight:800;margin-top:2px}
+.loanlines{display:grid;gap:4px;margin-top:12px;text-align:left}
+.loantable{display:grid;font-size:13px}.loantable>div{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr 1.2fr;gap:6px;padding:8px 0;border-bottom:1px solid var(--line);text-align:right}.loantable>div>span:first-child{text-align:left}.lt-h{font-size:11.5px;color:var(--muted);font-weight:700}
+@media(min-width:780px){.loanfacts{grid-template-columns:repeat(6,1fr)}}
 .periodbar{position:sticky;top:0;z-index:6;margin:0 -14px 12px;padding:10px 14px 8px;padding-top:calc(10px + env(safe-area-inset-top));
   background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
 .periodbar.stuck{border-bottom-color:var(--line);box-shadow:0 6px 18px rgba(0,0,0,.18)}
@@ -522,7 +527,7 @@ details .rvpanel{background:transparent;border:0;padding:0}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.37';
+const APP_VERSION='0.38';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1703,42 +1708,135 @@ function loanDashSection(){
 }
 /* ---- Charts tab: Home loan view ---- */
 let chartsMode='spend', loanChartSel=null;
-function renderLoanCharts(el,toggle){
-  const L=loanAccts(); if(!loanChartSel||!L.includes(loanChartSel)) loanChartSel=L[0];
-  const a=loanChartSel, x=state.accounts[a], pr=periodRange(), s=loanSummary(a,pr.from,pr.to), r=loanRate(a);
-  const end=state.view.anchor||latestYM(), m12=monthsBack(end,12), m6=monthsBack(end,6);
-  const s12=m12.map(m=>loanSummary(a,m+'-01',m+'-31')), s6=m6.map(m=>loanSummary(a,m+'-01',m+'-31'));
+function renderLoanCharts(el,toggle){ loanView(el,toggle,'charts'); }
+// Key facts about a loan, used at the top of the loan's account page and the Home loan overview.
+function loanInfo(a){
+  const x=state.accounts[a], owing=Math.abs(x.bal||0), rate=loanRate(a);
+  const offs=Object.keys(state.accounts).filter(k=>state.accounts[k].type==='offset'&&state.accounts[k].bal!=null);
+  const offset=offs.reduce((t,k)=>t+Math.max(0,state.accounts[k].bal),0);
+  const tx=state.txns.filter(t=>t.acct===a).sort((p,q)=>p.date.localeCompare(q.date));
+  const ints=tx.filter(t=>loanKind(t)==='interest'), lastInt=ints[ints.length-1]||null;
+  const first=tx[0]?.date||null, last=tx[tx.length-1]?.date||null;
+  const daily=loanDaily(a), drop=daily.length>1?daily[0].owing-daily[daily.length-1].owing:0;
+  const span=first&&last?Math.max(1,dayGap(first,latestDate()>last?latestDate():last)+1):0;
+  const paidIn=tx.filter(t=>t.amount>0).reduce((t2,t)=>t2+t.amount,0);
+  const perMonth=span?paidIn/span*30.44:0;
+  const yearAgo=isoAdd(last||'9999-12-31',-365);
+  const feesPM=tx.filter(t=>loanKind(t)==='fee'&&t.date>yearAgo).reduce((t2,t)=>t2-t.amount,0)/12;
+  const r=rate?rate/100/12:0, eff=Math.max(0,owing-offset);
+  // Daily interest from the latest monthly charge, so it matches what Bankwest actually took.
+  const prevInt=ints[ints.length-2]; const cycle=lastInt&&prevInt?Math.max(20,dayGap(prevInt.date,lastInt.date)):30.44;
+  const dailyInt=lastInt?Math.abs(lastInt.amount)/cycle:(rate?eff*rate/100/365:0);
+  const nextInt=lastInt?(()=>{ const d=new Date(lastInt.date+'T00:00:00'); d.setMonth(d.getMonth()+1); return d.toLocaleDateString('en-CA'); })():null;
+  return {x,owing,rate,offset,offsetSet:offs.length>0,eff,lastInt,nextInt,first,drop,span,perMonth,feesPM,r,dailyInt};
+}
+// Month-by-month payoff at a monthly payment, with offset held steady. Returns months, total interest and a balance path.
+function loanProject(info,extra){
+  const pay=info.perMonth+(extra||0); let bal=info.owing, months=0, interest=0; const path=[bal];
+  if(!info.r||pay<=0) return null;
+  while(bal>0.5&&months<600){ const i=Math.max(0,bal-info.offset)*info.r; interest+=i; bal=bal+i+info.feesPM-pay; months++; if(months%12===0) path.push(Math.max(0,bal)); if(months===1&&bal>=info.owing) return {never:true}; }
+  if(months>=600) return {never:true};
+  path.push(0);
+  const d=new Date(); d.setMonth(d.getMonth()+months);
+  return {months,interest,path,date:d};
+}
+function yrsMonths(m){ const y=Math.floor(m/12), r=m%12; return (y?y+' yr'+(y>1?'s':''):'')+(y&&r?' ':'')+(r?r+' mth'+(r>1?'s':''):''); }
+function monthYear(d){ return MONTHS[d.getMonth()]+' '+d.getFullYear(); }
+// The header used on the loan's account page: key numbers only, then its transactions follow.
+function loanHeader(a,withLink){
+  const L=loanInfo(a), pj=loanProject(L,0);
+  return `<div class="loanfacts">
+      <div><div class="k">Approx. rate</div><div class="v">${L.rate?L.rate.toFixed(2)+'%':'—'}</div></div>
+      <div><div class="k">Interest per day</div><div class="v neg">${L.dailyInt?money(L.dailyInt):'—'}</div></div>
+      <div><div class="k">Offset</div><div class="v ${L.offsetSet?'pos':'muted'}">${L.offsetSet?money0(L.offset):'Not set'}</div></div>
+      <div><div class="k">After offset</div><div class="v">${L.offsetSet?money0(L.eff):'—'}</div></div>
+      <div><div class="k">Last interest</div><div class="v neg">${L.lastInt?money(Math.abs(L.lastInt.amount)):'—'}</div><div class="small muted">${L.lastInt?shortDay(L.lastInt.date):''}</div></div>
+      <div><div class="k">Next interest</div><div class="v">${L.nextInt?shortDay(L.nextInt).replace(/^\w+ /,''):'—'}</div><div class="small muted">${L.nextInt?'charged monthly':''}</div></div>
+    </div>
+    <div class="loanlines small">
+      ${L.drop?`<div class="${L.drop>0?'pos':'neg'}">${L.drop>0?'▼':'▲'} ${money(Math.abs(L.drop))} ${L.drop>0?'off':'added'} since ${dayLabel(L.first)}</div>`:''}
+      ${pj&&!pj.never?`<div>At this pace, paid off around <b>${monthYear(pj.date)}</b> (${yrsMonths(pj.months)}) <span class="muted">· estimate</span></div>`:pj&&pj.never?`<div class="neg">At this pace the balance isn't going down</div>`:''}
+      ${!L.offsetSet?`<div class="muted">Tip: set your offset account's type to <b>Offset</b> in its settings to see the balance after offset.</div>`:''}
+    </div>
+    ${withLink?`<button class="btn ghost" style="margin-top:12px;width:100%" onclick="openLoan('${a}')">📈 Charts & stats ›</button>`:''}`;
+}
+let loanExtra=0;
+function loanProjCard(a){
+  const L=loanInfo(a), base=loanProject(L,0), ext=loanProject(L,loanExtra);
+  if(!base) return `<p class="muted small">The payoff estimate appears once there's an interest charge and some payments imported.</p>`;
+  if(base.never) return `<p class="muted small">Payments so far aren't covering the interest, so there's no payoff date at this pace.</p>`;
+  const yrs=Math.ceil(base.months/12), W=600,H=190,pl=8,pb=22,pt=16, X=i=>pl+i/yrs*(W-pl*2), Y=v=>pt+(1-v/L.owing)*(H-pt-pb);
+  const line=(path,col,dash)=>`<polyline points="${path.map((v,i)=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}" fill="none" style="stroke:${col}" stroke-width="2.5" ${dash?'stroke-dasharray="6 5"':''} vector-effect="non-scaling-stroke"/>`;
+  const now=new Date().getFullYear();
+  const saveM=ext&&!ext.never?base.months-ext.months:0, saveI=ext&&!ext.never?base.interest-ext.interest:0;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none">${line(base.path,'var(--muted)',true)}${loanExtra&&ext&&!ext.never?line(ext.path,'var(--accent)'):''}
+      <text x="${pl}" y="12" font-size="11" style="fill:var(--muted)">${money0(L.owing)}</text>
+      <text x="${pl}" y="${H-5}" font-size="11" style="fill:var(--muted)">${now}</text><text x="${W-pl}" y="${H-5}" text-anchor="end" font-size="11" style="fill:var(--muted)">${now+yrs}</text></svg>
+    <div class="small muted" style="display:flex;gap:14px;margin:4px 0 12px"><span><span class="dot" style="background:var(--muted)"></span>Current pace: ${monthYear(base.date)}</span>${loanExtra?`<span><span class="dot" style="background:var(--accent)"></span>With extra: ${monthYear(ext.date)}</span>`:''}</div>
+    <label class="small" style="font-weight:600">Extra repayment per month: <b>${money0(loanExtra)}</b></label>
+    <input type="range" min="0" max="3000" step="50" value="${loanExtra}" style="width:100%" oninput="loanExtra=+this.value;document.getElementById('loanproj').innerHTML=loanProjCard('${a}')">
+    <div class="mini3" style="margin-top:8px">
+      <div><div class="k">Paid off</div><div class="v">${monthYear((loanExtra?ext:base).date)}</div></div>
+      <div><div class="k">Time saved</div><div class="v pos">${saveM?yrsMonths(saveM):'—'}</div></div>
+      <div><div class="k">Interest saved</div><div class="v pos">${saveI?money0(saveI):'—'}</div></div>
+    </div>
+    <p class="small muted" style="margin:8px 0 0">Based on ${money0(L.perMonth)} a month going in (your average over ${L.span} days of imported loan transactions), the estimated rate${L.offsetSet?' and your current offset balance':''}. A guide only.</p>`;
+}
+// The full Home loan overview: all the stats and charts (from the Home loan tab or Charts → Home loan).
+function loanView(el,toggle,from){
+  const Ls=loanAccts();
+  if(!Ls.length){ el.innerHTML=`${toggle||''}<div class="card"><h2>🏠 Home loan</h2><p class="muted">No home loan account yet. Import your loan's Bankwest CSV, then set its type to <b>Home loan</b> in its account settings.</p></div>`; return; }
+  if(!loanSel||!Ls.includes(loanSel)) loanSel=loanChartSel&&Ls.includes(loanChartSel)?loanChartSel:Ls[0];
+  const a=loanSel, x=state.accounts[a], pr=periodRange(), s=loanSummary(a,pr.from,pr.to), all=loanSummary(a,'0000','9999'), r=loanRate(a);
+  const end=state.view.anchor||latestYM(), m12=monthsBack(end,12), s12=m12.map(m=>loanSummary(a,m+'-01',m+'-31'));
+  const firstYM=(loanInfo(a).first||end).slice(0,7), mShow=m12.filter(m=>m>=firstYM), sShow=mShow.map(m=>s12[m12.indexOf(m)]);
   const intMonths=s12.filter(z=>z.interest>0), avgInt=intMonths.length?intMonths.reduce((p,z)=>p+z.interest,0)/intMonths.length:0;
   const src={}; s.tx.filter(t=>t.amount>0).forEach(t=>{ const k=/^IB TRANSFER/i.test(t.desc)?('From '+acctName((t.desc.match(OWN_XFER)||[])[2]||'another account')):titleCase(cleanDesc(t.desc)); src[k]=(src[k]||0)+t.amount; });
   const srcCols=['#4cd964','#4dabf7','#38d9a9','#da77f2','#ffd43b','#ff922b'];
-  const parts=Object.entries(src).sort((p,q)=>q[1]-p[1]).map(([n,v],i)=>({n,v,c:srcCols[i%srcCols.length]}));
-  const paidTot=parts.reduce((p,q)=>p+q.v,0);
-  const donut=parts.length?donutSVG(parts,paidTot).replace('>Spent<','>Paid in<'):'';
-  el.innerHTML=`${toggle}${periodControls()}
-    ${L.length>1?`<div class="acctfilter">${L.map(k=>`<button class="${k===a?'on':''}" onclick="loanChartSel='${k}';animateNext('fade');render()">${esc(acctName(k))}</button>`).join('')}</div>`:''}
+  const parts=Object.entries(src).sort((p,q)=>q[1]-p[1]).map(([n,v],i)=>({n,v,c:srcCols[i%srcCols.length]})), paidTot=parts.reduce((p,q)=>p+q.v,0);
+  const split=[{n:'Off the loan',v:Math.max(0,s.principal),c:'var(--good)'},{n:'Interest',v:s.interest,c:'var(--bad)'},{n:'Fees',v:s.fees,c:'#ff922b'}].filter(z=>z.v>0.004), splitTot=split.reduce((p,q)=>p+q.v,0);
+  const daily=loanDaily(a), endBal=m=>{ const d=daily.filter(p=>p.d<=m+'-31'); return d.length?d[d.length-1].owing:null; };
+  const leg=(items)=>`<div class="small muted" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px">${items.map(([c,l])=>`<span><span class="dot" style="background:${c}"></span>${l}</span>`).join('')}</div>`;
+  const ml=m=>MONTHS[+m.slice(5)-1];
+  el.innerHTML=`${toggle||`<div class="loanback"><button class="pill" onclick="go('dashboard')">‹ Dashboard</button></div>`}
+    ${Ls.length>1?`<div class="acctfilter">${Ls.map(k=>`<button class="${k===a?'on':''}" onclick="loanSel='${k}';loanChartSel='${k}';animateNext('fade');render()">${esc(acctName(k))}</button>`).join('')}</div>`:''}
+    <div class="card loanhero">
+      <div class="small muted">🏠 ${esc(acctName(a))} · ${esc(a)}</div>
+      <div class="loanbig" style="font-size:34px">${money(Math.abs(x.bal||0))}</div>
+      <div class="small muted">owing as of ${x.balDate?dayLabel(x.balDate):'latest import'}</div>
+      ${loanHeader(a,false)}
+      <button class="btn ghost" style="margin-top:12px;width:100%" onclick="tab='accounts';openAcct('${a}')">Loan transactions ›</button>
+    </div>
+    ${periodControls()}
     <div class="cols">
-    <div class="card"><h2>🏠 ${esc(acctName(a))} at a glance</h2>
+    <div class="card"><h2>${esc(pr.label)}</h2>
       <div class="mini3">
-        <div><div class="k">Balance owing</div><div class="v" style="font-size:16px">${money0(Math.abs(x.bal||0))}</div></div>
-        <div><div class="k">Approx. rate</div><div class="v">${r?r.toFixed(2)+'%':'—'}</div></div>
-        <div><div class="k">Avg interest / month</div><div class="v neg">${avgInt?money0(avgInt):'—'}</div></div>
         <div><div class="k">Paid in</div><div class="v pos">${money0(s.paidIn)}</div></div>
-        <div><div class="k">Interest & fees</div><div class="v neg">${money0(s.interest+s.fees)}</div></div>
+        <div><div class="k">Interest</div><div class="v neg">${money0(s.interest)}</div></div>
+        <div><div class="k">Fees</div><div class="v neg">${money0(s.fees)}</div></div>
         <div><div class="k">Off the loan</div><div class="v ${s.principal<0?'neg':'pos'}">${s.principal<0?'−':''}${money0(Math.abs(s.principal))}</div></div>
+        <div><div class="k">Offset saved you</div><div class="v pos">${money0(s.saved)}</div></div>
+        <div><div class="k">Interest share</div><div class="v">${s.paidIn?Math.round((s.interest+s.fees)/s.paidIn*100)+'%':'—'}</div></div>
       </div>
-      <p class="small muted" style="margin:6px 0 0">${esc(pr.label)}. The rate is estimated from your latest interest charge plus what your offset saved.</p>
-    </div>
+      <p class="small muted" style="margin:6px 0 0">"Off the loan" is what you paid in minus interest and fees. "Interest share" is how much of it went to the bank.</p></div>
+    <div class="card"><h2>Where your payments went</h2>${split.length?`<div class="donutwrap">${donutSVG(split,splitTot).replace('>Spent<','>Paid in<')}<div class="legend">${split.map(p=>`<div class="lg"><span class="dot" style="background:${p.c}"></span><span class="grow">${p.n}</span><b>${money0(p.v)}</b></div>`).join('')}</div></div>`:'<p class="muted small">No payments in this period.</p>'}</div>
     <div class="card"><h2>Balance owing</h2>${loanLineSVG(a)||'<p class="muted small">Appears once there are a few weeks of loan transactions.</p>'}</div>
-    <div class="card"><h2>Interest charged by month</h2>${barChartSVG(m12.map(m=>MONTHS[+m.slice(5)-1]),[{vals:s12.map(z=>z.interest),color:'var(--bad)'}],{avg:avgInt||0,h:180})}</div>
-    <div class="card"><h2>Paid in vs interest & fees</h2>${barChartSVG(m6.map(m=>MONTHS[+m.slice(5)-1]),[{vals:s6.map(z=>z.paidIn),color:'var(--good)'},{vals:s6.map(z=>z.interest+z.fees),color:'var(--bad)'}],{h:180})}
-      <div class="small muted" style="display:flex;gap:14px;margin-top:4px"><span><span class="dot" style="background:var(--good)"></span>Paid in</span><span><span class="dot" style="background:var(--bad)"></span>Interest & fees</span></div></div>
-    <div class="card"><h2>Off the loan by month</h2>${barChartSVG(m6.map(m=>MONTHS[+m.slice(5)-1]),[{vals:s6.map(z=>Math.max(0,z.principal)),color:'var(--accent)'}],{h:170,values:true})}
-      <p class="small muted" style="margin:4px 0 0">What came off the balance each month after interest and fees.</p></div>
-    <div class="card"><h2>Offset savings by month</h2>${barChartSVG(m6.map(m=>MONTHS[+m.slice(5)-1]),[{vals:s6.map(z=>z.saved),color:'var(--good)'}],{h:160,values:true})}
-      <p class="small muted" style="margin:4px 0 0">Interest your offset account saved you, from Bankwest's interest line.</p></div>
-    <div class="card"><h2>Where payments came from</h2>${parts.length?`<div class="donutwrap">${donut}<div class="legend">${parts.map(p=>`<div class="lg"><span class="dot" style="background:${p.c}"></span><span class="grow">${esc(p.n)}</span><b>${money0(p.v)}</b></div>`).join('')}</div></div>`:'<p class="muted small">No payments in this period.</p>'}</div>
-    </div>
-    <div style="text-align:center;margin:6px 0 14px"><button class="btn ghost" onclick="openLoan('${a}')">Loan details & transactions ›</button></div>`;
+    <div class="card"><h2>Payoff estimate</h2><div id="loanproj">${loanProjCard(a)}</div></div>
+    <div class="card"><h2>Paid in vs interest & fees</h2>${barChartSVG(mShow.map(ml),[{vals:sShow.map(z=>z.paidIn),color:'var(--good)'},{vals:sShow.map(z=>z.interest+z.fees),color:'var(--bad)'}],{h:180})}${leg([['var(--good)','Paid in'],['var(--bad)','Interest & fees']])}</div>
+    <div class="card"><h2>Interest charged by month</h2>${barChartSVG(mShow.map(ml),[{vals:sShow.map(z=>z.interest),color:'var(--bad)'}],{avg:avgInt||0,h:170,values:true})}</div>
+    <div class="card"><h2>Off the loan by month</h2>${barChartSVG(mShow.map(ml),[{vals:sShow.map(z=>Math.max(0,z.principal)),color:'var(--accent)'}],{h:170,values:true})}<p class="small muted" style="margin:4px 0 0">What came off the balance after interest and fees.</p></div>
+    <div class="card"><h2>Interest vs offset savings</h2>${barChartSVG(mShow.map(ml),[{vals:sShow.map(z=>z.interest),color:'var(--bad)'},{vals:sShow.map(z=>z.saved),color:'var(--good)'}],{h:170})}${leg([['var(--bad)','Interest charged'],['var(--good)','Saved by offset']])}</div>
+    <div class="card"><h2>Where payments came from</h2>${parts.length?`<div class="donutwrap">${donutSVG(parts,paidTot).replace('>Spent<','>Paid in<')}<div class="legend">${parts.map(p=>`<div class="lg"><span class="dot" style="background:${p.c}"></span><span class="grow">${esc(p.n)}</span><b>${money0(p.v)}</b></div>`).join('')}</div></div>`:'<p class="muted small">No payments in this period.</p>'}</div>
+    <div class="card"><h2>Month by month</h2><div class="loantable"><div class="lt-h"><span>Month</span><span>Paid in</span><span>Interest</span><span>Off loan</span><span>Owing</span></div>
+      ${[...mShow].reverse().map(m=>{ const z=s12[m12.indexOf(m)], b=endBal(m); return `<div class="lt-r"><span>${ml(m)} ${m.slice(2,4)}</span><span class="pos">${money0(z.paidIn)}</span><span class="neg">${money0(z.interest+z.fees)}</span><span class="${z.principal<0?'neg':''}">${z.principal<0?'−':''}${money0(Math.abs(z.principal))}</span><span>${b!=null?money0(b):'—'}</span></div>`; }).join('')}</div>
+      <p class="small muted" style="margin:6px 0 0">Interest column includes fees.</p></div>
+    <div class="card"><h2>All time (imported)</h2>
+      <div class="lrow"><span class="grow">Paid in</span><b class="pos">${money(all.paidIn)}</b></div>
+      <div class="lrow"><span class="grow">Interest charged</span><b class="neg">${money(all.interest)}</b></div>
+      <div class="lrow"><span class="grow">Fees</span><b class="neg">${money(all.fees)}</b></div>
+      <div class="lrow"><span class="grow">Off the loan</span><b class="${all.principal<0?'neg':'pos'}">${money(all.principal)}</b></div>
+      <div class="lrow"><span class="grow">Offset savings</span><b class="pos">${money(all.saved)}</b></div></div>
+    </div>`;
 }
 function loanDashCard(){
   const L=loanAccts(); if(!L.length) return '';
@@ -1759,57 +1857,7 @@ function loanDashCard(){
 }
 let loanSel=null;
 function openLoan(a){ loanSel=a; go('loan'); }
-function renderLoan(el){
-  const L=loanAccts();
-  if(!L.length){ el.innerHTML=`<div class="card"><h2>🏠 Home loan</h2><p class="muted">No home loan account yet. Import your loan's Bankwest CSV, then set its type to <b>Home loan</b> in Settings → Accounts.</p><button class="btn" onclick="go('settings')">Go to Settings</button></div>`; return; }
-  if(!loanSel||!L.includes(loanSel)) loanSel=L[0];
-  const a=loanSel, x=state.accounts[a], pr=periodRange(), s=loanSummary(a,pr.from,pr.to), all=loanSummary(a,'0000','9999');
-  const daily=loanDaily(a);
-  const line=loanLineSVG(a);
-  // monthly paid-in vs interest
-  const end=state.view.anchor||latestYM(), m6=monthsBack(end,6), ms=m6.map(m=>loanSummary(a,m+'-01',m+'-31'));
-  const tx=[...s.tx].sort((p,q)=>q.date.localeCompare(p.date));
-  const kindDot={interest:'var(--bad)',fee:'var(--bad)',deposit:'var(--good)',repayment:'var(--good)',other:'var(--muted)'};
-  const firstDate=daily.length?daily[0].d:null, drop=daily.length>1?daily[0].owing-daily[daily.length-1].owing:0;
-  el.innerHTML=`
-    <div class="loanback"><button class="pill" onclick="go('dashboard')">‹ Dashboard</button>
-      ${L.length>1?`<div class="acctfilter" style="margin:0">${L.map(k=>`<button class="${k===a?'on':''}" onclick="loanSel='${k}';animateNext('fade');render()">${esc(acctName(k))}</button>`).join('')}</div>`:''}</div>
-    <div class="card loanhero">
-      <div class="small muted">🏠 ${esc(acctName(a))} · ${esc(a)}</div>
-      <div class="loanbig" style="font-size:34px">${money(Math.abs(x.bal||0))}</div>
-      <div class="small muted">owing as of ${x.balDate?dayLabel(x.balDate):'latest import'}</div>
-      ${drop?`<div class="small ${drop>0?'pos':'neg'}" style="margin-top:6px">${drop>0?'▼':'▲'} ${money(Math.abs(drop))} since ${dayLabel(firstDate)}</div>`:''}
-    </div>
-    ${periodControls()}
-    <div class="cols">
-    <div class="card"><h2>${esc(pr.label)}</h2>
-      <div class="mini3">
-        <div><div class="k">Paid in</div><div class="v pos">${money0(s.paidIn)}</div></div>
-        <div><div class="k">Interest</div><div class="v neg">${money0(s.interest)}</div></div>
-        <div><div class="k">Fees</div><div class="v neg">${money0(s.fees)}</div></div>
-        <div><div class="k">Off the loan</div><div class="v ${s.principal<0?'neg':'pos'}">${s.principal<0?'−':''}${money0(Math.abs(s.principal))}</div></div>
-        <div><div class="k">Offset saved you</div><div class="v pos">${money0(s.saved)}</div></div>
-        <div><div class="k">Interest share</div><div class="v">${s.paidIn?Math.round((s.interest+s.fees)/s.paidIn*100)+'%':'—'}</div></div>
-      </div>
-      <p class="small muted" style="margin:6px 0 0">"Off the loan" is what you paid in minus interest and fees. "Interest share" is how much of what you paid in went to interest and fees.</p>
-    </div>
-    <div class="card"><h2>Where the money came from</h2>
-      ${[['deposit','Deposits (e.g. rent)'],['repayment','Repayments & transfers in']].map(([k,l])=>{ const v=k==='deposit'?s.deposits:s.repay; return `<div class="lrow"><span class="grow"><span class="dot" style="background:var(--good)"></span>${l}</span><b class="pos">${money(v)}</b></div>`; }).join('')}
-      ${(()=>{ const src={}; s.tx.filter(t=>t.amount>0).forEach(t=>{ const k=/^IB TRANSFER/i.test(t.desc)?('From '+acctName((t.desc.match(OWN_XFER)||[])[2]||'another account')):titleCase(cleanDesc(t.desc)); src[k]=(src[k]||0)+t.amount; });
-        const e=Object.entries(src).sort((p,q)=>q[1]-p[1]); return e.length?`<div class="small muted" style="margin:10px 0 2px">By source</div>`+e.map(([k,v])=>`<div class="lrow"><span class="grow">${esc(k)}</span><b>${money(v)}</b></div>`).join(''):''; })()}
-    </div>
-    <div class="card"><h2>Balance owing</h2>${line||'<p class="muted small">The balance chart appears once there are a few weeks of loan transactions.</p>'}</div>
-    <div class="card"><h2>Paid in vs interest</h2>${barChartSVG(m6.map(m=>MONTHS[+m.slice(5)-1]),[{vals:ms.map(z=>z.paidIn),color:'var(--good)'},{vals:ms.map(z=>z.interest+z.fees),color:'var(--bad)'}],{h:180})}
-      <div class="small muted" style="display:flex;gap:14px;margin-top:4px"><span><span class="dot" style="background:var(--good)"></span>Paid in</span><span><span class="dot" style="background:var(--bad)"></span>Interest & fees</span></div></div>
-    <div class="card"><h2>All time (imported)</h2>
-      <div class="lrow"><span class="grow">Interest charged</span><b class="neg">${money(all.interest)}</b></div>
-      <div class="lrow"><span class="grow">Fees</span><b class="neg">${money(all.fees)}</b></div>
-      <div class="lrow"><span class="grow">Paid in</span><b class="pos">${money(all.paidIn)}</b></div>
-      <div class="lrow"><span class="grow">Offset savings</span><b class="pos">${money(all.saved)}</b></div>
-    </div>
-    <div class="card"><h2>Loan transactions</h2>${tx.length?tx.map(t=>{ const k=loanKind(t); return `<div class="lrow"><span class="dot" style="background:${kindDot[k]};margin:0"></span><span class="grow">${esc(k==='interest'?'Interest charged':titleCase(cleanDesc(t.desc)))}<div class="small muted">${dayLabel(t.date).replace(/ \d{4}$/,'')} · ${LOAN_LABEL[k]}${offsetSaving(t)?` · offset saved ${money(offsetSaving(t))}`:''}</div></span><b class="${t.amount>0?'pos':'neg'}">${t.amount>0?'+':''}${money(t.amount)}</b></div>`; }).join(''):'<p class="muted small">No loan transactions in this period.</p>'}</div>
-    </div>`;
-}
+function renderLoan(el){ loanView(el,null,'tab'); }
 
 /* ============ Accounts ============ */
 const ACCT_TYPES=[['everyday','Everyday'],['savings','Savings'],['credit','Credit card'],['offset','Offset'],['loan','Home loan'],['otherbank','Other bank'],['cash','Cash'],['other','Other']];
@@ -2000,17 +2048,18 @@ function renderAcctDetail(el,a){
   const q=acctQ.toUpperCase();
   const list=state.txns.filter(t=>t.acct===a&&(!q||t.desc.toUpperCase().includes(q))).sort((p,r)=>r.date.localeCompare(p.date)||p.id.localeCompare(r.id));
   el.innerHTML=`
-    <div class="loanback"><button class="pill" onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button>${loan?`<button class="pill" onclick="openLoan('${a}')">🏠 Loan view</button>`:''}</div>
+    <div class="loanback"><button class="pill" onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button></div>
     <div class="card loanhero" style="--ac:${col};border-top:4px solid ${col}">
       ${acctTag(a)}
       <div class="loanbig" style="font-size:32px;margin-top:8px">${x.bal!=null?money(loan?Math.abs(x.bal):x.bal):'—'}</div>${freshLine(a)}
       <div class="small muted">${loan?'owing':'balance'}${x.balDate?' as of '+dayLabel(x.balDate):''}</div>
       <div class="small muted" style="margin-top:4px">${esc(acctTypeLabel(x))}${x.owner?' · '+esc(x.owner):''} · ${a.startsWith('manual-')?'no account number':esc(a)}</div>
+      ${loan?loanHeader(a,true):''}
       ${!loan&&x.goal?`<div style="margin-top:14px;text-align:left"><div style="display:flex;justify-content:space-between" class="small"><span>🎯 Goal ${money0(x.goal)}</span><b>${Math.min(100,Math.round(Math.max(0,x.bal||0)/x.goal*100))}%</b></div>
         <div class="bar" style="height:10px"><i style="width:${Math.min(100,Math.max(0,x.bal||0)/x.goal*100)}%;background:${col}"></i></div>
         <div class="small muted" style="margin-top:4px">${(x.bal||0)>=x.goal?'Goal reached 🎉':money(x.goal-(x.bal||0))+' to go'}</div></div>`:''}
     </div>
-    ${periodControls()}
+    ${loan?'':periodControls()}
     ${loan?'':(()=>{ const f=acctFlow(a,pr.from,pr.to), per=recentPeriods(6), fl=per.map(p=>acctFlow(a,p.from,p.to));
       const cats=Object.entries(f.byCat).sort((p,q)=>q[1]-p[1]);
       const parts=cats.map(([id,v])=>{ const c=catById(id); return {v,c:c?c.color:'var(--pending)',n:c?c.name:'Not reviewed yet'}; });
@@ -2030,7 +2079,6 @@ function renderAcctDetail(el,a){
       <div class="card"><h2>What it was spent on</h2>${parts.length?`<div class="donutwrap">${donutSVG(parts,f.spent)}<div class="legend">${parts.slice(0,8).map(p=>`<div class="lg"><span class="dot" style="background:${p.c}"></span><span class="grow">${esc(p.n)}</span><b>${money0(p.v)}</b></div>`).join('')}</div></div>`:'<p class="muted small">Nothing spent from this account in this period.</p>'}</div>
       <div class="card"><h2>Balance over time</h2>${acctLineSVG(a,col)||'<p class="muted small">The chart appears once there are a few days of transactions.</p>'}</div>
       </div>`; })()}
-    ${loan?`<div class="card"><h2>Balance over time</h2>${acctLineSVG(a,col)||'<p class="muted small">The chart appears once there are a few days of transactions.</p>'}</div>`:''}
     ${txnsCard(a)}
     <details class="card" style="padding:12px 14px"><summary style="cursor:pointer;font-weight:600">⚙️ Account settings</summary><div style="margin-top:10px">${acctCard(a)}</div></details>`;
 }
