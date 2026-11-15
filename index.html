@@ -544,7 +544,7 @@ nav button.on .lic{color:var(--accent)}
 .budpill{font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;white-space:nowrap}.budpill.good{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}.budpill.mid{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}.budpill.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
 .budbar{position:relative;overflow:visible}.budbar.big{height:12px;margin:14px 0 8px}.budbar .pace{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.45;border-radius:2px}
 .budmeta{display:flex;justify-content:space-between}.budnote{font-size:12px;color:var(--muted);margin-top:4px}.budnote.bad{color:var(--bad);font-weight:600}.budnote.mid{color:var(--accent);font-weight:600}
-.budedhead .btn{white-space:nowrap;flex:none}.budedhead>span{text-align:right}
+.budedhead .btn{white-space:nowrap;flex:none}.budedhead>span{text-align:left}
 .budedhead{display:flex;gap:10px;justify-content:space-between;align-items:center;margin-bottom:12px}
 .budedrow{padding:12px 0;border-top:1px solid var(--line)}.budedname{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .budedctl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.budseg{margin:0}.budseg button{padding:8px 10px;font-size:13px}.budavg{margin-top:6px}
@@ -587,7 +587,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.58';
+const APP_VERSION='0.59';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -596,7 +596,7 @@ const VIEW_KEY='myspendfriend.view';
 let cloud=null;                 // set once signed in: {saveMeta(meta), saveTxns(sets,dels)}
 let synced=new Map();           // transaction id -> JSON as last synced
 let lastMeta='';                // household settings JSON as last synced
-let metaDirty=false;            // local settings change not yet sent
+let metaDirty=false, metaPending=0, metaWaiting=null, metaLast=null;            // local settings change not yet sent
 function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false,projects:s.projects||[],projSeeded:!!s.projSeeded,catDeleted:(s.catDeleted||[]).slice(-100)}; }
 function save(){
   try{ localStorage.setItem(VIEW_KEY,JSON.stringify(state.view)); }catch(e){}
@@ -2636,6 +2636,9 @@ function avgSpend(c,per){
 }
 function roundBud(x){ return x<=0?0:x<100?Math.ceil(x/5)*5:Math.ceil(x/10)*10; }
 let budEdit=false;
+function budInput(id,v){ const c=catObj(id); c.budget=Math.max(0,parseFloat(String(v).replace(/[$,]/g,''))||0); save(); const t=document.getElementById('budTotal'); if(t) t.innerHTML=budTotalText(); }
+function budTotalText(){ const perYear={weekly:52,fortnightly:26,monthly:12,quarterly:4,yearly:1}; let f=0,m=0; catsOfKind('expense').forEach(c=>{ if(!c.budget) return; const y=c.billFreq?c.budget*perYear[c.billFreq]:c.budget*(budPer(c)==='fortnight'?26:12); f+=y/26; m+=y/12; }); return `Spending ≈ ${money0(f)} a fortnight · ${money0(m)} a month`; }
+async function budSave(){ if(document.activeElement) document.activeElement.blur(); save(); try{ if(cloud&&cloud.flushMeta) await cloud.flushMeta(); toast('Budgets saved'); }catch(e){ toast('Couldn’t save. Check your connection and try again.'); return; } budEdit=false; render(); window.scrollTo({top:0}); }
 function setBud(id,v){ const c=catObj(id); c.budget=Math.max(0,parseFloat(String(v).replace(/[$,]/g,''))||0); save(); render(); }
 function setBudPer(id,per){ const c=catObj(id); if(budPer(c)===per) return; if(c.budget) c.budget=roundBud(c.budget*(per==='fortnight'?12/26:26/12)); c.budgetPer=per; save(); render(); }
 function useAvg(id){ const c=catObj(id); c.budget=roundBud(avgSpend(c,budPer(c))); save(); render(); toast(c.budget?`${c.name}: ${money0(c.budget)} per ${budPer(c)}`:'No recent spending in '+c.name); }
@@ -2721,7 +2724,7 @@ function renderBudget(el){
 function budEditRow(c){ const per=budPer(c), bill=c.billFreq, avg=bill?billAvg(c):avgSpend(c,per), nx=bill?billNext(c):null, last=bill?billPays(c).slice(-1)[0]:null;
         const sel=bill||per;
         return `<div class="budedrow ${bill?'isbill':''}"><div class="budedname"><span class="dot" style="background:${c.color}"></span><b>${esc(c.name)}</b>${bill?`<span class="billtag">${c.kind==='income'?'Regular':'Bill'}</span>`:''}</div>
-          <div class="budedctl"><div class="ce-money"><span>$</span><input type="text" inputmode="decimal" placeholder="${c.kind==='income'?'Not set':'No budget'}" value="${c.budget||''}" onchange="setBud('${c.id}',this.value)"></div>
+          <div class="budedctl"><div class="ce-money"><span>$</span><input type="text" inputmode="decimal" placeholder="${c.kind==='income'?'Not set':'No budget'}" value="${c.budget||''}" oninput="budInput('${c.id}',this.value)"></div>
             <select class="budfreq" onchange="setBillFreq('${c.id}',this.value)">
               <optgroup label="Spread evenly"><option value="fortnight" ${sel==='fortnight'?'selected':''}>per fortnight</option><option value="month" ${sel==='month'?'selected':''}>per month</option></optgroup>
               <optgroup label="${c.kind==='income'?'Comes in regularly':'A bill that comes'}">${BILL_FREQS.map(([v,l])=>`<option value="${v}" ${sel===v?'selected':''}>${c.kind==='income'?'Regular':'Bill'} · ${l.toLowerCase()}</option>`).join('')}</optgroup></select></div>
@@ -2731,7 +2734,7 @@ function renderBudgetEdit(el){
   const exp=catsOfKind('expense'), empty=exp.filter(c=>!c.budget).length;
   const perYear={weekly:52,fortnightly:26,monthly:12,quarterly:4,yearly:1};
   const total={fortnight:0,month:0}; exp.forEach(c=>{ if(!c.budget) return; const y=c.billFreq?c.budget*perYear[c.billFreq]:c.budget*(budPer(c)==='fortnight'?26:12); total.fortnight+=y/26; total.month+=y/12; });
-  el.innerHTML=`<div class="budedhead"><button class="btn ghost" onclick="budEdit=false;render()">‹ Done</button><span class="small muted">Spending ≈ ${money0(total.fortnight)} a fortnight · ${money0(total.month)} a month</span></div>
+  el.innerHTML=`<div class="budedhead"><span class="small muted" id="budTotal">${budTotalText()}</span><button class="btn" onclick="budSave()">Save</button></div>
     <div class="card"><h2>Edit budgets</h2><p class="small muted" style="margin-top:-6px">Set what you expect to earn and spend for each category. Everyday spending is spread evenly per fortnight or month. Pick <b>Bill</b> for things like electricity or internet: the full amount is counted in the period it's due, so you won't look over one fortnight and under the next.</p>
       ${empty?`<button class="btn ghost" style="margin:4px 0 8px" onclick="useAvgAll()">Fill the ${empty} empty ones from my averages</button>`:''}
       <div class="catgroup" style="margin-top:6px">Expected income</div>
@@ -2739,7 +2742,7 @@ function renderBudgetEdit(el){
       <div class="catgroup" style="margin-top:14px">Spending</div>
       ${exp.map(budEditRow).join('')}
     </div>
-    <div style="text-align:center;margin-bottom:20px"><button class="btn" onclick="budEdit=false;render();window.scrollTo({top:0})">Done</button></div>`;
+    <div style="text-align:center;margin-bottom:20px"><button class="btn" onclick="budSave()">Save budgets</button></div>`;
 }
 /* ============ Category editor ============ */
 let catEd={delId:null,returnTo:null};
@@ -3065,7 +3068,18 @@ function startSync(householdId){
   let gotMeta = false, gotTx = false;
   const ready = () => { if (gotMeta && gotTx && appScreen !== "app") showScreen("app"); };
   window.cloud = cloud = {
-    saveMeta(meta){ clearTimeout(metaTimer); metaTimer = setTimeout(() => { setDoc(doc(db, "households", hid), meta, { mergeFields: Object.keys(meta) }).finally(() => { metaDirty = false; }); }, 400); },
+    saveMeta(meta){ clearTimeout(metaTimer); metaWaiting = meta; metaTimer = setTimeout(() => cloud.flushMeta(), 400); },
+    // Send the latest settings now. Only clear "dirty" once every write has finished and nothing newer is waiting,
+    // otherwise an older copy coming back from the cloud could overwrite what was just typed.
+    flushMeta(){
+      clearTimeout(metaTimer); metaTimer = null;
+      const meta = metaWaiting; metaWaiting = null;
+      if (!meta) return metaLast || Promise.resolve();
+      metaPending++;
+      const p = setDoc(doc(db, "households", hid), meta, { mergeFields: Object.keys(meta) })
+        .finally(() => { metaPending--; if (!metaPending && !metaWaiting) metaDirty = false; });
+      metaLast = p; return p;
+    },
     async saveTxns(sets, dels){
       const ops = [...sets.map(t => ["set", t]), ...dels.map(id => ["del", id])];
       for (let i = 0; i < ops.length; i += 400) {
