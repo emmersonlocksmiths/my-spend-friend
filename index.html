@@ -470,8 +470,26 @@ details .rvpanel{background:transparent;border:0;padding:0}
 .dupbanner{cursor:pointer}.dupbanner .btn{padding:6px 14px}
 .dupcard{border:1px solid color-mix(in srgb,var(--accent) 55%,transparent);background:color-mix(in srgb,var(--accent) 7%,var(--card))}
 .duphead{display:flex;gap:10px;align-items:flex-start;margin-bottom:6px}.dupicon{font-size:20px;line-height:1.2}.dupn{display:inline-block;min-width:20px;padding:1px 6px;border-radius:10px;background:var(--accent);color:#1a1300;font-size:12px;vertical-align:middle;text-align:center}
-.dupitem{border-top:1px solid var(--line);padding:10px 0 4px;margin-top:8px}.duprow{display:flex;gap:10px;align-items:center;padding:4px 0}.duprow .grow{min-width:0}.duprow b{white-space:nowrap}
+.dupitem{border-top:1px solid var(--line);padding:10px 0 4px;margin-top:8px}.duprow{display:flex;gap:10px;align-items:center;padding:4px 0}.duprow .grow{min-width:0;overflow-wrap:anywhere}.duprow>b{flex:none}.duprow>b{white-space:nowrap}
 .linklist{max-height:52vh;overflow:auto;display:grid;gap:6px}.linkrow{display:flex;gap:10px;align-items:center;padding:10px;border-radius:12px;border:1px solid var(--line);cursor:pointer}.linkrow.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--card))}.linkrow input{width:auto;flex:none}.linkrow .grow{min-width:0}
+.projpick{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.projpick button:not(.link){border:1px solid var(--line);background:var(--card2);color:var(--ink);border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.projpick button.on{background:var(--accent);border-color:var(--accent);color:#1a1300}
+.chip.projchip{background:color-mix(in srgb,var(--accent) 15%,transparent)}
+.avatar{position:absolute;right:10px;top:10px;width:38px;height:38px;border-radius:50%;border:2px solid rgba(255,255,255,.85);background:linear-gradient(135deg,#ffd76a,#e0a100);color:#1a1300;font-weight:800;font-size:16px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.35);z-index:20;padding:0;transition:transform .15s}
+.avatar:active{transform:scale(.94)}.avatar.on{outline:3px solid var(--accent);outline-offset:2px}.avatar.big{position:static;display:inline-flex;align-items:center;justify-content:center;flex:none;width:44px;height:44px;font-size:18px;border:0;box-shadow:none}
+.usermenu{position:absolute;right:10px;top:56px;width:270px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.28);padding:8px;z-index:30;animation:umIn .16s ease}
+.usermenu>button{display:flex;gap:12px;align-items:center;width:100%;padding:11px 12px;border:0;background:none;color:var(--ink);font:inherit;font-size:15px;border-radius:10px;cursor:pointer;text-align:left}.usermenu>button:hover{background:var(--card2)}
+.um-head{display:flex;gap:12px;align-items:center;padding:8px 10px 12px;border-bottom:1px solid var(--line);margin-bottom:4px}.um-theme{padding:8px 12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:4px 0}.um-theme .seg{margin:6px 0 0}.um-theme .seg button{padding:6px 8px;font-size:13px}.um-out{color:var(--bad)!important}
+@keyframes umIn{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+@media(min-width:780px){.avatar{right:22px;top:18px;width:42px;height:42px}.usermenu{right:22px;top:68px}}
+@media(min-width:1000px){.avatar{right:30px;top:24px}.usermenu{right:30px;top:76px}}
+.settop{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.offbadge{display:inline-block;margin-top:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+.offhint{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--card2)}
+.offswitch{display:inline-flex;gap:8px;align-items:center;margin-top:12px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);cursor:pointer;font-weight:600;font-size:14px}.offswitch input{width:auto}.offswitch.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--card))}
+.matchbox{margin:12px 0 4px;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:var(--card2);display:grid;gap:6px}.matchbox.linked{border-color:color-mix(in srgb,var(--good) 50%,transparent)}.matchbox.possible{border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
+.matchrow{display:flex;gap:8px;align-items:center;cursor:pointer}.matchrow .acctag{font-size:11px}
+.chip.matchchip{background:color-mix(in srgb,var(--good) 14%,transparent)}.chip.matchchip.possible{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.pickbar{display:flex;justify-content:space-between;align-items:center;margin:-2px 0 12px}
 .dupacct{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px}.dupacct .acctag{font-size:11px}
 .dupnote{margin:6px 0 0}.duptype{font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);margin-bottom:2px}.duplab{flex:none;width:58px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}.dupbtns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.dupbtns .btn{padding:8px 14px;font-size:14px}
 .dupfoot{display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
@@ -522,14 +540,14 @@ details .rvpanel{background:transparent;border:0;padding:0}
 </style>
 </head>
 <body>
-<header><img src="banner.jpg" alt="My Spend Friend"><span class="ver" id="verTag" hidden></span></header>
+<header><img src="banner.jpg" alt="My Spend Friend"><span class="ver" id="verTag" hidden></span><button class="avatar" id="avatarBtn" hidden onclick="toggleUserMenu(event)" aria-label="Your account and settings"></button></header>
 <main id="app"></main>
 <nav id="nav"></nav>
 <div id="modalRoot"></div>
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.40';
+const APP_VERSION='0.41';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -539,7 +557,7 @@ let cloud=null;                 // set once signed in: {saveMeta(meta), saveTxns
 let synced=new Map();           // transaction id -> JSON as last synced
 let lastMeta='';                // household settings JSON as last synced
 let metaDirty=false;            // local settings change not yet sent
-function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false}; }
+function metaOf(s){ return {categories:s.categories,rules:s.rules,accounts:s.accounts||{},recent:s.recent||[],imports:(s.imports||[]).slice(-50),payCycle:s.payCycle||null,dupOk:(s.dupOk||[]).slice(-300),autoCat:s.autoCat!==false,projects:s.projects||[]}; }
 function save(){
   try{ localStorage.setItem(VIEW_KEY,JSON.stringify(state.view)); }catch(e){}
   if(!cloud) return;
@@ -557,7 +575,7 @@ function applyCloudMeta(meta){
   if(metaDirty) return; // our own newer change is on its way
   if(!meta){ return; }
   state.categories=meta.categories||state.categories; state.rules=meta.rules||state.rules;
-  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null; state.dupOk=meta.dupOk||[]; state.autoCat=meta.autoCat!==false;
+  state.accounts=meta.accounts||{}; state.recent=meta.recent||[]; state.imports=meta.imports||[]; state.payCycle=meta.payCycle||null; state.dupOk=meta.dupOk||[]; state.autoCat=meta.autoCat!==false; state.projects=meta.projects||[];
   runMigrations();
   lastMeta=JSON.stringify(metaOf(state));
   scheduleRender();
@@ -605,7 +623,7 @@ function freshState(){
   const rules=[];
   for(const [cat,kws] of Object.entries(DEFAULT_RULES)) kws.forEach(kw=>rules.push({kw,cat,dir:'out',user:false}));
   for(const [cat,kws] of Object.entries(INCOME_RULES)) kws.forEach(kw=>rules.push({kw,cat,dir:'in',user:false}));
-  return {txns:[],accounts:{},categories:cats,rules,imports:[],dupOk:[],view:{mode:'month',anchor:null}};
+  return {txns:[],accounts:{},categories:cats,rules,imports:[],dupOk:[],projects:[],view:{mode:'month',anchor:null}};
 }
 let state = freshState();
 try{ const v=JSON.parse(localStorage.getItem(VIEW_KEY)||'null'); if(v) state.view=v; }catch(e){}
@@ -639,6 +657,8 @@ function catById(id){ return state.categories.find(c=>c.id===id); }
 function acctName(a){ const x=state.accounts[a]; return (x&&x.name)||('…'+a.slice(-4)); }
 const ACCT_COLOURS=['#4dabf7','#da77f2','#38d9a9','#ff922b','#f783ac','#a9e34b','#748ffc','#ffd43b'];
 function acctColor(a){ const x=state.accounts[a]; if(x&&x.color) return x.color; const keys=Object.keys(state.accounts).filter(k=>acctTxCount(k)||state.accounts[k].manual); const i=keys.indexOf(a); return ACCT_COLOURS[(i<0?0:i)%ACCT_COLOURS.length]; }
+function isOffset(a){ const x=state.accounts[a]; return !!(x&&!isLoanAcct(a)&&(x.offset||x.type==='offset')); }
+function setOffset(a,on){ const x=state.accounts[a]; x.offset=on; if(!on&&x.type==='offset') x.type='everyday'; save(); render(); toast(on?`${acctName(a)} is now an offset`:`${acctName(a)} is no longer an offset`); }
 function isLoanAcct(a){ const x=state.accounts[a]; return !!(x&&x.type==='loan'); }
 function acctTag(a){ return `<span class="acctag" style="--ac:${acctColor(a)}">${esc(acctName(a))}</span>`; }
 function ymAdd(ym,n){ let [y,m]=ym.split('-').map(Number); m+=n; while(m<1){m+=12;y--} while(m>12){m-=12;y++} return y+'-'+String(m).padStart(2,'0'); }
@@ -784,7 +804,7 @@ function inPeriod(t,from,to){ const d=incomeDate(t,from,to); return d>=from&&d<=
 function summarise(from,to){
   const byCat={}; let moneyIn=0, spend=0, uncatOut=0;
   for(const t of state.txns){
-    if(!isCounted(t)||!inPeriod(t,from,to)) continue;
+    if(!inHH(t)||!inPeriod(t,from,to)) continue;
     const c=t.cat?catById(t.cat):null;
     if(c&&c.kind==='transfer') continue;
     if(c&&c.kind==='income'){ moneyIn+=t.amount; continue; }
@@ -797,7 +817,7 @@ function uncatCount(){ return state.txns.filter(t=>!t.cat&&isCounted(t)).length;
 
 /* ============ Navigation ============ */
 let tab='dashboard';
-const TABS=[['dashboard','📊','Dashboard'],['budget','🎯','Budget'],['cats','📈','Charts'],['accounts','🏦','Accounts'],['review','✅','Review'],['settings','⚙️','Settings']];
+const TABS=[['dashboard','📊','Dashboard'],['budget','🎯','Budget'],['cats','📈','Charts'],['accounts','🏦','Accounts'],['review','✅','Review']];
 function renderNav(){
   const nav=document.getElementById('nav'), n=uncatCount();
   const hasLoan=loanAccts().length>0?'1':'0';
@@ -874,10 +894,11 @@ function animateNext(kind){ nextAnim=kind; }
 function go(t){ if(t!==tab) animateNext('tab'); if(t==='accounts'&&(tab==='accounts'||tab!=='accounts')) acctSel=null; tab=t; render(); window.scrollTo({top:0}); }
 function render(){
   if(appScreen!=='app') return;
-  renderNav(); _loneSet=null;
+  renderNav(); _loneSet=null; _matchMap=null;
   const vt=document.getElementById('verTag'); if(vt){ vt.textContent='v'+APP_VERSION; vt.hidden=tab!=='dashboard'; }
+  const av=document.getElementById('avatarBtn'); if(av){ av.hidden=false; av.textContent=userInitial(); av.classList.toggle('on',tab==='settings'); }
   const el=document.getElementById('app');
-  ({dashboard:renderDashboard,budget:renderBudget,review:renderReview,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
+  ({dashboard:renderDashboard,budget:renderBudget,project:renderProject,review:renderReview,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
   placePills();
   animateNumbers(el);
   morphAfterRender(el,morphNext); morphNext=false;
@@ -934,7 +955,7 @@ function coversFrom(from){
   return earliest<=lim.toISOString().slice(0,10);
 }
 function hasData(from,to){ return state.txns.some(t=>t.date>=from&&t.date<=to); }
-function spendTxns(from,to){ return state.txns.filter(t=>t.date>=from&&t.date<=to&&t.amount<0&&isCounted(t)&&!(!t.cat&&t.sug==='transfer'&&OWN_XFER.test(t.desc))&&!(t.cat&&['transfer','income'].includes(catById(t.cat)?.kind))); }
+function spendTxns(from,to){ return state.txns.filter(t=>t.date>=from&&t.date<=to&&t.amount<0&&inHH(t)&&!(!t.cat&&t.sug==='transfer'&&OWN_XFER.test(t.desc))&&!(t.cat&&['transfer','income'].includes(catById(t.cat)?.kind))); }
 function merchantKey(t){ return suggestKeyword(t.desc)||cleanDesc(t.desc); }
 function titleCase(s){ return s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); }
 function changeTag(now,before,label){
@@ -1013,6 +1034,7 @@ function renderDashboard(el){
     ${snap}
     </div>
     ${loanDashSection()}
+    ${projDashSection()}
     <p class="muted small" style="text-align:center">Transfers between your own accounts are left out of these totals.</p>`;
 }
 let dashAllCats=false;
@@ -1110,8 +1132,8 @@ function quickPicks(t){
 // Every category, grouped (Income / Expenses / Not counted) in the order that suits this transaction.
 function xferBlock(t,clickFn,selId){
   const ids=catsOfKind('transfer').map(c=>c.id); if(!ids.length) return '';
-  const p=transferPairs().partner.get(t.id), likely=!!p||looksXfer(t)||(suggestionsFor(t)[0]&&catKindOf(suggestionsFor(t)[0].id)==='transfer');
-  const why=p?`Looks like it: ${p.amount>0?'+':'−'}${money(Math.abs(p.amount))} ${p.amount>0?'arrived in':'left'} ${esc(acctName(p.acct))} on ${shortDay(p.date)}.`:(likely?'Looks like money moved between your own accounts.':'Money moved between your own accounts. Not counted as income or spending.');
+  const mt=matchFor(t), p=transferPairs().partner.get(t.id)||(mt&&mt.x), likely=!!p||looksXfer(t)||(suggestionsFor(t)[0]&&catKindOf(suggestionsFor(t)[0].id)==='transfer');
+  const why=p?`${mt&&mt.kind==='possible'&&!transferPairs().partner.get(t.id)?'Possible match':'Looks like it'}: ${p.amount>0?'+':'−'}${money(Math.abs(p.amount))} ${p.amount>0?'arrived in':'left'} ${esc(acctName(p.acct))} on ${shortDay(p.date)}.`:(likely?'Looks like money moved between your own accounts.':'Money moved between your own accounts. Not counted as income or spending.');
   return `<div class="rvxfer ${likely?'likely':''}">${ids.map(id=>{const c=catById(id); return `<button class="${selId===id?'sel':''}" onclick="${clickFn}('${id}',this)"><span class="xfic">↔️</span><span><b>${esc(c.name.replace(/\s*\(ignored\)/i,''))}</b><span class="why">${why}</span></span></button>`;}).join('')}</div>`;
 }
 function groupedCatGrid(t,clickFn,selId){
@@ -1307,6 +1329,24 @@ function transferMatches(){
   }
   return match;
 }
+// The matching transaction in another of your accounts, if there is one.
+// 'linked' = confirmed pair (reference number, transfer codes, same description or both marked Transfer);
+// 'possible' = same amount the other way in another of your accounts within 3 days, not a card purchase.
+let _matchMap=null;
+function matchMap(){
+  if(_matchMap) return _matchMap;
+  const strong=transferMatches(), m=new Map();
+  strong.forEach((x,id)=>m.set(id,{x,kind:'linked'}));
+  const card=t=>/^(WDC|DAU|POS)$/.test(t.type||'');
+  const pool=state.txns.filter(t=>state.accounts[t.acct]&&!m.has(t.id)&&!card(t));
+  const byAmt=new Map(); pool.forEach(t=>{ const k=Math.abs(t.amount).toFixed(2); if(!byAmt.has(k)) byAmt.set(k,[]); byAmt.get(k).push(t); });
+  for(const t of pool){ if(m.has(t.id)) continue;
+    const c=(byAmt.get(Math.abs(t.amount).toFixed(2))||[]).filter(x=>!m.has(x.id)&&x.acct!==t.acct&&Math.sign(x.amount)===-Math.sign(t.amount)&&dayGap(x.date,t.date)<=3).sort((a,b)=>dayGap(a.date,t.date)-dayGap(b.date,t.date));
+    if(c.length){ m.set(t.id,{x:c[0],kind:'possible'}); m.set(c[0].id,{x:t,kind:'possible'}); }
+  }
+  _matchMap=m; return m;
+}
+function matchFor(t){ return matchMap().get(t.id)||null; }
 let _loneSet=null;
 function loneSet(){ if(!_loneSet) _loneSet=new Set(unmatchedTransfers().map(u=>u.t.id)); return _loneSet; }
 function unmatchedTransfers(){
@@ -1438,7 +1478,7 @@ function txnList(list,groupDays){
     const chip=c?`<span class="chip">${esc(c.name)}${t.auto?'<i class="autotag">auto</i>':''}${c.kind==='transfer'&&loneSet().has(t.id)?'<i class="autotag lonetag">no match</i>':''}</span>`:`<span class="chip none">To review${t.sug&&catById(t.sug)?' · '+esc(catById(t.sug).name)+'?':''}</span>`;
     html+=`<div class="txn" onclick="openPicker('${encodeURIComponent(t.id)}')">
       <span class="dot" style="background:${c?c.color:'#f5b301'};margin:0"></span>
-      <div class="mid"><div class="d">${esc(cleanDesc(t.desc))}</div><div class="s">${chip}${groupDays?'':dayLabel(t.date)+' · '}${acctTag(t.acct)}</div></div>
+      <div class="mid"><div class="d">${esc(cleanDesc(t.desc))}</div><div class="s">${chip}${(()=>{const pj=projOf(t); return pj?`<span class="chip projchip">${esc(pj.emoji||'📁')} ${esc(pj.name)}</span>`:'';})()}${(()=>{const mt=matchFor(t); return mt?`<span class="chip matchchip ${mt.kind}">↔ ${mt.x.amount>0?'to':'from'} ${esc(acctName(mt.x.acct))}</span>`:'';})()}${groupDays?'':dayLabel(t.date)+' · '}${acctTag(t.acct)}</div></div>
       <div class="amt ${c&&c.kind==='transfer'?'muted':t.amount>0?'pos':'neg'}">${t.amount>0?'+':''}${money(t.amount)}</div></div>`;
   }
   return html;
@@ -1454,13 +1494,16 @@ function drawPicker(){
   const t=pick.t;
   const sugg=suggestionsFor(t).filter(x=>catKindOf(x.id)!=="transfer");
   document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closePicker()"><div class="modal">
+    <div class="pickbar"><button class="pill" onclick="openCatEditor('picker')">✏️ Edit categories</button><button class="pill" onclick="closePicker()" aria-label="Close">✕</button></div>
     <div style="display:flex;justify-content:space-between;gap:10px"><div style="min-width:0"><div style="font-weight:700">${esc(titleCase(cleanDesc(t.desc)))}</div>
     <div class="small muted">${dayLabel(t.date)} · ${esc(acctName(t.acct))}</div>
     <div class="small muted" style="margin-top:3px;word-break:break-word">${esc(t.desc)}</div></div>
     <div class="amt ${t.amount>0?'pos':'neg'}" style="font-size:18px;font-weight:700;white-space:nowrap">${t.amount>0?'+':''}${money(t.amount)}</div></div>
     ${sugg.length?`<div class="small muted" style="margin:12px 2px 6px">Suggested</div><div class="suggrow">${sugg.map(x=>{const c=catById(x.id); return `<button class="${pick.cat===x.id?'sel':''}" onclick="choose('${x.id}')"><span class="dot" style="background:${c.color}"></span><span><b>${esc(c.name)}</b><span class="why">${esc(x.why)}</span></span></button>`;}).join('')}</div>`:''}
+    ${matchBox(t)}
+    ${(state.projects||[]).length?projPickRow(t):''}
     ${groupedCatGrid(t,'choose',pick.cat)}
-    <div class="catgrid">      <button style="border-style:dashed;color:var(--accent)" onclick="openCatEditor('picker')">✏️ Add / edit categories</button></div>
+
     <div style="display:flex;gap:8px;margin-top:6px;justify-content:space-between">
       ${t.cat?`<button class="btn danger" onclick="clearCat()">Send back to Review</button>`:'<span></span>'}
       <button class="btn ghost" onclick="closePicker()">Cancel</button>
@@ -1524,7 +1567,7 @@ function periodControls(){
     <div class="period">${v.mode!=='all'?`<button onclick="shift(-1)" aria-label="Previous">‹</button>`:''}<div class="lbl"><span>${pr.label}</span></div>${v.mode!=='all'?`<button onclick="shift(1)" aria-label="Next">›</button>`:''}</div></div>`;
 }
 function catMonthly(id,end,n){
-  const out=[]; for(let i=n-1;i>=0;i--){ const m=ymAdd(end,-i); let a=0; for(const t of state.txns){ if(t.cat===id&&t.date.startsWith(m)&&isCounted(t)) a+= -t.amount; } out.push({m,a}); } return out;
+  const out=[]; for(let i=n-1;i>=0;i--){ const m=ymAdd(end,-i); let a=0; for(const t of state.txns){ if(t.cat===id&&t.date.startsWith(m)&&inHH(t)) a+= -t.amount; } out.push({m,a}); } return out;
 }
 function sparkline(vals,color){
   const W=84,H=26,bw=W/vals.length,max=Math.max(...vals.map(v=>v.a),1);
@@ -1573,7 +1616,7 @@ function chartCatsCard(pr){
   const kind=chartCatKind, tot={}, cnt={};
   let unsorted=0, unsortedN=0;
   for(const t of state.txns){
-    if(!isCounted(t)||!inPeriod(t,pr.from,pr.to)) continue;
+    if(!inHH(t)||!inPeriod(t,pr.from,pr.to)) continue;
     if(!t.cat){ if((kind==='expense')===(t.amount<0)&&!(t.sug==='transfer'&&OWN_XFER.test(t.desc))){ unsorted+=Math.abs(t.amount); unsortedN++; } continue; }
     if(catKindOf(t.cat)!==kind) continue;
     const v=kind==='expense'?-t.amount:t.amount; tot[t.cat]=(tot[t.cat]||0)+v; cnt[t.cat]=(cnt[t.cat]||0)+1;
@@ -1599,7 +1642,7 @@ function renderCharts(el){
   const total=Math.max(s.spend,0.01);
   const exp=state.categories.filter(c=>c.kind==='expense');
   const end=state.view.anchor||latestYM();
-  const inP=state.txns.filter(t=>t.date>=pr.from&&t.date<=pr.to&&isCounted(t));
+  const inP=state.txns.filter(t=>t.date>=pr.from&&t.date<=pr.to&&inHH(t));
   const purchases=spendTxns(pr.from,pr.to);
   const rows=exp.map(c=>{ const tx=inP.filter(t=>t.cat===c.id); return {c,tx,amt:s.byCat[c.id]||0}; });
   const spent=rows.filter(r=>Math.abs(r.amt)>0.004).sort((a,b)=>b.amt-a.amt);
@@ -1658,7 +1701,7 @@ function renderCharts(el){
   // ---- most visited
   const visits={}; purchases.forEach(t=>{ const k=merchantKey(t); (visits[k]=visits[k]||{n:0,a:0}); visits[k].n++; visits[k].a-=t.amount; });
   const topVisits=Object.entries(visits).sort((a,b)=>b[1].n-a[1].n||b[1].a-a[1].a).slice(0,6);
-  const incomeAmt=state.txns.filter(t=>isCounted(t)&&catById(t.cat)?.kind==='income'&&inPeriod(t,pr.from,pr.to)).reduce((a,t)=>a+t.amount,0);
+  const incomeAmt=state.txns.filter(t=>inHH(t)&&catById(t.cat)?.kind==='income'&&inPeriod(t,pr.from,pr.to)).reduce((a,t)=>a+t.amount,0);
   const xfer=inP.filter(t=>catById(t.cat)?.kind==='transfer');
   el.innerHTML=`${toggle}${periodControls()}
     ${s.uncatOut>0?`<div class="banner"><span>${money(s.uncatOut)} not reviewed yet</span><button class="btn" onclick="go('review')">Review</button></div>`:''}
@@ -1768,7 +1811,7 @@ function renderLoanCharts(el,toggle){ loanView(el,toggle,'charts'); }
 // Key facts about a loan, used at the top of the loan's account page and the Home loan overview.
 function loanInfo(a){
   const x=state.accounts[a], owing=Math.abs(x.bal||0), rate=loanRate(a);
-  const offs=Object.keys(state.accounts).filter(k=>state.accounts[k].type==='offset'&&state.accounts[k].bal!=null);
+  const offs=Object.keys(state.accounts).filter(k=>isOffset(k)&&state.accounts[k].bal!=null);
   const offset=offs.reduce((t,k)=>t+Math.max(0,state.accounts[k].bal),0);
   const tx=state.txns.filter(t=>t.acct===a).sort((p,q)=>p.date.localeCompare(q.date));
   const ints=tx.filter(t=>loanKind(t)==='interest'), lastInt=ints[ints.length-1]||null;
@@ -1923,6 +1966,8 @@ function normAcct(s){
   if(d.length>=9) return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6);
   return d;
 }
+// In household totals: counted account, and not in a project that's kept separate.
+function inHH(t){ if(!isCounted(t)) return false; const p=projOf(t); return !p||p.counted; }
 function isCounted(t){ const a=state.accounts[t.acct]; if(a&&a.type==='loan') return false; return !a||a.counted!==false; }
 function acctTxCount(a){ return state.txns.filter(t=>t.acct===a).length; }
 function acctCard(a){
@@ -2008,6 +2053,25 @@ function acctSort(list){ const keys=Object.keys(state.accounts); return [...list
 function acctTypeLabel(x){ return (ACCT_TYPES.find(t=>t[0]===x.type)||['','Account'])[1]; }
 function openAcct(a){ acctSel=a; txReset(); animateNext('left'); tab='accounts'; render(); window.scrollTo({top:0}); }
 function openAllTx(){ acctSel='__all'; txReset(); animateNext('left'); render(); window.scrollTo({top:0}); }
+// Pick which bank accounts are offsets against the home loan.
+let offOpen=false;
+function offsetCard(list){
+  const on=list.filter(isOffset), tot=on.reduce((t,a)=>t+Math.max(0,state.accounts[a].bal||0),0);
+  const L=loanAccts()[0], est=L?offsetEstimate(L):null;
+  return `<div class="card offcard"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer" onclick="offOpen=!offOpen;render()">
+      <div><h2 style="margin:0">🏠 Offset accounts</h2><div class="small muted">${on.length?`${on.length} account${on.length>1?'s':''} · ${money0(tot)} offsetting your loan`:'None picked yet: tap to choose'}</div></div><span class="link small">${offOpen?'Done':'Choose'}</span></div>
+    ${offOpen?`<p class="small muted" style="margin:10px 0 6px">Tick the accounts that are linked to your home loan as offsets. Their balance reduces the interest you pay.</p>
+      <div class="linklist" style="max-height:none">${list.map(a=>{ const x=state.accounts[a], o=isOffset(a); return `<label class="linkrow ${o?'on':''}"><input type="checkbox" ${o?'checked':''} onchange="setOffset('${a}',this.checked)"><span class="dot" style="background:${acctColor(a)}"></span><span class="grow"><b>${esc(acctName(a))}</b><span class="small muted" style="display:block">${esc(a)}</span></span><b>${x.bal!=null?money0(x.bal):'—'}</b></label>`; }).join('')}</div>`:''}
+    ${est&&est.amount>0&&Math.abs(est.amount-tot)>Math.max(2000,est.amount*.25)?`<div class="small muted offhint">Bankwest's last interest line (${shortDay(est.date)}) suggests about <b>${money0(est.amount)}</b> was offsetting on average that month${on.length?`; the accounts ticked hold ${money0(tot)} now`:''}. Balances move around, so treat this as a rough guide.</div>`:''}
+  </div>`;
+}
+// Average offset balance implied by Bankwest's "OFFSET SAVING OF $x" over the interest period.
+function offsetEstimate(a){
+  const ints=state.txns.filter(t=>t.acct===a&&loanKind(t)==='interest').sort((p,q)=>p.date.localeCompare(q.date)), it=ints[ints.length-1]; if(!it) return null;
+  const saved=offsetSaving(it), r=loanRate(a); if(!saved||!r) return null;
+  const prev=ints[ints.length-2], days=prev?Math.max(20,dayGap(prev.date,it.date)):30.4;
+  return {amount:saved/(r/100*days/365),date:it.date};
+}
 function renderAccounts(el){
   if(acctSel==='__all'){
     el.innerHTML=`<div class="loanback"><button class="pill" onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button></div>
@@ -2024,7 +2088,7 @@ function renderAccounts(el){
     const toRev=state.txns.filter(t=>t.acct===a&&!t.cat&&isCounted(t)).length;
     return `<div class="card acctrow" data-id="${a}" style="--ac:${acctColor(a)}" onclick="openAcct('${a}')">
       <div class="ar-top"><span class="ar-ic">${isLoanAcct(a)?'🏠':x.type==='savings'?'💰':x.type==='credit'?'💳':'🏦'}</span>
-        <div class="grow" style="min-width:0"><div class="ar-name">${esc(acctName(a))}</div><div class="small muted">${esc(acctTypeLabel(x))}${x.owner?' · '+esc(x.owner):''}${a.startsWith('manual-')?'':' · …'+esc(a.slice(-4))}</div></div>
+        <div class="grow" style="min-width:0"><div class="ar-name">${esc(acctName(a))}</div><div class="small muted">${esc(acctTypeLabel(x))}${x.owner?' · '+esc(x.owner):''}${a.startsWith('manual-')?'':' · …'+esc(a.slice(-4))}</div>${isOffset(a)?'<span class="offbadge">🏠 Offset</span>':''}</div>
         <div style="text-align:right"><div class="ar-bal ${x.bal<0?'neg':''}">${x.bal!=null?money(isLoanAcct(a)?Math.abs(x.bal):x.bal):'—'}</div><div class="small muted">${isLoanAcct(a)?'owing':x.balDate?dayLabel(x.balDate).replace(/ \d{4}$/,''):''}</div></div>
         <span class="crow-chev">›</span></div>
       <div class="ar-meta small muted">${n} transaction${n===1?'':'s'}${last?` · latest ${dayLabel(last).replace(/ \d{4}$/,'')}`:''}${toRev?` · <span style="color:var(--accent)">${toRev} to review</span>`:''}${x.counted===false&&!isLoanAcct(a)?' · not in totals':''}</div>
@@ -2037,7 +2101,7 @@ function renderAccounts(el){
       <div class="grow"><div class="ar-name">All transactions</div><div class="small muted">Search and filter across every account</div></div>
       <div style="text-align:right"><div class="ar-bal">${nAll}</div><div class="small muted">total</div></div><span class="crow-chev">›</span></div></div>`:''}
     ${everyday.length?`<div class="sectionhead" style="border:0;padding:0;margin-top:14px"><span>Bank accounts</span><b>${money(tot)}</b></div><div class="acctlist">${everyday.map(card).join('')}</div>`:''}
-    ${loans.length?`<div class="sectionhead"><span>🏠 Home loans</span><b>${money(Math.abs(loans.reduce((s,a)=>s+(state.accounts[a].bal||0),0)))} owing</b></div><div class="acctlist">${loans.map(card).join('')}</div>`:''}
+    ${loans.length?`<div class="sectionhead"><span>🏠 Home loans</span><b>${money(Math.abs(loans.reduce((s,a)=>s+(state.accounts[a].bal||0),0)))} owing</b></div><div class="acctlist">${loans.map(card).join('')}</div>${offsetCard(everyday)}`:''}
     ${!main.length?`<div class="card"><h2>No accounts yet</h2><p class="muted">Import a Bankwest CSV in Settings and its account appears here automatically.</p><button class="btn" onclick="go('settings')">Import</button></div>`:''}
     <div class="card">${acctForm?`<h2>Add an account</h2>
       <input id="naName" placeholder="Nickname e.g. Joint savings" style="margin-bottom:6px">
@@ -2111,6 +2175,7 @@ function renderAcctDetail(el,a){
       <div class="small muted">${loan?'owing':'balance'}${x.balDate?' as of '+dayLabel(x.balDate):''}</div>
       <div class="small muted" style="margin-top:4px">${esc(acctTypeLabel(x))}${x.owner?' · '+esc(x.owner):''} · ${a.startsWith('manual-')?'no account number':esc(a)}</div>
       ${loan?loanHeader(a,true):''}
+      ${!loan&&!a.startsWith('manual-')&&loanAccts().length?`<label class="offswitch ${isOffset(a)?'on':''}"><input type="checkbox" ${isOffset(a)?'checked':''} onchange="setOffset('${a}',this.checked)"><span>🏠 Offset for my home loan</span></label>`:''}
       ${!loan&&x.goal?`<div style="margin-top:14px;text-align:left"><div style="display:flex;justify-content:space-between" class="small"><span>🎯 Goal ${money0(x.goal)}</span><b>${Math.min(100,Math.round(Math.max(0,x.bal||0)/x.goal*100))}%</b></div>
         <div class="bar" style="height:10px"><i style="width:${Math.min(100,Math.max(0,x.bal||0)/x.goal*100)}%;background:${col}"></i></div>
         <div class="small muted" style="margin-top:4px">${(x.bal||0)>=x.goal?'Goal reached 🎉':money(x.goal-(x.bal||0))+' to go'}</div></div>`:''}
@@ -2141,6 +2206,28 @@ function renderAcctDetail(el,a){
 
 /* ============ Settings (incl. Import) ============ */
 let lastResult=null;
+// Top-right account button: who's signed in, Settings, Import, theme and sign out.
+function userEmail(){ return (window.cloudApi&&cloudApi.email())||''; }
+function userName(){ const e=userEmail(); if(!e) return 'You'; const n=e.split('@')[0].split(/[._-]/)[0]; return n.charAt(0).toUpperCase()+n.slice(1); }
+function userInitial(){ return userName().charAt(0).toUpperCase()||'?'; }
+function closeUserMenu(){ const m=document.getElementById('usermenu'); if(m) m.remove(); document.removeEventListener('click',userMenuOutside,true); }
+function userMenuOutside(e){ const m=document.getElementById('usermenu'); if(m&&!m.contains(e.target)&&e.target.id!=='avatarBtn') closeUserMenu(); }
+function toggleUserMenu(e){
+  e&&e.stopPropagation();
+  if(document.getElementById('usermenu')){ closeUserMenu(); return; }
+  const admin=window.cloudApi&&cloudApi.isAdmin&&cloudApi.isAdmin();
+  const th=window.getThemePref?getThemePref():'auto';
+  const m=document.createElement('div'); m.id='usermenu'; m.className='usermenu';
+  m.innerHTML=`<div class="um-head"><span class="avatar big">${esc(userInitial())}</span><div style="min-width:0"><b>${esc(userName())}</b><div class="small muted" style="overflow:hidden;text-overflow:ellipsis">${esc(userEmail()||'Signed in')}${admin?' · admin':''}</div></div></div>
+    <button onclick="closeUserMenu();go('settings')">⚙️ <span>Settings</span></button>
+    <button onclick="closeUserMenu();go('settings');setTimeout(()=>document.getElementById('fileIn')?.click(),150)">📥 <span>Import CSV files</span></button>
+    <button onclick="closeUserMenu();go('settings');setTimeout(()=>document.getElementById('projset')?.scrollIntoView({behavior:'smooth'}),120)">📁 <span>Projects</span></button>
+    <div class="um-theme"><span class="small muted">Appearance</span><div class="seg">${[['auto','Auto'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button class="${th===v?'on':''}" onclick="setThemePref('${v}');closeUserMenu();toggleUserMenu();if(tab==='settings')render()">${l}</button>`).join('')}</div></div>
+    <button class="um-out" onclick="closeUserMenu();window.cloudApi&&cloudApi.logout()">↪️ <span>Sign out</span></button>
+    <div class="small muted" style="text-align:center;padding:6px 0 2px">My Spend Friend v${APP_VERSION}</div>`;
+  document.querySelector('header').appendChild(m);
+  setTimeout(()=>document.addEventListener('click',userMenuOutside,true),0);
+}
 function renderSettings(el){
   const accts=Object.keys(state.accounts);
   const withTx=accts.filter(a=>state.txns.some(t=>t.acct===a));
@@ -2151,7 +2238,8 @@ function renderSettings(el){
       <span class="small" style="text-align:right">up to<br><b>${shortDay(d)}</b></span></div>`; }).join('');
   const userRules=state.rules.filter(r=>r.user), seeded=state.rules.filter(r=>!r.user);
   const ruleRow=(r)=>{ const i=state.rules.indexOf(r); const c=catById(r.cat); return `<tr><td><b>${esc(r.kw)}</b> <span class="small muted">(${r.dir==='out'?'money out':r.dir==='in'?'money in':'any'})</span></td><td class="small">${c?esc(c.name):'<i>deleted</i>'}</td><td style="text-align:right"><button class="link" onclick="delRule(${i})">Remove</button></td></tr>`; };
-  el.innerHTML=`<div class="cols">
+  el.innerHTML=`<div class="settop"><button class="pill" onclick="go('dashboard')">‹ Back</button><h2 style="margin:0">⚙️ Settings</h2><span style="width:60px"></span></div>
+  <div class="cols">
   ${accountSection()}
   <div class="card"><h2>Appearance</h2>
     <div class="seg" style="margin:0">${[['auto','Auto'],['light','☀️ Light'],['dark','🌙 Dark']].map(([v,l])=>`<button class="${getThemePref()===v?'on':''}" onclick="setThemePref('${v}');render()">${l}</button>`).join('')}</div>
@@ -2185,6 +2273,7 @@ function renderSettings(el){
     <details style="margin-top:12px"><summary class="small" style="cursor:pointer">Built-in rules (${seeded.length})</summary><table class="simple">${seeded.map(ruleRow).join('')}</table></details>
     <div style="margin-top:12px"><button class="btn ghost" onclick="reapplyRules()">Refresh suggestions for transactions in Review</button></div>
   </div>
+  ${projectsSettingsCard()}
   <div class="card"><h2>Data</h2>
     <p class="small muted" style="margin-top:-6px">Everything is saved to the cloud and synced between your phones. A backup file is a handy extra copy.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -2225,6 +2314,97 @@ async function restoreBackup(f){ if(!f) return; try{ const s=JSON.parse(await f.
 function wipe(){ if(!confirmBox('Delete ALL transactions, rules and settings? This cannot be undone.')) return; { const v=state.view; state=freshState(); state.view=v; } save(); render(); toast('All data deleted'); }
 function confirmBox(msg){ try{ return window.confirm(msg); }catch(e){ return true; } }
 
+/* ============ Projects ============ */
+// A project groups income and expenses (e.g. the farm or an investment property) to see its own profit or loss.
+// Membership: a transaction's own project tag if set, otherwise the project its category belongs to.
+function projById(id){ return (state.projects||[]).find(p=>p.id===id)||null; }
+function projOf(t){ if(t.proj!==undefined) return t.proj?projById(t.proj):null; if(!t.cat) return null; return (state.projects||[]).find(p=>(p.cats||[]).includes(t.cat))||null; }
+function projTxns(p,from,to){ return state.txns.filter(t=>projOf(t)===p&&catKindOf(t.cat)!=='transfer'&&(!from||(t.date>=from&&t.date<=to))); }
+function projSum(p,from,to){ const tx=projTxns(p,from,to); const inn=tx.filter(t=>t.amount>0).reduce((a,t)=>a+t.amount,0), out=tx.filter(t=>t.amount<0).reduce((a,t)=>a-t.amount,0); return {tx,inn,out,net:inn-out}; }
+function matchBox(t){
+  const mt=matchFor(t); if(!mt) return '';
+  const x=mt.x, c=x.cat?catById(x.cat):null;
+  return `<div class="matchbox ${mt.kind}"><div class="small" style="font-weight:700">${mt.kind==='linked'?'🔗 Linked transaction':'🔍 Possible match in another account'}</div>
+    <div class="matchrow" onclick="openPicker('${encodeURIComponent(x.id)}')"><span class="grow"><b>${x.amount>0?'+':'−'}${money(Math.abs(x.amount))}</b> ${x.amount>0?'into':'out of'} ${acctTag(x.acct)} <span class="small muted">${esc(x.acct)}</span>
+      <div class="small muted">${shortDay(x.date)} · "${esc(titleCase(cleanDesc(x.desc)))}" · ${c?esc(c.name):'Not sorted yet'}</div></span><span class="muted">›</span></div>
+    ${mt.kind==='possible'?`<div class="small muted">Same amount the other way within 3 days. If it's money moving between your accounts, pick Transfer.</div>`:''}</div>`;
+}
+function projPickRow(t){
+  const cur=projOf(t), viaCat=t.proj===undefined&&cur;
+  const btn=(id,label,on)=>`<button class="${on?'on':''}" onclick="setTxnProj('${id}')">${label}</button>`;
+  return `<div class="small muted" style="margin:12px 2px 6px">Project${viaCat?` · from its category`:''}</div>
+    <div class="projpick">${btn('',`None`,!cur)}${state.projects.map(p=>btn(p.id,`${esc(p.emoji||'📁')} ${esc(p.name)}`,cur===p)).join('')}${t.proj!==undefined?`<button class="link small" onclick="setTxnProj('__auto')">Follow category</button>`:''}</div>`;
+}
+function setTxnProj(id){ const t=pick.t; if(id==='__auto') delete t.proj; else t.proj=id; save(); drawPicker(); render(); toast(id&&id!=='__auto'?'Added to '+projById(id).name:id==='__auto'?'Follows its category':'Not in a project'); }
+let projSel=null;
+function openProject(id){ projSel=id; go('project'); }
+function projDashSection(){
+  const P=state.projects||[]; if(!P.length) return '';
+  const pr=periodRange();
+  return `<div class="sectionhead"><span>📁 Projects</span><button class="link small" onclick="go('settings');setTimeout(()=>document.getElementById('projset')?.scrollIntoView({behavior:'smooth'}),80)">Manage ›</button></div>
+    <div class="loangrid">${P.map(p=>{ const s=projSum(p,pr.from,pr.to); return `<div class="card loancard" onclick="openProject('${p.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>${esc(p.emoji||'📁')} ${esc(p.name)}</h2><span class="link small">Details ›</span></div>
+      <div class="loanbig ${s.net<0?'neg':'pos'}">${s.net<0?'−':'+'}${money(Math.abs(s.net))}<span class="small muted"> ${s.net<0?'loss':'profit'}</span></div>
+      <div class="mini3" style="margin-top:8px"><div><div class="k">Money in</div><div class="v pos" style="font-size:16px">${money0(s.inn)}</div></div><div><div class="k">Money out</div><div class="v neg" style="font-size:16px">${money0(s.out)}</div></div><div><div class="k">Transactions</div><div class="v" style="font-size:16px">${s.tx.length}</div></div></div>
+      <p class="small muted" style="margin:6px 0 0">${esc(pr.label)} · ${p.counted?'included in':'kept out of'} household totals</p></div>`; }).join('')}</div>`;
+}
+function renderProject(el){
+  const p=projById(projSel)||(state.projects||[])[0];
+  if(!p){ el.innerHTML=`<div class="card"><h2>📁 Projects</h2><p class="muted">No projects yet. Create one in Settings → Projects.</p><button class="btn" onclick="go('settings')">Go to Settings</button></div>`; return; }
+  projSel=p.id;
+  const pr=periodRange(), s=projSum(p,pr.from,pr.to), all=projSum(p);
+  const end=state.view.anchor||latestYM(), m12=monthsBack(end,12), ms=m12.map(m=>projSum(p,m+'-01',m+'-31'));
+  const first=all.tx.reduce((m,t)=>t.date<m?t.date:m,'9999'), mShow=m12.filter(m=>m>=first.slice(0,7)), sShow=mShow.map(m=>ms[m12.indexOf(m)]);
+  const byCat=dir=>{ const o={}; s.tx.filter(t=>dir>0?t.amount>0:t.amount<0).forEach(t=>{ const k=t.cat||'_none'; o[k]=(o[k]||0)+Math.abs(t.amount); }); return Object.entries(o).sort((a,b)=>b[1]-a[1]); };
+  const catList=(rows,cls)=>rows.length?rows.map(([id,v])=>{ const c=id==='_none'?null:catById(id); return `<div class="lrow"><span class="dot" style="background:${c?c.color:'var(--muted)'}"></span><span class="grow">${c?esc(c.name):'Not sorted yet'}</span><b class="${cls}">${money(v)}</b></div>`; }).join(''):'<p class="muted small" style="margin:4px 0">None in this period.</p>';
+  const tx=[...s.tx].sort((a,b)=>b.date.localeCompare(a.date));
+  el.innerHTML=`<div class="loanback"><button class="pill" onclick="go('dashboard')">‹ Dashboard</button><button class="pill" onclick="openProjEditor('${p.id}')">⚙️ Edit project</button></div>
+    ${(state.projects||[]).length>1?`<div class="acctfilter">${state.projects.map(q=>`<button class="${q===p?'on':''}" onclick="projSel='${q.id}';animateNext('fade');render()">${esc(q.emoji||'📁')} ${esc(q.name)}</button>`).join('')}</div>`:''}
+    <div class="card loanhero"><div style="font-size:30px">${esc(p.emoji||'📁')}</div><h2 style="margin:4px 0 0">${esc(p.name)}</h2>
+      <div class="small muted">${p.counted?'Included in':'Kept out of'} household totals</div></div>
+    ${periodControls()}
+    <div class="cols">
+    <div class="card"><h2>${esc(pr.label)}</h2>
+      <div class="budtop"><div><div class="k">${s.net<0?'Loss':'Profit'}</div><div class="budbig ${s.net<0?'neg':'pos'}">${s.net<0?'−':'+'}${money(Math.abs(s.net))}</div></div></div>
+      <div class="mini2" style="grid-template-columns:1fr 1fr;margin-top:10px"><div><div class="k">Money in</div><div class="v pos">${money(s.inn)}</div></div><div><div class="k">Money out</div><div class="v neg">${money(s.out)}</div></div></div></div>
+    <div class="card"><h2>Money in vs out by month</h2>${mShow.length?barChartSVG(mShow.map(m=>MONTHS[+m.slice(5)-1]),[{vals:sShow.map(z=>z.inn),color:'var(--good)'},{vals:sShow.map(z=>z.out),color:'var(--bad)'}],{h:180}):'<p class="muted small">No transactions yet.</p>'}
+      <div class="small muted" style="display:flex;gap:14px;margin-top:4px"><span><span class="dot" style="background:var(--good)"></span>In</span><span><span class="dot" style="background:var(--bad)"></span>Out</span></div></div>
+    <div class="card"><h2>Profit or loss by month</h2>${mShow.length?barChartSVG(mShow.map(m=>MONTHS[+m.slice(5)-1]),[{vals:sShow.map(z=>Math.abs(z.net)),color:'var(--accent)'}],{h:160,values:true}):''}
+      ${mShow.length?`<div class="small muted" style="margin-top:4px">${mShow.map(m=>{const z=ms[m12.indexOf(m)]; return `${MONTHS[+m.slice(5)-1]}: <b class="${z.net<0?'neg':'pos'}">${z.net<0?'−':'+'}${money0(Math.abs(z.net))}</b>`;}).join(' · ')}</div>`:''}</div>
+    <div class="card"><h2>Money in by category</h2>${catList(byCat(1),'pos')}</div>
+    <div class="card"><h2>Money out by category</h2>${catList(byCat(-1),'neg')}</div>
+    <div class="card"><h2>All time</h2><div class="lrow"><span class="grow">Money in</span><b class="pos">${money(all.inn)}</b></div><div class="lrow"><span class="grow">Money out</span><b class="neg">${money(all.out)}</b></div><div class="lrow"><span class="grow">${all.net<0?'Loss':'Profit'}</span><b class="${all.net<0?'neg':'pos'}">${money(Math.abs(all.net))}</b></div></div>
+    </div>
+    <div class="card"><h2>Transactions</h2><p class="small muted" style="margin-top:-6px">Tap one to change its category or project.</p>${tx.length?txnList(tx,true):'<p class="muted">Nothing in this period.</p>'}</div>`;
+}
+function projectsSettingsCard(){
+  const P=state.projects||[];
+  return `<div class="card" id="projset"><h2>📁 Projects</h2>
+    <p class="small muted" style="margin-top:-6px">Group income and spending, like the farm or an investment property, to see its own profit or loss. Add whole categories, or tag single transactions from the category picker.</p>
+    ${P.map(p=>`<div class="lrow" style="cursor:pointer" onclick="openProjEditor('${p.id}')"><span style="font-size:20px">${esc(p.emoji||'📁')}</span><span class="grow"><b>${esc(p.name)}</b><div class="small muted">${(p.cats||[]).length} categor${(p.cats||[]).length===1?'y':'ies'} · ${p.counted?'in':'kept out of'} household totals</div></span><span class="link small">Edit ›</span></div>`).join('')}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" onclick="newProject()">+ New project</button>${P.length?'':`<button class="btn ghost" onclick="newProject('Farm','🚜')">🚜 Farm</button><button class="btn ghost" onclick="newProject('Investment property','🏡')">🏡 Investment property</button>`}</div></div>`;
+}
+function newProject(name,emoji){ const p={id:'p'+Date.now().toString(36),name:name||'New project',emoji:emoji||'📁',cats:[],counted:false}; state.projects=[...(state.projects||[]),p]; save(); render(); openProjEditor(p.id); }
+let projEd=null;
+function openProjEditor(id){ const p=projById(id); if(!p) return; projEd={id,name:p.name,emoji:p.emoji,cats:new Set(p.cats||[]),counted:!!p.counted,del:false}; drawProjEditor(); }
+function drawProjEditor(){
+  const e=projEd, grp=k=>catsOfKind(k).map(c=>{ const other=(state.projects||[]).find(q=>q.id!==e.id&&(q.cats||[]).includes(c.id)); return `<label class="linkrow ${e.cats.has(c.id)?'on':''}"><input type="checkbox" ${e.cats.has(c.id)?'checked':''} onchange="projEd.cats[this.checked?'add':'delete']('${c.id}');this.closest('.linkrow').classList.toggle('on',this.checked)"><span class="dot" style="background:${c.color}"></span><span class="grow">${esc(c.name)}${other?`<span class="small muted" style="display:block">Currently in ${esc(other.name)}</span>`:''}</span></label>`; }).join('');
+  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg"><div class="modal">
+    <div class="pickbar"><b>Edit project</b><button class="pill" onclick="closeModal()">✕</button></div>
+    <div style="display:grid;grid-template-columns:64px 1fr;gap:8px"><input value="${esc(e.emoji||'')}" maxlength="4" style="text-align:center;font-size:22px" oninput="projEd.emoji=this.value"><input value="${esc(e.name)}" placeholder="Project name" oninput="projEd.name=this.value"></div>
+    <label class="autorow"><input type="checkbox" ${e.counted?'checked':''} onchange="projEd.counted=this.checked"><span><b>Include in household totals</b><br><span class="small muted">Off keeps this project's money out of your Dashboard, Budget and Charts totals.</span></span></label>
+    <div class="small muted" style="margin:14px 2px 6px">Categories in this project</div>
+    <div class="catgroup">Income</div><div class="linklist" style="max-height:none">${grp('income')}</div>
+    <div class="catgroup">Expenses</div><div class="linklist" style="max-height:none">${grp('expense')}</div>
+    <p class="small muted">Tip: make project-specific categories like "Farm income", "Farm supplies" or "Property repairs" with Edit categories, then tick them here.</p>
+    <div style="display:grid;gap:8px;margin-top:12px"><button class="btn" onclick="saveProject()">Save</button>
+      ${e.del?`<button class="btn danger" onclick="deleteProject()">Yes, delete ${esc(e.name)}</button>`:`<button class="btn ghost" onclick="projEd.del=true;drawProjEditor()">Delete project</button>`}</div>
+  </div></div>`;
+}
+function saveProject(){ const e=projEd, p=projById(e.id); if(!p) return;
+  (state.projects||[]).forEach(q=>{ if(q!==p) q.cats=(q.cats||[]).filter(c=>!e.cats.has(c)); });
+  Object.assign(p,{name:e.name.trim()||'Project',emoji:e.emoji.trim()||'📁',cats:[...e.cats],counted:e.counted}); save(); closeModal(); render(); toast('Project saved'); }
+function deleteProject(){ const id=projEd.id; state.projects=(state.projects||[]).filter(p=>p.id!==id); state.txns.forEach(t=>{ if(t.proj===id) delete t.proj; }); if(projSel===id) projSel=null; save(); closeModal(); if(tab==='project') go('dashboard'); else render(); toast('Project deleted'); }
 /* ============ Budget ============ */
 // Each expense category can have a budget per fortnight or per month; it's scaled to whatever period you're viewing.
 function budPer(c){ return c.budgetPer==='fortnight'?'fortnight':'month'; }
@@ -2239,7 +2419,7 @@ function avgSpend(c,per){
   const end=latestDate(); if(!end) return 0;
   const first=state.txns.reduce((m,t)=>t.date<m?t.date:m,end);
   const days=Math.max(14,Math.min(90,dayGap(first,end)+1)), start=isoAdd(end,-(days-1));
-  const tot=state.txns.filter(t=>t.cat===c.id&&t.amount<0&&isCounted(t)&&t.date>=start&&t.date<=end).reduce((a,t)=>a-t.amount,0);
+  const tot=state.txns.filter(t=>t.cat===c.id&&t.amount<0&&inHH(t)&&t.date>=start&&t.date<=end).reduce((a,t)=>a-t.amount,0);
   return tot/days*(per==='fortnight'?14:365.25/12);
 }
 function roundBud(x){ return x<=0?0:x<100?Math.ceil(x/5)*5:Math.ceil(x/10)*10; }
@@ -2433,6 +2613,7 @@ function showScreen(name){
   const nav=document.getElementById('nav'), el=document.getElementById('app');
   nav.style.display=name==='app'?'':'none';
   document.body.classList.toggle('noapp',name!=='app');
+  const av=document.getElementById('avatarBtn'); if(av&&name!=='app'){ av.hidden=true; closeUserMenu(); }
   if(name==='app'){ render(); return; }
   closePicker&&document.getElementById('modalRoot')&&(document.getElementById('modalRoot').innerHTML='');
   if(name==='loading'){ el.innerHTML=`<div class="authwrap"><div class="spinner"></div><p class="muted" style="text-align:center">Loading your spending…</p></div>`; return; }
