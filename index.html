@@ -533,7 +533,7 @@ nav button.on .lic{color:var(--accent)}
 .rvxfer.likely button{border-style:solid;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--card))}
 .budtopbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.budtopbar .btn{flex:none}
 .dashhero{text-align:center}.dashhero>.k{font-size:13px;color:var(--muted);font-weight:600}.dh-big{font-size:40px;font-weight:800;letter-spacing:-1px;margin:2px 0 10px}
-.dh-split{display:grid;grid-template-columns:1fr 1fr;gap:10px;border-top:1px solid var(--line);padding-top:12px}.dh-split .stat{background:none;border:0;box-shadow:none;padding:0}.dh-pace{margin:10px 0 0}
+.catrow:has(>p.muted){min-height:71px;box-sizing:border-box}.dh-pace{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dh-split{display:grid;grid-template-columns:1fr 1fr;gap:10px;border-top:1px solid var(--line);padding-top:12px}.dh-split .stat{background:none;border:0;box-shadow:none;padding:0}.dh-pace{margin:10px 0 0}
 .posrow{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line);cursor:pointer}.posrow:first-of-type{border-top:0}.posrow .grow{min-width:0}.posrow b{white-space:nowrap}.posic{width:32px;height:32px;border-radius:10px;background:var(--card2);display:inline-flex;align-items:center;justify-content:center;flex:none;color:var(--muted);font-size:16px}
 .rvmodes{margin-bottom:12px}.rvn{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--card2);font-size:11px;margin-left:4px}.rvn.warn{background:color-mix(in srgb,var(--accent) 30%,transparent)}
 .addproj{display:flex;gap:12px;align-items:center;cursor:pointer;border-style:dashed}.addproj .posic{font-size:22px;color:var(--accent)}
@@ -579,7 +579,7 @@ nav button.on .lic{color:var(--accent)}
 .periodbar .seg{margin-bottom:8px}
 .periodbar .period{margin-bottom:0}
 .period .lbl{display:flex;flex-direction:column;align-items:center;gap:4px}
-.nowbtn{width:auto!important;height:auto!important;font-size:12.5px!important;font-weight:700;padding:4px 12px;border-radius:999px!important;background:var(--accent,#e5a800)!important;color:#1a1a1a!important;border:0!important;letter-spacing:0}
+.nowbtn.nowhide{visibility:hidden;pointer-events:none}.nowbtn{width:auto!important;height:auto!important;font-size:12.5px!important;font-weight:700;padding:4px 12px;border-radius:999px!important;background:var(--accent,#e5a800)!important;color:#1a1a1a!important;border:0!important;letter-spacing:0}
 .pseg{position:relative}
 .segpill{position:absolute;top:3px;bottom:3px;left:3px;width:0;border-radius:11px;background:var(--accent);box-shadow:0 2px 10px rgba(245,179,1,.3);transition:left .3s cubic-bezier(.3,.7,.2,1),width .3s cubic-bezier(.3,.7,.2,1);z-index:0}
 .pseg button{position:relative;z-index:1;background:none!important;box-shadow:none!important;transition:color .25s}
@@ -605,7 +605,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.66';
+const APP_VERSION='0.67';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1107,7 +1107,7 @@ function spendTxns(from,to){ return state.txns.filter(t=>t.date>=from&&t.date<=t
 function merchantKey(t){ return suggestKeyword(t.desc)||cleanDesc(t.desc); }
 function titleCase(s){ return s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); }
 function changeTag(now,before,label){
-  if(!before) return '';
+  if(!before) return '<div class="chg muted" aria-hidden="true">&nbsp;</div>';
   const pct=Math.round((now-before)/before*100);
   if(pct===0) return `<div class="chg muted">same as ${label}</div>`;
   return `<div class="chg ${pct>0?'neg':'pos'}">${pct>0?'▲':'▼'} ${Math.abs(pct)}% vs ${label}</div>`;
@@ -1135,20 +1135,17 @@ function renderDashboard(el){
     return `<div class="catrow" onclick="filterCat('${id}')">
       <div class="top"><span><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</span><span>${diff!==null&&diff!==0?`<span class="small ${diff>0?'neg':'pos'}" style="margin-right:8px">${diff>0?'▲':'▼'}${Math.abs(diff)}%</span>`:''}<b class="${over?(overLvl(amt,bud)==='bad'?'over':'warnover'):''}">${money(amt)}</b></span></div>
       <div class="bar"><i style="width:${Math.max(pct,1.5)}%;background:${over?LVLCOL[overLvl(amt,bud)]:c.color}"></i></div>
-      ${bud?`<div class="budgetnote ${over?(overLvl(amt,bud)==='bad'?'over':'warnover'):''}">${over?money(amt-bud)+' over':money(bud-amt)+' left'} of ${money0(bud)} budget</div>`:''}
+      ${bud?`<div class="budgetnote ${over?(overLvl(amt,bud)==='bad'?'over':'warnover'):''}">${over?money(amt-bud)+' over':money(bud-amt)+' left'} of ${money0(bud)} budget</div>`:`<div class="budgetnote">${Math.round(amt/Math.max(s.spend,1)*100)}% of spending</div>`}
     </div>`;}).join('');
   const net=s.moneyIn-s.spend;
   // pace: a single quiet line under the totals (month view)
   let pace='';
-  if(v.mode==='month'){
-    const inMonth=state.txns.filter(t=>t.date.startsWith(v.anchor)).map(t=>t.date).sort();
-    const [y,m]=v.anchor.split('-').map(Number); const dim=new Date(y,m,0).getDate();
-    const nowYM=new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0');
-    const current=v.anchor===nowYM;
-    const daysSoFar=current&&inMonth.length? +inMonth[inMonth.length-1].slice(8) : dim;
-    const avg=s.spend/Math.max(daysSoFar,1);
-    pace=`<p class="dashpace small muted">${money0(avg)} a day on average${current?` · on track for <b>${money0(avg*dim)}</b> this month`:''}</p>`;
-  }
+  if(v.mode!=='all'){
+    const today=new Date().toLocaleDateString('en-CA'), days=dayGap(pr.from,pr.to)+1, current=today>=pr.from&&today<=pr.to;
+    const soFar=current?dayGap(pr.from,today)+1:days, avg=s.spend/Math.max(soFar,1);
+    const word={fortnight:'this fortnight',month:'this month','3m':'over 3 months',year:'over 12 months'}[v.mode];
+    pace=`<p class="dashpace small muted" title="${current?'On track for '+money0(avg*days)+' '+word:''}">${current?`${money0(avg)} a day · on track for <b>${money0(avg*days)}</b>`:`${money0(avg)} a day on average`}</p>`;
+  } else pace=`<p class="dashpace small muted">&nbsp;</p>`;
   // things that need you: to sort + worth a check, in one line
   const nCheck=doubleUps().length;
   const needs=[n?`<b>${n}</b> new transaction${n===1?'':'s'}`:'',nCheck?`<b>${nCheck}</b> worth a check`:''].filter(Boolean).join(' · ');
@@ -1162,7 +1159,7 @@ function renderDashboard(el){
   const position=(bank.length||L.length)?`<div class="card"><h2>Your position</h2>
       ${bank.length?`<div class="posrow" onclick="go('accounts')"><span class="posic">${icon('accounts',18)}</span><span class="grow">In the bank<div class="small muted">${bank.length} account${bank.length===1?'':'s'}</div></span><b class="${bankTot<0?'neg':''}">${money0(bankTot)}</b><span class="muted">›</span></div>`:''}
       ${loanRows}</div>`:'';
-  const ch=ps?changeTag(s.spend,ps.spend,pv.short):'';
+  const ch=ps?changeTag(s.spend,ps.spend,pv.short):changeTag(0,0,'');
   const topN=dashAllCats?cats:cats.slice(0,5);
   el.innerHTML=`
     ${staleBanner()}
@@ -1181,9 +1178,9 @@ function renderDashboard(el){
     <div class="cols">
     ${budMini(pr,s)}
     <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Where the money went</h2><button class="link small" onclick="go('cats')">Charts ›</button></div>
-      ${topN.length?catRows(topN):'<p class="muted">No sorted spending in this period yet.</p>'}
-      ${cats.length>5?`<button class="link small morecats" onclick="dashAllCats=!dashAllCats;render()">${dashAllCats?'Show top 5':'See all '+cats.length+' categories'}</button>`:''}
-      ${s.uncatOut>0?`<div class="unrevnote" onclick="rvMode='sort';go('review')"><span>Plus <b>${money(s.uncatOut)}</b> not sorted yet</span><span class="link small">Review ›</span></div>`:''}
+      ${topN.length?catRows(topN):'<div class="catrow" style="pointer-events:none;display:flex;align-items:center"><p class="muted" style="margin:0">No sorted spending in this period yet.</p></div>'}${!dashAllCats?'<div class="catrow" aria-hidden="true" style="visibility:hidden;pointer-events:none"><div class="top"><span>&nbsp;</span><b>&nbsp;</b></div><div class="bar"><i style="width:0"></i></div><div class="budgetnote">&nbsp;</div></div>'.repeat(Math.max(0,5-topN.length-(topN.length?0:1))):''}
+      ${cats.length>5?`<button class="link small morecats" onclick="dashAllCats=!dashAllCats;render()">${dashAllCats?'Show top 5':'See all '+cats.length+' categories'}</button>`:`<span class="link small morecats" style="visibility:hidden" aria-hidden="true">See all</span>`}
+      ${s.uncatOut>0?`<div class="unrevnote" onclick="rvMode='sort';go('review')"><span>Plus <b>${money(s.uncatOut)}</b> not sorted yet</span><span class="link small">Review ›</span></div>`:`<div class="unrevnote" aria-hidden="true" style="visibility:hidden"><span>&nbsp;</span></div>`}
     </div>
     ${position}
     </div>
@@ -1772,7 +1769,7 @@ let catOpen=null;
 function periodControls(){
   const v=state.view, pr=periodRange();
   return `<div class="periodbar"><div class="seg pseg"><span class="segpill"></span>${[['fortnight','Fortnight'],['month','Month'],['3m','3 mths'],['year','12 mths'],['all','All']].map(([m,l])=>`<button data-mode="${m}" class="${v.mode===m?'on':''}" onclick="setMode('${m}')">${l}</button>`).join('')}</div>
-    <div class="period">${v.mode!=='all'?`<button onclick="shift(-1)" aria-label="Previous">‹</button>`:''}<div class="lbl"><span>${pr.label}</span>${v.mode!=='all'&&!atNow()?`<button class="nowbtn" onclick="goNow()">↩ ${{fortnight:'This fortnight',month:'This month','3m':'Latest 3 mths',year:'Latest 12 mths'}[v.mode]}</button>`:''}</div>${v.mode!=='all'?`<button onclick="shift(1)" aria-label="Next">›</button>`:''}</div></div>`;
+    <div class="period">${v.mode!=='all'?`<button onclick="shift(-1)" aria-label="Previous">‹</button>`:''}<div class="lbl"><span>${pr.label}</span>${v.mode!=='all'?`<button class="nowbtn ${atNow()?'nowhide':''}" onclick="goNow()" ${atNow()?'tabindex="-1" aria-hidden="true"':''}>↩ ${{fortnight:'This fortnight',month:'This month','3m':'Latest 3 mths',year:'Latest 12 mths'}[v.mode]}</button>`:'<span class="nowbtn nowhide" aria-hidden="true">↩</span>'}</div>${v.mode!=='all'?`<button onclick="shift(1)" aria-label="Next">›</button>`:''}</div></div>`;
 }
 function catMonthly(id,end,n){
   const out=[]; for(let i=n-1;i>=0;i--){ const m=ymAdd(end,-i); let a=0; for(const t of state.txns){ if(t.cat===id&&t.date.startsWith(m)&&inHH(t)) a+= -t.amount; } out.push({m,a}); } return out;
