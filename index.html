@@ -607,7 +607,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.72';
+const APP_VERSION='0.73';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1675,7 +1675,7 @@ function txnsCard(fixedAcct){
     if(acct&&t.acct!==acct) return false;
     if(f.dir==='out'&&(t.amount>=0||isXferTx(t))) return false;
     if(f.dir==='in'&&(t.amount<=0||isXferTx(t))) return false;
-    if(f.dir==='review'&&t.cat) return false;
+    if(f.dir==='review'&&(t.cat||!isCounted(t))) return false;
     if(f.dir==='xfer'&&!isXferTx(t)) return false;
     if(f.dir==='auto'&&!t.auto) return false;
     const amt=Math.abs(t.amount);
@@ -1726,9 +1726,9 @@ function txnList(list,groupDays){
   for(const t of list){
     if(groupDays&&t.date!==last){ html+=`<div class="dayhdr">${dayLabel(t.date)}</div>`; last=t.date; }
     const c=t.cat?catById(t.cat):null;
-    const chip=c?`<span class="chip">${esc(c.name)}${t.auto?'<i class="autotag">auto</i>':''}${c.kind==='transfer'&&loneSet().has(t.id)?'<i class="autotag lonetag">no match</i>':''}</span>`:`<span class="chip none">To review${t.sug&&catById(t.sug)?' · '+esc(catById(t.sug).name)+'?':''}</span>`;
+    const chip=c?`<span class="chip">${esc(c.name)}${t.auto?'<i class="autotag">auto</i>':''}${c.kind==='transfer'&&loneSet().has(t.id)?'<i class="autotag lonetag">no match</i>':''}</span>`:!isCounted(t)?`<span class="chip">${isLoanAcct(t.acct)?({interest:'Interest',fee:'Fee',deposit:'Deposit',repayment:'Repayment'}[loanKind(t)]||'Loan'):'Not counted'}</span>`:`<span class="chip none">To review${t.sug&&catById(t.sug)?' · '+esc(catById(t.sug).name)+'?':''}</span>`;
     html+=`<div class="txn" onclick="openPicker('${encodeURIComponent(t.id)}')">
-      <span class="dot" style="background:${c?c.color:'#f5b301'};margin:0"></span>
+      <span class="dot" style="background:${c?c.color:isCounted(t)?'#f5b301':'var(--muted)'};margin:0"></span>
       <div class="mid"><div class="d">${esc(cleanDesc(t.desc))}</div><div class="s">${chip}${(()=>{const pj=projOf(t); return pj?`<span class="chip projchip">${esc(pj.emoji||'📁')} ${esc(pj.name)}</span>`:'';})()}${(()=>{const mt=matchFor(t); return mt?`<span class="chip matchchip ${mt.kind}">↔ ${mt.x.amount>0?'to':'from'} ${esc(acctName(mt.x.acct))}</span>`:'';})()}${groupDays?'':dayLabel(t.date)+' · '}${acctTag(t.acct)}</div></div>
       <div class="amt ${c&&(c.kind==='transfer'||c.kind==='ignore')?'muted':t.amount>0?'pos':'neg'}">${t.amount>0?'+':''}${money(t.amount)}</div></div>`;
   }
