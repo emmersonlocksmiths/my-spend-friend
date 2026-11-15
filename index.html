@@ -369,6 +369,8 @@ input,select{border-radius:12px}
 .acctfilter button.on{border-color:var(--accent);background:var(--soft)}
 .acctcols{display:flex;align-items:center;gap:6px;margin:4px 0 8px}
 .navdesk{display:none!important}
+@media (max-width:999px){ nav.noind .navind{opacity:0} }
+.rvback{display:flex;margin-bottom:10px}@media (min-width:1000px){ .rvback{display:none} }
 @media (min-width:1000px){ .navdesk{display:flex!important} }
 .loancard{cursor:pointer}
 .loancard:active{transform:scale(.99)}
@@ -565,7 +567,7 @@ nav button.on .lic{color:var(--accent)}
 .budedhead .btn{white-space:nowrap;flex:none}.budedhead>span{text-align:left}
 .budedhead{display:flex;gap:10px;justify-content:space-between;align-items:center;margin-bottom:12px}
 .budedrow{padding:12px 0;border-top:1px solid var(--line)}.budedname{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.budedctl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.budseg{margin:0}.budseg button{padding:8px 10px;font-size:13px}.budavg{margin-top:6px}.taxbig{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:4px 0 2px}.taxaside{margin-top:10px;font-weight:700}.taxaside.short{color:var(--bad)}.taxaside.banked{color:var(--good)}.taxlines{margin-top:8px}.taxperson{display:grid;grid-template-columns:1fr 150px;gap:8px;margin:6px 0}.taxrow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;font-size:14px}.taxrow select{width:auto;max-width:55%}.taxsplit{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.taxsplit label{display:flex;align-items:center;gap:4px;font-size:14px}.taxsplit input{width:54px;padding:6px 8px;text-align:right}.taxfy{flex:none;width:auto}.taxfy button{white-space:nowrap;padding:7px 12px}.taxlast{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}.recapcard{cursor:pointer}.recap h3{margin:16px 0 6px;font-size:15px}.recaphead{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:center;margin-bottom:10px}.recaphead .pill{width:40px;height:36px;padding:0}.recapgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;background:var(--card2);border-radius:14px;padding:12px 6px}.recapgrid .k{font-size:12px;color:var(--muted)}.recapgrid .v{font-size:19px;font-weight:800}.modal.recap{max-height:88vh;overflow:auto}.banked{color:var(--good);font-weight:700}.short{color:var(--bad);font-weight:700}.goalrow{display:flex;align-items:center;gap:8px;margin:8px 0 0 30px;flex-wrap:wrap}.goalrow>span.small:first-child{flex-basis:100%;font-weight:700}.goalrow .ce-money{width:110px}.goalrow .goalby{width:150px!important;min-width:0!important;flex:none}.goalrow .ce-money{flex:none}.rolltog{display:flex;gap:10px;align-items:flex-start;margin-top:8px;cursor:pointer;font-size:14px}.rolltog input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--accent)}.rollctl{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);margin-top:10px;padding-top:10px}.rollctl select{width:auto;max-width:60%}.budmode{margin:4px 0 8px!important;display:inline-grid!important;grid-template-columns:1fr 1fr;width:200px!important;max-width:100%}.budmode button{white-space:nowrap;padding:6px 8px!important;font-size:13px!important;min-width:0;width:100%}.budhint{margin-top:4px;font-size:12.5px}
+.budedctl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.budseg{margin:0}.budseg button{padding:8px 10px;font-size:13px}.budavg{margin-top:6px}.txacctchip{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:-4px 2px 10px;font-size:14px}.taxbig{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:4px 0 2px}.taxaside{margin-top:10px;font-weight:700}.taxaside.short{color:var(--bad)}.taxaside.banked{color:var(--good)}.taxlines{margin-top:8px}.taxperson{display:grid;grid-template-columns:1fr 150px;gap:8px;margin:6px 0}.taxrow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;font-size:14px}.taxrow select{width:auto;max-width:55%}.taxsplit{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.taxsplit label{display:flex;align-items:center;gap:4px;font-size:14px}.taxsplit input{width:54px;padding:6px 8px;text-align:right}.taxfy{flex:none;width:auto}.taxfy button{white-space:nowrap;padding:7px 12px}.taxlast{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}.recapcard{cursor:pointer}.recap h3{margin:16px 0 6px;font-size:15px}.recaphead{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:center;margin-bottom:10px}.recaphead .pill{width:40px;height:36px;padding:0}.recapgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;background:var(--card2);border-radius:14px;padding:12px 6px}.recapgrid .k{font-size:12px;color:var(--muted)}.recapgrid .v{font-size:19px;font-weight:800}.modal.recap{max-height:88vh;overflow:auto}.banked{color:var(--good);font-weight:700}.short{color:var(--bad);font-weight:700}.goalrow{display:flex;align-items:center;gap:8px;margin:8px 0 0 30px;flex-wrap:wrap}.goalrow>span.small:first-child{flex-basis:100%;font-weight:700}.goalrow .ce-money{width:110px}.goalrow .goalby{width:150px!important;min-width:0!important;flex:none}.goalrow .ce-money{flex:none}.rolltog{display:flex;gap:10px;align-items:flex-start;margin-top:8px;cursor:pointer;font-size:14px}.rolltog input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--accent)}.rollctl{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);margin-top:10px;padding-top:10px}.rollctl select{width:auto;max-width:60%}.budmode{margin:4px 0 8px!important;display:inline-grid!important;grid-template-columns:1fr 1fr;width:200px!important;max-width:100%}.budmode button{white-space:nowrap;padding:6px 8px!important;font-size:13px!important;min-width:0;width:100%}.budhint{margin-top:4px;font-size:12.5px}
 .chartcats .top>span:last-child{white-space:nowrap;flex:none}.chartcats .top{gap:8px}
 .ccthead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.ccseg{margin:0}.ccseg button{padding:7px 12px;font-size:13px}
 .loanfacts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 10px;margin-top:16px;text-align:left;padding-top:14px;border-top:1px solid var(--line)}
@@ -605,7 +607,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.70';
+const APP_VERSION='0.71';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -925,6 +927,7 @@ const ICONS={
   dashboard:'<rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5" rx="1.5"/><rect x="13.5" y="11" width="7.5" height="10" rx="1.5"/><rect x="3" y="15" width="7.5" height="6" rx="1.5"/>',
   budget:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>',
   cats:'<path d="M3 3v18h18"/><path d="M7 16v-4"/><path d="M11.5 16V8"/><path d="M16 16v-6"/><path d="M20.5 16V5"/>',
+  tx:'<path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/>',
   accounts:'<path d="M3 9.5 12 4l9 5.5"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8"/><path d="M3 21h18"/>',
   review:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.6 2.6L16.5 9"/>',
   loan:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5.5h4V20"/>',
@@ -934,22 +937,23 @@ const ICONS={
   signout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'
 };
 function icon(name,size){ return `<svg class="lic" width="${size||22}" height="${size||22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`; }
-const TABS=[['dashboard','📊','Dashboard'],['budget','🎯','Budget'],['cats','📈','Charts'],['accounts','🏦','Accounts'],['review','✅','Review'],['project','📁','Projects']];
+const TABS=[['dashboard','📊','Dashboard'],['budget','🎯','Budget'],['cats','📈','Charts'],['tx','📋','Transactions'],['accounts','🏦','Accounts'],['review','✅','Review'],['project','📁','Projects']];
 function renderNav(){
   const nav=document.getElementById('nav'), n=uncatCount()+doubleUps().length;
   const hasLoan=loanAccts().length>0?'1':'0';
   if(!nav.querySelector('button')||nav.dataset.loan!==hasLoan){
     nav.dataset.loan=hasLoan;
-    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div><button class="navme" id="navMe" onclick="go(\'settings\')"></button>'+[...TABS,['settings','⚙️','Settings']].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='settings'?'navdesk':''}${id==='settings'?' navset':''}" onclick="go('${id}')"><span class="ic">${icon(id)}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
+    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div><button class="navme" id="navMe" onclick="go(\'settings\')"></button>'+[...TABS,['settings','⚙️','Settings']].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='settings'||id==='review'?'navdesk':''}${id==='settings'?' navset':''}" onclick="go('${id}')"><span class="ic">${icon(id)}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
   }
   nav.querySelectorAll('button').forEach(b=>{
     b.classList.toggle('on',b.dataset.tab===tab||(tab==='loan'&&b.dataset.tab==='project'));
     const bd=b.querySelector('.badge'); const show=b.dataset.tab==='review'&&n>0;
     if(bd){ if(show&&bd.textContent!==String(n)){ bd.textContent=n; bd.classList.remove('bump'); void bd.offsetWidth; bd.classList.add('bump'); } bd.style.display=show?'':'none'; }
   });
-  nav.style.setProperty('--i',Math.max(0,TABS.findIndex(t=>t[0]===(tab==='loan'?'project':tab))));
+  const PT=TABS.filter(t=>t[0]!=='review'), pi=PT.findIndex(t=>t[0]===(tab==='loan'?'project':tab));
+  nav.style.setProperty('--i',Math.max(0,pi)); nav.classList.toggle('noind',pi<0);
   const onBtn=nav.querySelector('button.on'); if(onBtn) nav.style.setProperty('--top',(onBtn.offsetTop+onBtn.offsetHeight/2-15)+'px');
-  nav.style.setProperty('--n',TABS.length);
+  nav.style.setProperty('--n',PT.length);
 }
 // Transitions: the next render plays this animation on the page ('tab', 'fade', 'left', 'right').
 let rendered=false, nextAnim=null, periodDir=null, pillFrom=null, morphNext=false;
@@ -1044,7 +1048,7 @@ function render(){
   const av=document.getElementById('avatarBtn'); if(av){ av.hidden=false; av.innerHTML=avatarInner(); av.classList.toggle('photo',!!myPhoto()); av.classList.toggle('on',tab==='settings'); }
   const nm=document.getElementById('navMe'); if(nm){ nm.innerHTML=`<span class="avatar big ${myPhoto()?'photo':''}">${avatarInner()}</span><span class="navme-txt"><b>${esc(userName())}</b><span class="small muted">Profile & settings</span></span>`; nm.classList.toggle('on',tab==='settings'); }
   const el=document.getElementById('app');
-  ({dashboard:renderDashboard,budget:renderBudget,project:renderProject,review:renderReview,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
+  ({tx:renderTx,dashboard:renderDashboard,budget:renderBudget,project:renderProject,review:renderReview,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
   placePills();
   const entering=nextAnim==='tab'||nextAnim==='left'||nextAnim==='right'||!rendered;
   animateNumbers(el,entering);
@@ -1266,7 +1270,7 @@ function nowAnchor(){ const t=new Date().toLocaleDateString('en-CA'); return sta
 function atNow(){ const v=state.view; return v.mode==='fortnight'?(v.fAnchor||fortStartFor(latestDate()))>=nowAnchor():(v.anchor||latestYM())>=nowAnchor(); }
 function goNow(){ periodDir='left'; morphNext=true; if(state.view.mode==='fortnight') state.view.fAnchor=nowAnchor(); else state.view.anchor=nowAnchor(); save(); render(); }
 function jumpMonth(m){ rememberPill(); morphNext=true; state.view.mode='month'; state.view.anchor=m; save(); render(); }
-function filterCat(id){ txReset({cat:id,when:'period'}); txAdv=true; txLimit=150; tab='accounts'; acctSel='__all'; animateNext('tab'); render(); window.scrollTo({top:0}); }
+function filterCat(id){ txReset({cat:id,when:'period'}); txAdv=true; txLimit=150; tab='tx'; acctSel=null; animateNext('tab'); render(); window.scrollTo({top:0}); }
 
 /* ============ Review ============ */
 let rv={idx:0,done:0,list:false,kw:null,kwFor:null,remember:true,undo:null};
@@ -1338,7 +1342,7 @@ function groupedCatGrid(t,clickFn,selId){
 let rvMode='sort';
 function reviewModeBar(nSort,nCheck){
   if(!nCheck&&rvMode==='sort') return '';
-  return `<div class="seg rvmodes"><button class="${rvMode==='sort'?'on':''}" onclick="rvMode='sort';render()">New transactions${nSort?` <b class="rvn">${nSort}</b>`:''}</button><button class="${rvMode==='check'?'on':''}" onclick="rvMode='check';render()">Worth a check${nCheck?` <b class="rvn warn">${nCheck}</b>`:''}</button></div>`;
+  return `<div class="rvback"><button class="pill" onclick="go('dashboard')">‹ Dashboard</button></div><div class="seg rvmodes"><button class="${rvMode==='sort'?'on':''}" onclick="rvMode='sort';render()">New transactions${nSort?` <b class="rvn">${nSort}</b>`:''}</button><button class="${rvMode==='check'?'on':''}" onclick="rvMode='check';render()">Worth a check${nCheck?` <b class="rvn warn">${nCheck}</b>`:''}</button></div>`;
 }
 function renderReview(el){
   const nCheck=doubleUps().length, nSort=reviewQueue(true).length;
@@ -1834,7 +1838,7 @@ function chartCatsCard(pr){
     ${rows.map(([id,v])=>{ const c=catById(id); return `<div class="catrow" onclick="filterCat('${id}')">
       <div class="top"><span><span class="dot" style="background:${c.color}"></span>${esc(c.name)} <span class="small muted">· ${cnt[id]}</span></span><span><span class="small muted" style="margin-right:8px">${sum?Math.round(v/sum*100):0}%</span><b>${money(v)}</b> <span class="muted">›</span></span></div>
       <div class="bar"><i style="width:${Math.max(v/max*100,1.5)}%;background:${c.color}"></i></div></div>`; }).join('')}
-    ${unsortedN?`<div class="lrow" style="cursor:pointer;margin-top:4px" onclick="tab='accounts';acctSel='__all';txReset({dir:'review',when:'period'});render();window.scrollTo({top:0})"><span class="dot" style="background:var(--muted)"></span><span class="grow">Not sorted yet <span class="small muted">· ${unsortedN}</span></span><b>${money(unsorted)}</b> <span class="muted">›</span></div>`:''}
+    ${unsortedN?`<div class="lrow" style="cursor:pointer;margin-top:4px" onclick="txReset({dir:'review',when:'period'});go('tx')"><span class="dot" style="background:var(--muted)"></span><span class="grow">Not sorted yet <span class="small muted">· ${unsortedN}</span></span><b>${money(unsorted)}</b> <span class="muted">›</span></div>`:''}
   </div>`;
 }
 function renderCharts(el){
@@ -2268,7 +2272,10 @@ function acctLineSVG(a,col){
 function acctSort(list){ const keys=Object.keys(state.accounts); return [...list].sort((a,b)=>((state.accounts[a].order??1e6+keys.indexOf(a))-(state.accounts[b].order??1e6+keys.indexOf(b)))); }
 function acctTypeLabel(x){ return (ACCT_TYPES.find(t=>t[0]===x.type)||['','Account'])[1]; }
 function openAcct(a){ acctSel=a; acctSetOpen=false; txReset(); animateNext('left'); tab='accounts'; render(); window.scrollTo({top:0}); }
-function openAllTx(){ acctSel='__all'; txReset(); animateNext('left'); render(); window.scrollTo({top:0}); }
+function openAcctTx(a){ acctSel=null; txReset({acct:a}); go('tx'); }
+function openAllTx(){ acctSel=null; txReset(); go('tx'); }
+// Transactions tab: every account in one list, with search and filters.
+function renderTx(el){ const a=txFilter.acct; el.innerHTML=`<h2 style="font-size:20px;margin:4px 2px 10px">Transactions</h2>${a&&state.accounts[a]?`<div class="txacctchip"><span>Showing <b>${esc(acctName(a))}</b> only</span><button class="link small" onclick="txFilter.acct='';render()">Show all accounts</button></div>`:''}${txnsCard(null)}`; }
 // Pick which bank accounts are offsets against the home loan.
 let offOpen=false;
 function offsetCard(list){
@@ -2290,11 +2297,7 @@ function offsetEstimate(a){
 }
 let acctSetOpen=false;
 function renderAccounts(el){
-  if(acctSel==='__all'){
-    el.innerHTML=`<div class="loanback"><button class="pill" onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button></div>
-      <h2 style="font-size:20px;margin:4px 2px 10px">📋 All transactions</h2>${txnsCard(null)}`;
-    return;
-  }
+  if(acctSel==='__all'){ acctSel=null; tab='tx'; return render(); }
   if(acctSel&&state.accounts[acctSel]) return renderAcctDetail(el,acctSel);
   acctSel=null;
   const keys=Object.keys(state.accounts);
@@ -2314,10 +2317,7 @@ function renderAccounts(el){
   const tot=everyday.filter(a=>state.accounts[a].counted!==false&&state.accounts[a].bal!=null).reduce((s,a)=>s+state.accounts[a].bal,0);
   const nAll=state.txns.length;
   el.innerHTML=`
-    ${nAll?`<div class="card acctrow allrow" style="--ac:var(--accent)" onclick="openAllTx()"><div class="ar-top"><span class="ar-ic">📋</span>
-      <div class="grow"><div class="ar-name">All transactions</div><div class="small muted">Search and filter across every account</div></div>
-      <div style="text-align:right"><div class="ar-bal">${nAll}</div><div class="small muted">total</div></div><span class="crow-chev">›</span></div></div>`:''}
-    ${everyday.length?`<div class="sectionhead" style="border:0;padding:0;margin-top:14px"><span>Bank accounts</span><b>${money(tot)}</b></div><div class="acctlist">${everyday.map(card).join('')}</div>`:''}
+    ${everyday.length?`<div class="sectionhead" style="border:0;padding:0;margin-top:4px"><span>Bank accounts</span><b>${money(tot)}</b></div><div class="acctlist">${everyday.map(card).join('')}</div>`:''}
     ${loans.length?`<div class="sectionhead"><span>🏠 Home loans</span><b>${money(Math.abs(loans.reduce((s,a)=>s+(state.accounts[a].bal||0),0)))} owing</b></div><div class="acctlist">${loans.map(card).join('')}</div>${offsetCard(everyday)}`:''}
     ${!main.length?`<div class="card"><h2>No accounts yet</h2><p class="muted">Import a Bankwest CSV in Settings and its account appears here automatically.</p><button class="btn" onclick="go('settings')">Import</button></div>`:''}
     <div class="card">${acctForm?`<h2>Add an account</h2>
@@ -2417,7 +2417,9 @@ function renderAcctDetail(el,a){
       <div class="card"><h2>What it was spent on</h2>${parts.length?`<div class="donutwrap">${donutSVG(parts,f.spent)}<div class="legend">${parts.slice(0,8).map(p=>`<div class="lg"><span class="dot" style="background:${p.c}"></span><span class="grow">${esc(p.n)}</span><b>${money0(p.v)}</b></div>`).join('')}</div></div>`:'<p class="muted small">Nothing spent from this account in this period.</p>'}</div>
       <div class="card"><h2>Balance over time</h2>${acctLineSVG(a,col)||'<p class="muted small">The chart appears once there are a few days of transactions.</p>'}</div>
       </div>`; })()}
-    ${txnsCard(a)}`;
+    ${(()=>{ const tx=state.txns.filter(t=>t.acct===a).sort((p,q)=>q.date.localeCompare(p.date)).slice(0,5); return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Latest transactions</h2><span class="small muted">${acctTxCount(a)} in total</span></div>
+      ${tx.length?txnList(tx,true):'<p class="muted small">No transactions yet.</p>'}
+      <button class="btn ghost" style="margin-top:10px;width:100%" onclick="openAcctTx('${a}')">See all in Transactions ›</button></div>`; })()}`;
 }
 
 /* ============ Settings (incl. Import) ============ */
@@ -2451,6 +2453,7 @@ function toggleUserMenu(e){
   const th=window.getThemePref?getThemePref():'auto';
   const m=document.createElement('div'); m.id='usermenu'; m.className='usermenu';
   m.innerHTML=`<div class="um-head"><button class="avatar big ${myPhoto()?'photo':''} um-photo" onclick="pickPhoto()" title="Change photo">${avatarInner()}<span class="um-cam">${myPhoto()?'Edit':'Add'}</span></button><div style="min-width:0"><b>${esc(userName())}</b><div class="small muted" style="overflow:hidden;text-overflow:ellipsis">${esc(userEmail()||'Signed in')}${admin?' · admin':''}</div></div></div>
+    ${(()=>{ const n=uncatCount()+doubleUps().length; return n?`<button onclick="closeUserMenu();rvMode=uncatCount()?'sort':'check';go('review')">${icon('review',20)} <span>Review transactions</span><b class="txbadge" style="margin-left:auto">${n}</b></button>`:''; })()}
     <button onclick="closeUserMenu();go('settings')">${icon('settings',20)} <span>Settings</span></button>
     <button onclick="closeUserMenu();go('settings');setTimeout(()=>document.getElementById('fileIn')?.click(),150)">${icon('import',20)} <span>Import CSV files</span></button>
     
