@@ -607,7 +607,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.79';
+const APP_VERSION='0.80';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -728,15 +728,16 @@ function runMigrations(){
   // v0.60: income budgets are always "counted when it comes in"
   state.categories.forEach(x=>{ if(x.kind==='income'&&x.budget&&!x.billFreq) x.billFreq=x.budgetPer==='fortnight'?'fortnightly':'monthly'; });
   // income categories (v0.13)
-  if(c('income')&&c('income').name==='Income') c('income').name='Other income';
+  const auto=id=>c(id)&&!c(id).userNamed;
+  if(auto('income')&&c('income').name==='Income') c('income').name='Other income';
   const gone=new Set(state.catDeleted||[]);
   // "Don't count" (v0.54): for old or one-off transactions that shouldn't affect any numbers
   if(!c('ignore')&&!gone.has('ignore')) state.categories.push({id:'ignore',name:"Don't count",color:'#868e96',kind:'ignore',budget:0});
   INCOME_DEFAULTS.forEach(([id,name,color])=>{ if(!c(id)&&!gone.has(id)&&!state.categories.some(x=>x.kind==='income'&&normCat(x.name)===normCat(name))){ const i=state.categories.findIndex(x=>x.id==='income'); state.categories.splice(i<0?state.categories.length:i,0,{id,name,color,kind:'income',budget:0}); } });
   for(const [cat,kws] of Object.entries(INCOME_RULES)) kws.forEach(kw=>{ if(!state.rules.some(r=>r.kw===kw&&r.dir==='in')) state.rules.push({kw,cat,dir:'in',user:false}); });
-  if(c('rent')&&c('rent').name==='Rent / Mortgage') c('rent').name='Rent';
-  if(c('car')&&c('car').name==='Car') c('car').name='Car servicing';
-  if(c('utilities')&&c('utilities').name==='Power & Water') c('utilities').name='Electricity';
+  if(auto('rent')&&c('rent').name==='Rent / Mortgage') c('rent').name='Rent';
+  if(auto('car')&&c('car').name==='Car') c('car').name='Car servicing';
+  if(auto('utilities')&&c('utilities').name==='Power & Water') c('utilities').name='Electricity';
   if(!c('water')){
     const i=state.categories.findIndex(x=>x.id==='utilities');
     state.categories.splice(i<0?0:i+1,0,{id:'water',name:'Water',color:'#22b8cf',kind:'expense',budget:0});
@@ -3153,7 +3154,7 @@ function drawCatEditor(){
     if(open){
       html+=`<div class="ce-edit anim-open">
         <label class="ce-lbl">Name</label>
-        <input value="${esc(c.name)}" onchange="catRename('${c.id}',this.value);drawCatEditor()">
+        <input value="${esc(c.name)}" oninput="catRename('${c.id}',this.value,true)" onchange="catRename('${c.id}',this.value);drawCatEditor()">
         ${locked?'':`<label class="ce-lbl">Type</label>
         <div class="seg" style="margin:0"><button class="${c.kind==='expense'?'on':''}" onclick="catKind('${c.id}','expense')">Expense (money out)</button><button class="${c.kind==='income'?'on':''}" onclick="catKind('${c.id}','income')">Income (money in)</button></div>`}
         ${c.kind==='expense'?`<label class="ce-lbl">Budget per ${budPer(c)} (change on the Budget tab)</label>
@@ -3216,13 +3217,15 @@ function ceDragStart(e,id){
   document.addEventListener('pointermove',move); document.addEventListener('pointerup',up); document.addEventListener('pointercancel',up);
 }
 function closeCatEditor(){
+  const ae=document.activeElement; if(ae&&ae.closest&&ae.closest('.modal')&&ae.blur) ae.blur();
   closeModal();
   const r=catEd.returnTo; catEd={delId:null,openId:null,returnTo:null};
   render();
   if(r&&pick) drawPicker();
 }
 function catObj(id){ return state.categories.find(c=>c.id===id); }
-function catRename(id,v){ v=v.trim(); if(!v) return drawCatEditor(); catObj(id).name=v; save(); }
+// Saves as you type, so closing the editor straight away (iPhone doesn't blur the box first) keeps the new name.
+function catRename(id,v,typing){ v=v.trim(); const c=catObj(id); if(!c) return; if(!v){ if(!typing) drawCatEditor(); return; } if(c.name===v) return; c.name=v; c.userNamed=true; save(); }
 function catColor(id,v){ catObj(id).color=v; save(); }
 function catBudget(id,v){ catObj(id).budget=parseFloat(v)||0; save(); }
 function catMove(id,d){
