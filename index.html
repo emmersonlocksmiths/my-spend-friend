@@ -607,7 +607,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.81';
+const APP_VERSION='0.82';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -643,6 +643,7 @@ function applyCloudMeta(meta){
   for(const k of ['projects','projSeeded','dupOk','autoCat','catDeleted','budRoll','avatars','names','tax','dashCards','dashBy']){ if(!(k in meta)&&localNewer[k]!==undefined){ state[k]=localNewer[k]; repaired=true; } }
   if('catDeleted' in meta) state.catDeleted=meta.catDeleted||[];
   runMigrations();
+  const fixedBud=repairBudgets();
   const merged=mergeDuplicateCats();
   snapBud();
   lastMeta=JSON.stringify(metaOf(state));
@@ -723,6 +724,16 @@ function freshState(){
 let state = freshState();
 try{ const v=JSON.parse(localStorage.getItem(VIEW_KEY)||'null'); if(v) state.view=v; }catch(e){}
 // Keep older household settings in step with category changes made since they were created.
+// A budget that isn't a proper number (saved by an older bug) would turn every total into "NaN". Reset just that one.
+let budRepaired=[];
+function repairBudgets(){ const fixed=[];
+  state.categories.forEach(c=>{
+    if(c.budget!=null&&c.budget!==''&&!isFinite(+c.budget)){ fixed.push(c.name); c.budget=0; }
+    else if(typeof c.budget==='string') c.budget=+c.budget||0;
+    if(c.budHist){ const before=c.budHist.length; c.budHist=c.budHist.filter(h=>h&&typeof h.from==='string'&&isFinite(+h.b)).map(h=>({...h,b:+h.b})); if(c.budHist.length!==before&&!fixed.includes(c.name)) fixed.push(c.name); if(c.budHist.length<2) delete c.budHist; }
+    if(c.goal&&!isFinite(+c.goal.amt)) c.goal.amt=0; });
+  if(fixed.length){ budRepaired=[...new Set([...budRepaired,...fixed])]; setTimeout(save,0); }
+  return fixed; }
 function runMigrations(){
   const c=id=>state.categories.find(x=>x.id===id);
   // v0.60: income budgets are always "counted when it comes in"
@@ -2912,7 +2923,8 @@ function deleteProject(){ const id=projEd.id; state.projects=(state.projects||[]
 /* ============ Budget ============ */
 // Each expense category can have a budget per fortnight or per month; it's scaled to whatever period you're viewing.
 function budPer(c){ return c.budgetPer==='fortnight'?'fortnight':'month'; }
-function budgetFor(c,pr){ if(!c||!pr.months) return 0; if(!c.budget&&!(c.budHist&&!c.billFreq)) return 0; if(c.billFreq){ if(!c.budget) return 0; if(billAnchor(c)) return billInfo(c,pr).budget; return c.budget*({weekly:52,fortnightly:26,monthly:12,quarterly:4,yearly:1}[c.billFreq]||12)/12*pr.months; } if(c.budHist&&pr.from&&pr.to){ const days=dayGap(pr.from,pr.to)+1; return budSegments(c,pr.from,pr.to).reduce((a,g)=>a+g.b*pr.months*((dayGap(g.from,g.to)+1)/days)*(g.per==='fortnight'?26/12:1),0); }
+function budgetFor(c,pr){ const v=budgetFor0(c,pr); return isFinite(v)?v:0; }
+function budgetFor0(c,pr){ if(!c||!pr.months) return 0; if(!c.budget&&!(c.budHist&&!c.billFreq)) return 0; if(c.billFreq){ if(!c.budget) return 0; if(billAnchor(c)) return billInfo(c,pr).budget; return c.budget*({weekly:52,fortnightly:26,monthly:12,quarterly:4,yearly:1}[c.billFreq]||12)/12*pr.months; } if(c.budHist&&pr.from&&pr.to){ const days=dayGap(pr.from,pr.to)+1; return budSegments(c,pr.from,pr.to).reduce((a,g)=>a+g.b*pr.months*((dayGap(g.from,g.to)+1)/days)*(g.per==='fortnight'?26/12:1),0); }
   return c.budget*pr.months*(budPer(c)==='fortnight'?26/12:1); }
 // Bills: a set amount that comes weekly, fortnightly, monthly, quarterly or yearly. The full amount is
 // budgeted in the period it's due (worked out from when you last paid it), and $0 in periods with nothing due.
@@ -2965,12 +2977,12 @@ function periodDays(pr){
 }
 function avgSpend(c,per){
   const end=latestDate(); if(!end) return 0;
-  const first=state.txns.reduce((m,t)=>t.date<m?t.date:m,end);
+  const first=state.txns.reduce((m,t)=>(typeof t.date==='string'&&/^\d{4}-\d\d-\d\d$/.test(t.date)&&t.date<m)?t.date:m,end);
   const days=Math.max(14,Math.min(90,dayGap(first,end)+1)), start=isoAdd(end,-(days-1));
   const sg=catSign(c), tot=state.txns.filter(t=>t.cat===c.id&&Math.sign(t.amount)===sg&&inHH(t)&&t.date>=start&&t.date<=end).reduce((a,t)=>a+Math.abs(t.amount),0);
-  return tot/days*(per==='fortnight'?14:365.25/12);
+  const v=tot/days*(per==='fortnight'?14:365.25/12); return isFinite(v)?v:0;
 }
-function roundBud(x){ return x<=0?0:x<100?Math.ceil(x/5)*5:Math.ceil(x/10)*10; }
+function roundBud(x){ if(!isFinite(x)) return 0; return x<=0?0:x<100?Math.ceil(x/5)*5:Math.ceil(x/10)*10; }
 let budEdit=false;
 function budInput(id,v){ const c=catObj(id); if(c.kind==='income'&&!c.billFreq) c.billFreq=budPer(c)==='fortnight'?'fortnightly':'monthly'; c.budget=Math.max(0,parseFloat(String(v).replace(/[$,]/g,''))||0); save(); const t=document.getElementById('budTotal'); if(t) t.innerHTML=budTotalText(); }
 function budTotalText(){ const perYear={weekly:52,fortnightly:26,monthly:12,quarterly:4,yearly:1}; let f=0,m=0; catsOfKind('expense').forEach(c=>{ if(!c.budget) return; const y=c.billFreq?c.budget*perYear[c.billFreq]:c.budget*(budPer(c)==='fortnight'?26:12); f+=y/26; m+=y/12; }); return `Spending ≈ ${money0(f)} a fortnight · ${money0(m)} a month`; }
@@ -3104,6 +3116,7 @@ function renderBudget(el){
       ${!coversFrom(pr.from)?`<div class="small muted" style="margin-top:6px">Your imported transactions start partway through this period, so these numbers are incomplete.</div>`:''}
       ${current?`<div class="small muted" style="margin-top:6px">You've used <b>${Math.round(used*100)}%</b> of the budget and you're <b>${Math.round(frac*100)}%</b> of the way through.</div>`:''}
     </div>
+    ${budRepaired.length?`<div class="banner"><span>The budget for <b>${budRepaired.map(esc).join(', ')}</b> had become unreadable and was showing as NaN. It's been reset to $0, so please type it in again.</span><button class="btn" onclick="budEdit=true;budRepaired=[];render();window.scrollTo({top:0})">Edit budgets</button></div>`:''}
     ${goalsCard()}
     ${taxCard(false)}
     ${over.length||close.length||billFlags.length?`<div class="card"><h2>Needs attention</h2>${billFlags.map(b=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${b.c.id}')"><span class="dot" style="background:var(--bad)"></span><span class="grow">${esc(b.c.name)}<div class="small muted">Bill · ${freqLabel(b.c.billFreq)}</div></span><b class="neg">${esc(b.i.status)}</b></div>`).join('')}${over.map(r=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${r.c.id}')"><span class="dot" style="background:${LVLCOL[r.lvl]}"></span><span class="grow">${esc(r.c.name)}<div class="small muted">${money(r.sp)} of ${money0(r.b)}</div></span><b class="${r.lvl==='bad'?'neg':'warntxt'}">${money(r.sp-r.b)} over</b></div>`).join('')}${close.map(r=>`<div class="lrow" style="cursor:pointer" onclick="filterCat('${r.c.id}')"><span class="dot" style="background:var(--accent)"></span><span class="grow">${esc(r.c.name)}<div class="small muted">${Math.round(r.p*100)}% used</div></span><b>${money(r.b-r.sp)} left</b></div>`).join('')}</div>`:''}
