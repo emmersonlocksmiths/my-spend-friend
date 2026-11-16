@@ -607,7 +607,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.78';
+const APP_VERSION='0.79';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -3283,6 +3283,9 @@ function drawLogin(){
       ${create?`<button type="button" class="link small" onclick="authMode='login';authMsg='';drawLogin()">‹ Back to sign in</button><span></span>`
         :`<button type="button" class="link small" onclick="doReset()">Forgot password?</button><button type="button" class="link small" onclick="authMode='create';authMsg='';drawLogin()">First-time setup</button>`}
     </div>
+    ${create?'':`<p class="small muted" style="margin:14px 0 0;text-align:center">Been added by someone? Check your email for a link to choose your password. No email? Type your email above and tap <b>Forgot password?</b> to get a new one.</p>`}
+    <div>
+    </div>
   </form></div>`;
 }
 const AUTH_ERRORS={'auth/invalid-credential':'Wrong email or password.','auth/wrong-password':'Wrong email or password.','auth/user-not-found':'No login with that email.','auth/too-many-requests':'Too many tries. Wait a few minutes and try again.','auth/email-already-in-use':'That email already has a login. Use Sign in instead.','auth/weak-password':'Use at least 6 characters.','auth/invalid-email':"That email doesn't look right.",'auth/network-request-failed':'No internet connection.'};
@@ -3301,7 +3304,7 @@ async function doAuth(){
 async function doReset(){
   const email=document.getElementById('auEmail').value.trim();
   if(!email){ authMsg='Type your email above first, then tap Forgot password.'; drawLogin(); return; }
-  try{ await cloudApi.reset(email); authMsg='Password reset email sent to '+email+'.'; }catch(e){ authMsg=authError(e); }
+  try{ await cloudApi.reset(email); authMsg='Email sent to '+email+'. Open the link in it to choose your password, then come back and sign in. Check your junk folder if it isn\'t there in a few minutes.'; }catch(e){ authMsg=authError(e); }
   drawLogin(); document.getElementById('auEmail').value=email;
 }
 function onSignedOut(){ cloud=null; state=freshState(); synced=new Map(); lastMeta=''; metaDirty=false; showScreen('login'); }
@@ -3427,27 +3430,33 @@ function accountSection(){
     ${personForm?`<div class="rulebox" style="margin-top:10px">
       <input id="pName" placeholder="Name e.g. Larissa" style="margin-bottom:6px">
       <input id="pEmail" type="email" placeholder="Their email" autocomplete="off" style="margin-bottom:6px">
-      <input id="pPass" type="text" placeholder="Starting password (6+ characters)" autocomplete="off" style="margin-bottom:6px">
-      <p class="small muted" style="margin:2px 0 8px">Give them the email and password to sign in with. They can change the password later with "Forgot password?" on the sign-in screen.</p>
+      <p class="small muted" style="margin:2px 0 8px">They'll get an email with a link to choose their own password. Then they open the app and sign in with this email and that password.</p>
       <div id="pMsg" class="authmsg hidden"></div>
-      <div style="display:flex;gap:8px"><button class="btn" id="pBtn" onclick="addPerson()">Add person</button><button class="btn ghost" onclick="personForm=false;render()">Cancel</button></div>
+      <div style="display:flex;gap:8px"><button class="btn" id="pBtn" onclick="addPerson()">Add and send invite</button><button class="btn ghost" onclick="personForm=false;render()">Cancel</button></div>
     </div>`:`<button class="btn ghost" style="margin-top:8px" onclick="personForm=true;render();setTimeout(()=>document.getElementById('pName')?.focus(),30)">＋ Add person</button>`}
   </div>`:''}`;
 }
 function peopleHtml(){
   if(people===null){ loadPeople(); return '<p class="small muted">Loading…</p>'; }
   const me=`<div class="lrow"><span class="grow">${esc(cloudApi.email())}<div class="small muted">You (admin)</div></span></div>`;
-  return me+people.map(p=>`<div class="lrow"><span class="grow">${esc(p.name||p.email)}<div class="small muted">${esc(p.email)}</div></span><button class="link small" style="color:var(--bad)" onclick="removePerson('${p.uid}')">Remove</button></div>`).join('');
+  return me+people.map(p=>`<div class="lrow"><span class="grow">${esc(p.name||p.email)}<div class="small muted">${esc(p.email)}</div><div style="display:flex;gap:16px;margin-top:6px"><button class="link small" onclick="resendInvite('${esc(p.email)}')">Send password email</button><button class="link small" style="color:var(--bad)" onclick="removePerson('${p.uid}')">Remove</button></div></span></div>`).join('');
 }
 async function loadPeople(){ try{ people=await cloudApi.listMembers(); }catch(e){ people=[]; } const el=document.getElementById('peopleList'); if(el) el.innerHTML=peopleHtml(); }
+function randomPass(){ const a=new Uint8Array(18); crypto.getRandomValues(a); return Array.from(a,x=>x.toString(36).padStart(2,'0')).join('')+'Aa1!'; }
 async function addPerson(){
-  const name=document.getElementById('pName').value.trim(), email=document.getElementById('pEmail').value.trim(), pass=document.getElementById('pPass').value;
+  const name=document.getElementById('pName').value.trim(), email=document.getElementById('pEmail').value.trim();
   const msg=document.getElementById('pMsg'), btn=document.getElementById('pBtn');
-  if(!email||pass.length<6){ msg.textContent='Enter their email and a password of at least 6 characters.'; msg.classList.remove('hidden'); return; }
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg.textContent='Enter the email they will sign in with.'; msg.classList.remove('hidden'); return; }
   btn.disabled=true; btn.textContent='Adding…';
-  try{ await cloudApi.addMember(name,email,pass); personForm=false; people=null; render(); toast(`${name||email} can now sign in`); }
-  catch(e){ msg.textContent=authError(e); msg.classList.remove('hidden'); btn.disabled=false; btn.textContent='Add person'; }
+  try{
+    // The login gets a long random password that nobody sees; the email lets them choose their own.
+    await cloudApi.addMember(name,email,randomPass());
+    let sent=true; try{ await cloudApi.reset(email); }catch(e){ sent=false; }
+    personForm=false; people=null; render();
+    toast(sent?`Invite sent to ${email}. They choose their password from the email.`:`${name||email} added, but the email didn't send. Tap "Send password email" to try again.`);
+  }catch(e){ msg.textContent=e&&e.code==='auth/email-already-in-use'?'That email already has a login. If they\'re already in your list, use "Send password email" instead.':authError(e); msg.classList.remove('hidden'); btn.disabled=false; btn.textContent='Add and send invite'; }
 }
+async function resendInvite(email){ try{ await cloudApi.reset(email); toast('Password email sent to '+email); }catch(e){ toast(authError(e)); } }
 async function removePerson(uid){
   const p=(people||[]).find(x=>x.uid===uid);
   if(!confirmBox(`Remove ${p?(p.name||p.email):'this person'}? They lose access straight away.`)) return;
