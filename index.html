@@ -607,7 +607,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.82';
+const APP_VERSION='0.83';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -3348,7 +3348,7 @@ function marginal(inc,y){ let lo=0; for(const [hi,r] of taxTable(y)){ if(inc<=hi
 function fyOf(d){ const y=+d.slice(0,4), m=+d.slice(5,7); return m>=7?y:y-1; }
 function fyRange(y){ return {from:y+'-07-01',to:(y+1)+'-06-30',label:y+'–'+String(y+1).slice(2)}; }
 function taxCfg(){ if(!state.tax) state.tax={people:[{id:'p1',name:userName()==='You'?'Me':userName(),gross:0},{id:'p2',name:'Partner',gross:0}],projects:[],cats:[],acct:null,est:{},split:{p1:50,p2:50}};
-  const t=state.tax; if(!t.split){ t.split={}; const n=t.people.length; t.people.forEach(x=>{ t.split[x.id]=Math.round(100/n); }); } if(!t.est) t.est={}; if(!t.grossBy) t.grossBy={}; return t; }
+  const t=state.tax; if(t.share==null) t.share=50; if(!t.who||!t.people.some(x=>x.id===t.who)) t.who=t.people[0].id; if(!t.est) t.est={}; if(!t.grossBy) t.grossBy={}; return t; }
 function taxReady(){ const t=state.tax; return !!(t&&((t.projects||[]).length||(t.cats||[]).length||Object.keys(t.est||{}).length)); }
 function curFY(){ return fyOf(new Date().toLocaleDateString('en-CA')); }
 // Salary for a year: the figure saved for that year if there is one, otherwise the current salary.
@@ -3363,11 +3363,12 @@ function taxInfo(y){
   const pace=frac>=1?sofar:frac>0.05?sofar/frac:sofar;
   const e=t.est[y], official=e&&typeof e==='object'?+e.amt:+e||0, est=official>0?official:null, isOfficial=!!(e&&typeof e==='object'&&e.official);
   const base=est!=null?est:Math.max(0,pace);
-  const tot=Object.values(t.split).reduce((a,v)=>a+(+v||0),0)||100;
-  const people=t.people.map(x=>{ const pct=(+t.split[x.id]||0)/tot; if(pct<=0) return null; const g=grossFor(x,y);
-    const share=base*pct, extra=incomeTax(g+share,y)-incomeTax(g,y);
-    const owed=est!=null?extra*Math.min(1,frac):incomeTax(g+Math.max(0,sofar)*pct,y)-incomeTax(g,y);
-    return {x,pct,g,share,extra,owed,rate:marginal(g+share,y)}; }).filter(Boolean);
+  // The official figure is the whole partnership's profit, so only your share counts. Money in your own accounts is already yours.
+  const pct=Math.max(0,Math.min(100,+t.share||0))/100, me=t.people.find(x=>x.id===t.who)||t.people[0];
+  const people=[me].map(x=>{ const g=grossFor(x,y), share=est!=null?est*pct:base;
+    const extra=incomeTax(g+share,y)-incomeTax(g,y);
+    const owed=est!=null?extra*Math.min(1,frac):incomeTax(g+Math.max(0,sofar),y)-incomeTax(g,y);
+    return {x,pct:est!=null?pct:1,g,share,extra,owed,rate:marginal(g+share,y)}; });
   const extra=people.reduce((a,q)=>a+q.extra,0), owedSoFar=people.reduce((a,q)=>a+q.owed,0);
   const aside=t.acct&&state.accounts[t.acct]?(state.accounts[t.acct].bal||0):null;
   return {fy,src,sofar,pace,est,isOfficial,base,people,extra,owedSoFar,aside,frac};
@@ -3379,7 +3380,7 @@ function taxCard(compact){
   // last year's return, once the accountant's figure is in
   const ly=y-1, le=t.est[ly], L=le?taxInfo(ly):null;
   const lastYr=L&&L.est!=null?`<div class="taxlast"><div class="small muted">${L.fy.label} return · ${L.isOfficial?'official':'estimated'} partnership profit ${money0(L.base)}</div>
-      ${L.people.map(q=>`<div class="lrow"><span class="grow">${esc(q.x.name)}'s share ${money0(q.share)}<div class="small muted">On a ${money0(q.g)} salary · top rate ${Math.round(q.rate*100)}% + 2% Medicare</div></span><b>${money0(q.extra)}</b></div>`).join('')}
+      ${L.people.map(q=>`<div class="lrow"><span class="grow">${esc(q.x.name)}'s ${Math.round(q.pct*100)}% share ${money0(q.share)}<div class="small muted">On a ${money0(q.g)} salary · top rate ${Math.round(q.rate*100)}% + 2% Medicare</div></span><b>${money0(q.extra)}</b></div>`).join('')}
       <div class="lrow"><span class="grow"><b>Extra tax for ${L.fy.label}</b></span><b>${money0(L.extra)}</b></div></div>`:'';
   return `<div class="card taxcard"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h2>Tax to set aside</h2><span class="small muted">${i.fy.label} financial year</span></div>
     <div class="taxbig">${money0(Math.max(0,i.owedSoFar))}<span class="small muted"> ${i.est!=null?'by now':'so far'}</span></div>
@@ -3388,13 +3389,15 @@ function taxCard(compact){
     ${compact?'':`<div class="taxlines">
       ${i.src.map(x=>`<div class="lrow"><span class="grow">${esc(x.name)}<div class="small muted">${x.out?`In ${money0(x.inn)} · out ${money0(x.out)}`:'Money in'} since 1 July</div></span><b>${money0(x.net)}</b></div>`).join('')}
       ${i.est!=null?`<div class="lrow"><span class="grow">${i.isOfficial?'Official':'Estimated'} partnership profit for ${i.fy.label}</span><b>${money0(i.est)}</b></div>`:''}
-      ${i.people.map(q=>`<div class="lrow"><span class="grow">${esc(q.x.name)} · ${Math.round(q.pct*100)}% share ≈ ${money0(q.share)}<div class="small muted">On a ${money0(q.g)} salary · top rate ${Math.round(q.rate*100)}% + 2% Medicare</div></span><b>${money0(Math.max(0,q.extra))}</b></div>`).join('')}
+      ${i.people.map(q=>`<div class="lrow"><span class="grow">${esc(q.x.name)}'s ${i.est!=null?Math.round(q.pct*100)+'% share':'income from it for the year'} ≈ ${money0(q.share)}<div class="small muted">On a ${money0(q.g)} salary · top rate ${Math.round(q.rate*100)}% + 2% Medicare</div></span><b>${money0(Math.max(0,q.extra))}</b></div>`).join('')}
     </div>`}
     ${lastYr}
     <p class="small muted" style="margin:8px 0 0">An estimate to help you plan, not tax advice.${i.est!=null?'':' Money in minus money out isn\'t the same as your taxable share, so add the partnership profit in Settings → Tax once your accountant has it.'}</p></div>`;
 }
 function taxSet(k,v){ const t=taxCfg(); if(k==='acct') t.acct=v||null; save(); render(); }
 function taxPerson(id,k,v){ const t=taxCfg(), x=t.people.find(q=>q.id===id); if(!x) return; if(k==='gross'){ const n=Math.max(0,parseFloat(String(v).replace(/[$,]/g,''))||0), y=taxYear(); if(y===curFY()) x.gross=n; t.grossBy[y]=Object.assign({},t.grossBy[y],{[id]:n}); } else x[k]=v; save(); }
+function taxShare(v){ const t=taxCfg(); t.share=Math.max(0,Math.min(100,parseFloat(v)||0)); save(); }
+function taxWho(id){ const t=taxCfg(); t.who=id; save(); render(); }
 function taxSplit(id,v){ const t=taxCfg(); t.split[id]=Math.max(0,Math.min(100,parseFloat(v)||0)); if(t.people.length===2){ const o=t.people.find(q=>q.id!==id); t.split[o.id]=100-t.split[id]; const el=document.getElementById('split-'+o.id); if(el) el.value=t.split[o.id]; } save(); }
 function taxToggle(list,id){ const t=taxCfg(), a=new Set(t[list]||[]); a.has(id)?a.delete(id):a.add(id); t[list]=[...a]; save(); render(); }
 let taxYr=null; function taxYear(){ return taxYr??curFY(); }
@@ -3404,14 +3407,16 @@ function taxSettingsCard(){
   const t=taxCfg(), y=taxYear(), cy=curFY(), fy=fyRange(y), e=t.est[y], amt=e&&typeof e==='object'?e.amt:e||'';
   const accts=Object.keys(state.accounts).filter(a=>!isLoanAcct(a)&&acctTxCount(a));
   return `<div class="card"><h2>Tax</h2>
-    <p class="small muted" style="margin-top:-6px">For income that comes in <b>before tax</b>, like a farm partnership. The app estimates the extra tax each of you will owe on it so you can put it aside.</p>
+    <p class="small muted" style="margin-top:-6px">For income that comes in <b>before tax</b>, like a farm partnership. The app estimates the extra tax you'll owe on your share so you can put it aside.</p>
     <div class="taxrow" style="margin-top:4px"><span>Financial year</span><div class="seg taxfy" style="margin:0">${[cy-1,cy].map(v=>`<button class="${y===v?'on':''}" onclick="taxYr=${v};render()">${fyRange(v).label}</button>`).join('')}</div></div>
     <div class="catgroup" style="margin-top:12px">Gross salaries for ${fy.label} (before tax)</div>
+    <p class="small muted" style="margin:2px 0 4px">Only the salary of the person the farm income belongs to is used.</p>
     ${t.people.map(x=>`<div class="taxperson"><input value="${esc(x.name)}" oninput="taxPerson('${x.id}','name',this.value)" aria-label="Name"><div class="ce-money"><span>$</span><input type="text" inputmode="decimal" placeholder="0" value="${grossFor(x,y)||''}" oninput="taxPerson('${x.id}','gross',this.value)"></div></div>`).join('')}
     <div class="catgroup" style="margin-top:14px">Partnership profit for ${fy.label}</div>
-    <div class="taxrow" style="margin-top:6px"><span>Profit from the partnership tax return <span class="small muted">(leave blank to estimate from your bank data)</span></span><div class="ce-money" style="max-width:150px;flex:none"><span>$</span><input type="text" inputmode="decimal" placeholder="Not set" value="${amt}" oninput="taxEst(this.value)" onchange="render()"></div></div>
+    <div class="taxrow" style="margin-top:6px"><span>Total profit on the partnership tax return <span class="small muted">(the whole partnership, before it's split. Leave blank to estimate from your bank data)</span></span><div class="ce-money" style="max-width:150px;flex:none"><span>$</span><input type="text" inputmode="decimal" placeholder="Not set" value="${amt}" oninput="taxEst(this.value)" onchange="render()"></div></div>
     ${amt?`<label class="rolltog" style="margin-top:8px"><input type="checkbox" ${e&&e.official?'checked':''} onchange="taxOfficial(this.checked)"><span>This is the <b>official</b> figure from our accountant</span></label>`:''}
-    <div class="taxrow"><span>How it's split</span><div class="taxsplit">${t.people.map(x=>`<label>${esc(x.name)} <input id="split-${x.id}" type="text" inputmode="decimal" value="${t.split[x.id]??0}" oninput="taxSplit('${x.id}',this.value)">%</label>`).join('')}</div></div>
+    <div class="taxrow"><span>Your share of the partnership</span><div class="taxsplit"><label><input type="text" inputmode="decimal" value="${t.share}" oninput="taxShare(this.value)" onchange="render()">%</label></div></div>
+    <div class="taxrow"><span>Whose income it is</span><select onchange="taxWho(this.value)">${t.people.map(x=>`<option value="${x.id}" ${t.who===x.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
     <div class="catgroup" style="margin-top:14px">Income that comes in before tax</div>
     <div class="projpick">${(state.projects||[]).map(pj=>`<button class="${(t.projects||[]).includes(pj.id)?'on':''}" onclick="taxToggle('projects','${pj.id}')">${esc(pj.emoji||'📁')} ${esc(pj.name)}</button>`).join('')}${catsOfKind('income').map(c=>`<button class="${(t.cats||[]).includes(c.id)?'on':''}" onclick="taxToggle('cats','${c.id}')">${esc(c.name)}</button>`).join('')}</div>
     <p class="small muted" style="margin:4px 0 0">Used to estimate this year until you have the official profit. For a project it uses money in minus money out.</p>
