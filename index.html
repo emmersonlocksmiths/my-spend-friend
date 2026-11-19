@@ -376,7 +376,7 @@ input,select{border-radius:12px}
 .loancard:active{transform:scale(.99)}
 .loanbig{font-size:26px;font-weight:800;letter-spacing:-.025em;margin-top:2px}
 .loanhero{text-align:center;padding:22px}
-.loanback{display:flex;align-items:center;gap:10px;margin-bottom:12px;overflow-x:auto}
+.navback{display:flex;margin:0 0 10px}.navback .pill{font-weight:700}#app.hasback .loanback>.pill[data-up]{display:none}#app.hasback .loanback:not(:has(>.pill:not([data-up]))){display:none}.loanback{display:flex;align-items:center;gap:10px;margin-bottom:12px;overflow-x:auto}
 .sectionhead{display:flex;justify-content:space-between;align-items:center;margin:22px 2px 10px;padding-top:16px;border-top:1px solid var(--line)}
 .sectionhead span{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .loangrid{display:grid;grid-template-columns:1fr;gap:0}
@@ -607,7 +607,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.83';
+const APP_VERSION='0.84';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -955,7 +955,7 @@ function renderNav(){
   const hasLoan=loanAccts().length>0?'1':'0';
   if(!nav.querySelector('button')||nav.dataset.loan!==hasLoan){
     nav.dataset.loan=hasLoan;
-    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div><button class="navme" id="navMe" onclick="go(\'settings\')"></button>'+[...TABS,['settings','⚙️','Settings']].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='settings'||id==='review'?'navdesk':''}${id==='settings'?' navset':''}" onclick="go('${id}')"><span class="ic">${icon(id)}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
+    nav.innerHTML='<div class="navlogo"><img src="apple-touch-icon.png" alt=""><span>My Spend<br><b>Friend</b></span></div><button class="navme" id="navMe" onclick="navTab(\'settings\')"></button>'+[...TABS,['settings','⚙️','Settings']].map(([id,ic,l])=>`<button data-tab="${id}" class="${id==='settings'||id==='review'?'navdesk':''}${id==='settings'?' navset':''}" onclick="navTab('${id}')"><span class="ic">${icon(id)}</span>${l}<span class="badge"></span></button>`).join('')+'<span class="navind"></span>';
   }
   nav.querySelectorAll('button').forEach(b=>{
     b.classList.toggle('on',b.dataset.tab===tab||(tab==='loan'&&b.dataset.tab==='project'));
@@ -1052,7 +1052,32 @@ function animateNumbers(el,entering,periodChange){
   });
 }
 function animateNext(kind){ nextAnim=kind; }
-function go(t){ if(t==='project') projSel=null; if(t!==tab) animateNext('tab'); if(t==='accounts'&&(tab==='accounts'||tab!=='accounts')) acctSel=null; tab=t; render(); window.scrollTo({top:0}); }
+function go(t,fromNav){ if(!fromNav&&appScreen==='app') navPush(); if(t==='project') projSel=null; if(t!==tab) animateNext('tab'); if(t==='accounts'&&(tab==='accounts'||tab!=='accounts')) acctSel=null; tab=t; render(); window.scrollTo({top:0}); }
+
+// ===== Back button: every tap that takes you somewhere else remembers where you were =====
+let navStack=[], navTick=0;
+function navLabel(sn){ const T={dashboard:'Dashboard',budget:'Budget',cats:'Charts',tx:'Transactions',accounts:'Accounts',project:'Projects',review:'Review',settings:'Settings',loan:'Home loan'};
+  if(sn.modal&&sn.modal.startsWith('recap:')) return 'Monthly summary';
+  if(sn.tab==='accounts'&&sn.acctSel&&state.accounts[sn.acctSel]) return acctName(sn.acctSel);
+  if(sn.tab==='project'&&sn.projSel){ const p=projById(sn.projSel); if(p) return p.name; }
+  if(sn.tab==='loan'&&sn.loanSel&&state.accounts[sn.loanSel]) return acctName(sn.loanSel);
+  if(sn.tab==='budget'&&sn.budEdit) return 'Edit budgets';
+  return T[sn.tab]||'previous page'; }
+function navSnap(extra){ return Object.assign({tab,acctSel,projSel,loanSel,rvMode,chartCatKind,budEdit,catOpen:typeof catOpen!=='undefined'?catOpen:null,view:JSON.parse(JSON.stringify(state.view)),txFilter:JSON.parse(JSON.stringify(txFilter)),txAdv,txLimit,y:window.scrollY},extra||{}); }
+// Remember the current place (once per tap). Call before changing tab/selection/period.
+function navPush(extra){ const now=Date.now(); if(now-navTick<250&&!extra) return; navTick=now;
+  const sn=navSnap(extra), top=navStack[navStack.length-1];
+  if(top&&top.tab===sn.tab&&top.acctSel===sn.acctSel&&top.projSel===sn.projSel&&top.loanSel===sn.loanSel&&!extra) { navStack[navStack.length-1]=sn; return; }
+  navStack.push(sn); if(navStack.length>20) navStack.shift(); }
+function navBack(){ const sn=navStack.pop(); if(!sn) return navTab('dashboard');
+  tab=sn.tab; acctSel=sn.acctSel; projSel=sn.projSel; loanSel=sn.loanSel; rvMode=sn.rvMode; chartCatKind=sn.chartCatKind; budEdit=sn.budEdit; if(typeof catOpen!=='undefined') catOpen=sn.catOpen;
+  state.view=sn.view; txFilter=sn.txFilter; txAdv=sn.txAdv; txLimit=sn.txLimit;
+  animateNext('right'); render();
+  requestAnimationFrame(()=>window.scrollTo({top:sn.y||0}));
+  if(sn.modal&&sn.modal.startsWith('recap:')) openRecap(sn.modal.slice(6)); }
+function navTab(t){ navStack=[]; go(t,true); }
+function navBar(){ if(!navStack.length) return ''; const sn=navStack[navStack.length-1];
+  return `<div class="navback"><button class="pill" onclick="navBack()">‹ Back to ${esc(navLabel(sn))}</button></div>`; }
 function render(){
   if(appScreen!=='app') return;
   renderNav(); _loneSet=null; _matchMap=null;
@@ -1061,6 +1086,7 @@ function render(){
   const nm=document.getElementById('navMe'); if(nm){ nm.innerHTML=`<span class="avatar big ${myPhoto()?'photo':''}">${avatarInner()}</span><span class="navme-txt"><b>${esc(userName())}</b><span class="small muted">Profile & settings</span></span>`; nm.classList.toggle('on',tab==='settings'); }
   const el=document.getElementById('app');
   ({tx:renderTx,dashboard:renderDashboard,budget:renderBudget,project:renderProject,review:renderReview,cats:renderCharts,settings:renderSettings,loan:renderLoan,accounts:renderAccounts})[tab](el);
+  const nb=navBar(); if(nb) el.insertAdjacentHTML('afterbegin',nb); el.classList.toggle('hasback',!!nb);
   placePills();
   const entering=nextAnim==='tab'||nextAnim==='left'||nextAnim==='right'||!rendered;
   // On a period change, things that are new in this period grow in too, and small notes fade across.
@@ -1408,7 +1434,7 @@ function recapBreakdown(from,to){ const inc={}, exp={}; let unIn=0, unOut=0;
   const srt=o=>Object.entries(o).filter(([,v])=>Math.abs(v)>0.004).sort((a,b)=>b[1]-a[1]);
   return {inc:srt(inc),exp:srt(exp),unIn,unOut}; }
 function recapBars(rows,max,ym,col){ return rows.map(([id,x,label,color])=>{ const c=id?catById(id):null, w=Math.max(1.5,Math.abs(x)/max*100);
-  return `<div class="catrow" ${id?`onclick="closeModal();jumpMonth('${ym}');filterCat('${id}')"`:`onclick="closeModal();jumpMonth('${ym}');rvMode='sort';go('review')"`}><div class="top"><span><span class="dot" style="background:${color||c.color}"></span>${esc(label||c.name)}</span><b>${x<0?'−':''}${money0(Math.abs(x))}</b></div><div class="bar"><i style="width:${w}%;background:${color||c.color}"></i></div></div>`; }).join(''); }
+  return `<div class="catrow" ${id?`onclick="navPush({modal:'recap:${ym}'});closeModal();jumpMonth('${ym}');filterCat('${id}')"`:`onclick="navPush({modal:'recap:${ym}'});closeModal();jumpMonth('${ym}');rvMode='sort';go('review')"`}><div class="top"><span><span class="dot" style="background:${color||c.color}"></span>${esc(label||c.name)}</span><b>${x<0?'−':''}${money0(Math.abs(x))}</b></div><div class="bar"><i style="width:${w}%;background:${color||c.color}"></i></div></div>`; }).join(''); }
 function recapCard(){ const ym=lastFullYM(), r=ymRange(ym); if(!state.txns.some(t=>t.date>=r.from&&t.date<=r.to)) return '';
   const s=summarise(r.from,r.to), net=s.moneyIn-s.spend;
   return `<div class="card recapcard" onclick="openRecap('${ym}')"><div class="snap-k">Monthly summary</div><div class="snap-row"><div><b style="font-size:18px">${r.label}</b><div class="small muted">Spent ${money0(s.spend)} · ${net<0?'overspent '+money0(-net):money0(net)+' left over'}</div></div><span class="link small">Open ›</span></div>${(()=>{ const mx=Math.max(s.moneyIn,s.spend,1); return `<div class="recapmini"><span class="small">In</span><div class="bar"><i style="width:${Math.max(1.5,s.moneyIn/mx*100)}%;background:var(--good)"></i></div><b class="small pos">${money0(s.moneyIn)}</b><span class="small">Spent</span><div class="bar"><i style="width:${Math.max(1.5,s.spend/mx*100)}%;background:var(--bad)"></i></div><b class="small neg">${money0(s.spend)}</b></div>`; })()}</div>`; }
@@ -1486,7 +1512,7 @@ function nowAnchor(){ const t=new Date().toLocaleDateString('en-CA'); return sta
 function atNow(){ const v=state.view; return v.mode==='fortnight'?(v.fAnchor||fortStartFor(latestDate()))>=nowAnchor():(v.anchor||latestYM())>=nowAnchor(); }
 function goNow(){ periodDir='left'; morphNext=true; if(state.view.mode==='fortnight') state.view.fAnchor=nowAnchor(); else state.view.anchor=nowAnchor(); save(); render(); }
 function jumpMonth(m){ rememberPill(); morphNext=true; state.view.mode='month'; state.view.anchor=m; save(); render(); }
-function filterCat(id){ txReset({cat:id,when:'period'}); txAdv=true; txLimit=150; tab='tx'; acctSel=null; animateNext('tab'); render(); window.scrollTo({top:0}); }
+function filterCat(id){ navPush(); txReset({cat:id,when:'period'}); txAdv=true; txLimit=150; tab='tx'; acctSel=null; animateNext('tab'); render(); window.scrollTo({top:0}); }
 
 /* ============ Review ============ */
 let rv={idx:0,done:0,list:false,kw:null,kwFor:null,remember:true,undo:null};
@@ -1558,7 +1584,7 @@ function groupedCatGrid(t,clickFn,selId){
 let rvMode='sort';
 function reviewModeBar(nSort,nCheck){
   if(!nCheck&&rvMode==='sort') return '';
-  return `<div class="rvback"><button class="pill" onclick="go('dashboard')">‹ Dashboard</button></div><div class="seg rvmodes"><button class="${rvMode==='sort'?'on':''}" onclick="rvMode='sort';render()">New transactions${nSort?` <b class="rvn">${nSort}</b>`:''}</button><button class="${rvMode==='check'?'on':''}" onclick="rvMode='check';render()">Worth a check${nCheck?` <b class="rvn warn">${nCheck}</b>`:''}</button></div>`;
+  return `${navStack.length?'':`<div class="rvback"><button class="pill" onclick="go('dashboard')">‹ Dashboard</button></div>`}<div class="seg rvmodes"><button class="${rvMode==='sort'?'on':''}" onclick="rvMode='sort';render()">New transactions${nSort?` <b class="rvn">${nSort}</b>`:''}</button><button class="${rvMode==='check'?'on':''}" onclick="rvMode='check';render()">Worth a check${nCheck?` <b class="rvn warn">${nCheck}</b>`:''}</button></div>`;
 }
 function renderReview(el){
   const nCheck=doubleUps().length, nSort=reviewQueue(true).length;
@@ -2333,7 +2359,7 @@ function loanView(el,toggle,from){
   const daily=loanDaily(a), endBal=m=>{ const d=daily.filter(p=>p.d<=m+'-31'); return d.length?d[d.length-1].owing:null; };
   const leg=(items)=>`<div class="small muted" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px">${items.map(([c,l])=>`<span><span class="dot" style="background:${c}"></span>${l}</span>`).join('')}</div>`;
   const ml=m=>MONTHS[+m.slice(5)-1];
-  el.innerHTML=`${toggle||`<div class="loanback"><button class="pill" onclick="go('project')">‹ Projects</button></div>`}
+  el.innerHTML=`${toggle||`<div class="loanback"><button class="pill" data-up onclick="go('project')">‹ Projects</button></div>`}
     ${Ls.length>1?`<div class="acctfilter">${Ls.map(k=>`<button class="${k===a?'on':''}" onclick="loanSel='${k}';loanChartSel='${k}';animateNext('fade');render()">${esc(acctName(k))}</button>`).join('')}</div>`:''}
     <div class="card loanhero">
       <div class="small muted">🏠 ${esc(acctName(a))} · ${esc(a)}</div>
@@ -2487,9 +2513,9 @@ function acctLineSVG(a,col){
 }
 function acctSort(list){ const keys=Object.keys(state.accounts); return [...list].sort((a,b)=>((state.accounts[a].order??1e6+keys.indexOf(a))-(state.accounts[b].order??1e6+keys.indexOf(b)))); }
 function acctTypeLabel(x){ return (ACCT_TYPES.find(t=>t[0]===x.type)||['','Account'])[1]; }
-function openAcct(a){ acctSel=a; acctSetOpen=false; txReset(); animateNext('left'); tab='accounts'; render(); window.scrollTo({top:0}); }
-function openAcctTx(a){ acctSel=null; txReset({acct:a}); go('tx'); }
-function openAllTx(){ acctSel=null; txReset(); go('tx'); }
+function openAcct(a){ navPush(); acctSel=a; acctSetOpen=false; txReset(); animateNext('left'); tab='accounts'; render(); window.scrollTo({top:0}); }
+function openAcctTx(a){ navPush(); acctSel=null; txReset({acct:a}); go('tx'); }
+function openAllTx(){ navPush(); acctSel=null; txReset(); go('tx'); }
 // Transactions tab: every account in one list, with search and filters.
 function renderTx(el){ const a=txFilter.acct; el.innerHTML=`<h2 style="font-size:20px;margin:4px 2px 10px">Transactions</h2>${a&&state.accounts[a]?`<div class="txacctchip"><span>Showing <b>${esc(acctName(a))}</b> only</span><button class="link small" onclick="txFilter.acct='';render()">Show all accounts</button></div>`:''}${txnsCard(null)}`; }
 // Pick which bank accounts are offsets against the home loan.
@@ -2590,7 +2616,7 @@ function renderAcctDetail(el,a){
   const x=state.accounts[a], col=acctColor(a), pr=periodRange(), loan=isLoanAcct(a);
   if(!acctTxCount(a)&&!x.manual){
     const mentions=state.txns.filter(t=>t.desc.includes(a)).sort((p,r)=>r.date.localeCompare(p.date));
-    el.innerHTML=`<div class="loanback"><button class="pill" onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button></div>
+    el.innerHTML=`<div class="loanback"><button class="pill" data-up onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button></div>
       <div class="card loanhero" style="border-top:4px solid ${col}"><div style="font-size:30px">🔁</div><h2 style="margin:6px 0 2px">${x.name?esc(x.name):'Unnamed account'}</h2><div class="small muted">${esc(a)} · seen in transfers, not imported</div></div>
       <div class="card"><h2>Name this account</h2><p class="small muted" style="margin-top:-6px">Give it a name so you know who it is (e.g. "Larissa's account" or "Offset").</p>${acctCard(a)}</div>
       <div class="card"><h2>Transfers with your accounts</h2>${mentions.length?txnList(mentions,true):'<p class="muted small">None.</p>'}</div>`;
@@ -2601,7 +2627,7 @@ function renderAcctDetail(el,a){
   const q=acctQ.toUpperCase();
   const list=state.txns.filter(t=>t.acct===a&&(!q||t.desc.toUpperCase().includes(q))).sort((p,r)=>r.date.localeCompare(p.date)||p.id.localeCompare(r.id));
   el.innerHTML=`
-    <div class="loanback"><button class="pill" onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button></div>
+    <div class="loanback"><button class="pill" data-up onclick="acctSel=null;animateNext('right');render()">‹ Accounts</button></div>
     <div class="card loanhero" style="--ac:${col};border-top:4px solid ${col}">
       ${acctTag(a)}
       <div class="loanbig" style="font-size:32px;margin-top:8px">${x.bal!=null?money(loan?Math.abs(x.bal):x.bal):'—'}</div>${freshLine(a)}
@@ -2794,7 +2820,7 @@ function projPickRow(t){
 }
 function setTxnProj(id){ const t=pick.t; if(id==='__auto') delete t.proj; else t.proj=id; save(); drawPicker(); render(); toast(id&&id!=='__auto'?'Added to '+projById(id).name:id==='__auto'?'Follows its category':'Not in a project'); }
 let projSel=null;
-function openProject(id){ projSel=id; animateNext('tab'); tab='project'; render(); window.scrollTo({top:0}); }
+function openProject(id){ navPush(); projSel=id; animateNext('tab'); tab='project'; render(); window.scrollTo({top:0}); }
 function projDashSection(){
   const P=state.projects||[]; if(!P.length) return '';
   const pr=periodRange();
@@ -2879,7 +2905,7 @@ function renderProject(el){
   const byCat=dir=>{ const o={}; s.tx.filter(t=>dir>0?t.amount>0:t.amount<0).forEach(t=>{ const k=t.cat||'_none'; o[k]=(o[k]||0)+Math.abs(t.amount); }); return Object.entries(o).sort((a,b)=>b[1]-a[1]); };
   const catList=(rows,cls)=>rows.length?rows.map(([id,v])=>{ const c=id==='_none'?null:catById(id); return `<div class="lrow"><span class="dot" style="background:${c?c.color:'var(--muted)'}"></span><span class="grow">${c?esc(c.name):'Not sorted yet'}</span><b class="${cls}">${money(v)}</b></div>`; }).join(''):'<p class="muted small" style="margin:4px 0">None in this period.</p>';
   const tx=[...s.tx].sort((a,b)=>b.date.localeCompare(a.date));
-  el.innerHTML=`<div class="loanback"><button class="pill" onclick="go('project')">‹ Projects</button><button class="pill" onclick="openProjEditor('${p.id}')">⚙️ Edit project</button></div>
+  el.innerHTML=`<div class="loanback"><button class="pill" data-up onclick="go('project')">‹ Projects</button><button class="pill" onclick="openProjEditor('${p.id}')">⚙️ Edit project</button></div>
     ${(state.projects||[]).length>1?`<div class="acctfilter">${state.projects.map(q=>`<button class="${q===p?'on':''}" onclick="projSel='${q.id}';animateNext('fade');render()">${esc(q.emoji||'📁')} ${esc(q.name)}</button>`).join('')}</div>`:''}
     <div class="card loanhero"><div style="font-size:30px">${esc(p.emoji||'📁')}</div><h2 style="margin:4px 0 0">${esc(p.name)}</h2>
       <div class="small muted">${p.counted?'Included in':'Kept out of'} household totals</div></div>
