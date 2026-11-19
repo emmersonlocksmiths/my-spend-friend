@@ -1,7 +1,7 @@
 // Caches the app's own files so it opens instantly and works with no signal.
 // Firebase keeps your data offline itself; this only covers the app shell.
 // Bump VERSION whenever you change any file so phones pick up the update.
-const VERSION = 'msf-0.84'; // match APP_VERSION in index.html
+const VERSION = 'msf-0.85'; // match APP_VERSION in index.html
 const SHELL = ['./', 'index.html', 'manifest.json', 'banner.jpg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'favicon-32.png'];
 
 self.addEventListener('install', (e) => {

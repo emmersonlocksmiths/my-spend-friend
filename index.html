@@ -520,7 +520,7 @@ nav button .lic{color:var(--muted);transition:color .2s,transform .2s}
 nav button.on .lic{color:var(--accent)}
 @media(min-width:1000px){ nav button .ic{display:inline-flex} nav button .lic{width:20px;height:20px} }
 .usermenu>button .lic{color:var(--muted);flex:none}.usermenu>button.um-out .lic{color:var(--bad)}
-.pickbar{display:flex;justify-content:space-between;align-items:center;margin:-2px 0 12px}
+.pickbar{display:flex;justify-content:space-between;align-items:center;margin:-18px -18px 12px;padding:14px 18px 10px;position:sticky;top:-18px;z-index:5;background:var(--card);border-bottom:1px solid transparent}.modal .pickbar{border-bottom-color:var(--line)}
 .dupacct{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px}.dupacct .acctag{font-size:11px}
 .dupnote{margin:6px 0 0}.duptype{font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);margin-bottom:2px}.duplab{flex:none;width:58px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}.dupbtns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.dupbtns .btn{padding:8px 14px;font-size:14px}
 .dupfoot{display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
@@ -607,7 +607,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.84';
+const APP_VERSION='0.85';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1449,7 +1449,8 @@ function openRecap(ym){
   const L=loanAccts().map(a=>{ const d=loanDaily(a), before=d.filter(x=>x.d<r.from).pop(), end=d.filter(x=>x.d<=r.to).pop(); const int=state.txns.filter(t=>t.acct===a&&loanKind(t)==='interest'&&t.date>=r.from&&t.date<=r.to).reduce((x,t)=>x-t.amount,0); return {a,start:before?before.owing:null,end:end?end.owing:null,int}; }).filter(o=>o.end!=null);
   const diff=ps?s.spend-ps.spend:null;
   document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal recap">
-    <div class="recaphead"><button class="pill" ${canPrev?'':'disabled'} onclick="openRecap('${pym}')" aria-label="Previous month">‹</button><div><div class="small muted">Monthly summary</div><h2 style="margin:0">${r.label}</h2></div><button class="pill" ${canNext?'':'disabled'} onclick="openRecap('${nextYM}')" aria-label="Next month">›</button></div>
+    <div class="pickbar"><b>Monthly summary</b><button class="pill" onclick="closeModal()" aria-label="Close">✕ Close</button></div>
+    <div class="recaphead"><button class="pill" ${canPrev?'':'disabled'} onclick="openRecap('${pym}')" aria-label="Previous month">‹</button><div><h2 style="margin:0">${r.label}</h2></div><button class="pill" ${canNext?'':'disabled'} onclick="openRecap('${nextYM}')" aria-label="Next month">›</button></div>
     ${!coversFrom(r.from)?`<p class="small muted">Your imported transactions start partway through this month, so it's incomplete.</p>`:''}
     <div class="recapgrid"><div><div class="k">Money in</div><div class="v pos">${money0(s.moneyIn)}</div></div><div><div class="k">Spent</div><div class="v neg">${money0(s.spend)}</div></div><div><div class="k">${net<0?'Overspent':'Left over'}</div><div class="v ${net<0?'neg':'pos'}">${money0(Math.abs(net))}</div></div></div>
     ${diff!==null?`<p class="small muted" style="margin:8px 0 0;text-align:center">${Math.abs(diff)<1?'Same spending as':diff>0?`<span class="neg">${money0(diff)} more</span> than`:`<span class="pos">${money0(-diff)} less</span> than`} ${FULLMONTHS[+pym.slice(5)-1]}</p>`:''}
@@ -1990,7 +1991,7 @@ function linkPick(){
   const a=linkAsk; if(!a) return; if(!a.sel) a.sel=new Set(a.ids);
   const c=catById(a.cat), L=state.txns.filter(x=>a.ids.includes(x.id)).sort((p,q)=>q.date.localeCompare(p.date));
   document.getElementById('modalRoot').innerHTML=`<div class="modal-bg"><div class="modal">
-    <h2 style="margin:0 0 4px">Choose which to change</h2>
+    <div class="pickbar"><b>Choose which to change</b><button class="pill" onclick="linkApply(false)" aria-label="Cancel">✕</button></div>
     <p class="small muted" style="margin:0 0 8px">Ticked ones will be set to <b>${esc(c.name)}</b>. Untick any that should stay as they are.</p>
     <div style="display:flex;gap:14px;margin-bottom:6px"><button class="link small" onclick="linkAsk.sel=new Set(linkAsk.ids);linkPick()">Tick all</button><button class="link small" onclick="linkAsk.sel=new Set();linkPick()">Untick all</button></div>
     <div class="linklist">${L.map(x=>{ const cc=x.cat?catById(x.cat):null, on=a.sel.has(x.id); return `<label class="linkrow ${on?'on':''}"><input type="checkbox" ${on?'checked':''} onchange="linkToggle('${encodeURIComponent(x.id)}',this.checked,this)">
