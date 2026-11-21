@@ -604,8 +604,8 @@ nav button.on .lic{color:var(--accent)}
 .nowbtn.nowhide{visibility:hidden;pointer-events:none}.nowbtn{width:auto!important;height:auto!important;font-size:12.5px!important;font-weight:700;padding:4px 12px;border-radius:999px!important;background:var(--accent,#e5a800)!important;color:#1a1a1a!important;border:0!important;letter-spacing:0}
 .pseg{position:relative}
 .segpill{position:absolute;top:3px;bottom:3px;left:3px;width:0;border-radius:11px;background:var(--accent);box-shadow:0 2px 10px rgba(245,179,1,.3);transition:left .3s cubic-bezier(.3,.7,.2,1),width .3s cubic-bezier(.3,.7,.2,1);z-index:0}
-.pseg button{position:relative;z-index:1;background:none!important;box-shadow:none!important;transition:color .25s}
-.pseg button.on{color:var(--onaccent)}
+.pseg button{white-space:nowrap;padding-left:2px;padding-right:2px;position:relative;z-index:1;background:none!important;box-shadow:none!important;transition:color .25s}
+.pseg button.on{color:var(--onaccent)}@media(max-width:380px){.pseg button{font-size:12px}}
 .period .lbl{overflow:hidden}
 .period .lbl span{display:inline-block}
 .lbl-left{animation:lblLeft .26s cubic-bezier(.2,.7,.2,1)}
@@ -628,7 +628,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.91';
+const APP_VERSION='0.92';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -1179,13 +1179,14 @@ function rangeFor(mode,a){
   if(mode==='fortnight'){ const f=a, t=isoAdd(f,13); return {from:f,to:t,months:12/26,label:shortDay(f)+' – '+shortDay(t),short:'previous fortnight'}; }
   if(mode==='month') return {from:a+'-01',to:a+'-31',months:1,label:ymLabel(a),short:MONTHS[+a.slice(5)-1]};
   if(mode==='3m'){ const s=ymAdd(a,-2); return {from:s+'-01',to:a+'-31',months:3,label:MONTHS[+s.slice(5)-1]+' – '+MONTHS[+a.slice(5)-1]+' '+a.slice(0,4),short:'previous 3 months'}; }
+  if(mode==='6m'){ const s=ymAdd(a,-5); return {from:s+'-01',to:a+'-31',months:6,label:MONTHS[+s.slice(5)-1]+(s.slice(0,4)!==a.slice(0,4)?' '+s.slice(0,4):'')+' – '+MONTHS[+a.slice(5)-1]+' '+a.slice(0,4),short:'previous 6 months'}; }
   if(mode==='year'){ const s=ymAdd(a,-11); return {from:s+'-01',to:a+'-31',months:12,label:'12 months to '+MONTHS[+a.slice(5)-1]+' '+a.slice(0,4),short:'previous 12 months'}; }
   return {from:'0000',to:'9999',months:0,label:'All time'};
 }
 function periodRange(){ const v=state.view; if(!v.anchor) v.anchor=latestYM();
   if(v.mode==='fortnight'){ if(!v.fAnchor||v.fAnchor!==fortStartFor(v.fAnchor)) v.fAnchor=fortStartFor(v.fAnchor||latestDate()); return rangeFor('fortnight',v.fAnchor); }
   return rangeFor(v.mode,v.anchor); }
-function prevRange(){ const v=state.view; if(v.mode==='all') return null; if(v.mode==='fortnight') return rangeFor('fortnight',isoAdd(v.fAnchor||fortStartFor(latestDate()),-14)); const step=v.mode==='3m'?3:v.mode==='year'?12:1; return rangeFor(v.mode,ymAdd(v.anchor,-step)); }
+function prevRange(){ const v=state.view; if(v.mode==='all') return null; if(v.mode==='fortnight') return rangeFor('fortnight',isoAdd(v.fAnchor||fortStartFor(latestDate()),-14)); const step=v.mode==='3m'?3:v.mode==='6m'?6:v.mode==='year'?12:1; return rangeFor(v.mode,ymAdd(v.anchor,-step)); }
 function coversFrom(from){
   // only compare when imported data starts at (or within 3 days of) the start of the earlier period
   if(!state.txns.length) return false;
@@ -1235,7 +1236,7 @@ function renderDashboard(el){
   if(v.mode!=='all'){
     const today=new Date().toLocaleDateString('en-CA'), days=dayGap(pr.from,pr.to)+1, current=today>=pr.from&&today<=pr.to;
     const soFar=current?dayGap(pr.from,today)+1:days, avg=s.spend/Math.max(soFar,1);
-    const word={fortnight:'this fortnight',month:'this month','3m':'over 3 months',year:'over 12 months'}[v.mode];
+    const word={fortnight:'this fortnight',month:'this month','3m':'over 3 months','6m':'over 6 months',year:'over 12 months'}[v.mode];
     pace=`<p class="dashpace small muted" title="${current?'On track for '+money0(avg*days)+' '+word:''}">${current?`${money0(avg)} a day · on track for <b>${money0(avg*days)}</b>`:`${money0(avg)} a day on average`}</p>`;
   } else pace=`<p class="dashpace small muted">&nbsp;</p>`;
   // things that need you: to sort + worth a check, in one line
@@ -1555,7 +1556,7 @@ function trendSVG(){
   return `<svg viewBox="0 0 ${W} ${H}" width="100%"${chartAttr({type:'bar',title:'Spending by month',jump:months,labels:months.map(m=>MONTHS[+m.slice(5)-1]+' '+m.slice(2,4)),series:[{name:'Spent',color:'var(--accent)',vals:vals.map(v=>Math.round(v))}]})}>${bars}</svg><p class="muted small" style="margin:4px 0 0">Tap the chart for detail and to open a month.</p>`;
 }
 function setMode(m){ rememberPill(); morphNext=true; state.view.mode=m; if(m==='fortnight'&&!state.view.fAnchor) state.view.fAnchor=fortStartFor(latestDate()); save(); render(); }
-function shift(n){ periodDir=n<0?'right':'left'; morphNext=true; if(state.view.mode==='fortnight'){ state.view.fAnchor=isoAdd(state.view.fAnchor||fortStartFor(latestDate()),14*n); save(); render(); return; } const step=state.view.mode==='3m'?3:state.view.mode==='year'?12:1; state.view.anchor=ymAdd(state.view.anchor||latestYM(),n*step); save(); render(); }
+function shift(n){ periodDir=n<0?'right':'left'; morphNext=true; if(state.view.mode==='fortnight'){ state.view.fAnchor=isoAdd(state.view.fAnchor||fortStartFor(latestDate()),14*n); save(); render(); return; } const step=state.view.mode==='3m'?3:state.view.mode==='6m'?6:state.view.mode==='year'?12:1; state.view.anchor=ymAdd(state.view.anchor||latestYM(),n*step); save(); render(); }
 function nowAnchor(){ const t=new Date().toLocaleDateString('en-CA'); return state.view.mode==='fortnight'?fortStartFor(t):t.slice(0,7); }
 function atNow(){ const v=state.view; return v.mode==='fortnight'?(v.fAnchor||fortStartFor(latestDate()))>=nowAnchor():(v.anchor||latestYM())>=nowAnchor(); }
 function goNow(){ periodDir='left'; morphNext=true; if(state.view.mode==='fortnight') state.view.fAnchor=nowAnchor(); else state.view.anchor=nowAnchor(); save(); render(); }
@@ -2123,8 +2124,8 @@ function unsplit(){ const t=splitEd.t; state.txns=state.txns.filter(x=>x.splitOf
 let catOpen=null;
 function periodControls(){
   const v=state.view, pr=periodRange();
-  return `<div class="periodbar"><div class="seg pseg"><span class="segpill"></span>${[['fortnight','Fortnight'],['month','Month'],['3m','3 mths'],['year','12 mths'],['all','All']].map(([m,l])=>`<button data-mode="${m}" class="${v.mode===m?'on':''}" onclick="setMode('${m}')">${l}</button>`).join('')}</div>
-    <div class="period">${v.mode!=='all'?`<button onclick="shift(-1)" aria-label="Previous">‹</button>`:''}<div class="lbl"><span>${pr.label}</span>${v.mode!=='all'?`<button class="nowbtn ${atNow()?'nowhide':''}" onclick="goNow()" ${atNow()?'tabindex="-1" aria-hidden="true"':''}>↩ ${{fortnight:'This fortnight',month:'This month','3m':'Latest 3 mths',year:'Latest 12 mths'}[v.mode]}</button>`:'<span class="nowbtn nowhide" aria-hidden="true">↩</span>'}</div>${v.mode!=='all'?`<button onclick="shift(1)" aria-label="Next">›</button>`:''}</div></div>`;
+  return `<div class="periodbar"><div class="seg pseg"><span class="segpill"></span>${[['fortnight','Fortnight'],['month','Month'],['3m','3 mths'],['6m','6 mths'],['year','12 mths'],['all','All']].map(([m,l])=>`<button data-mode="${m}" class="${v.mode===m?'on':''}" onclick="setMode('${m}')">${l}</button>`).join('')}</div>
+    <div class="period">${v.mode!=='all'?`<button onclick="shift(-1)" aria-label="Previous">‹</button>`:''}<div class="lbl"><span>${pr.label}</span>${v.mode!=='all'?`<button class="nowbtn ${atNow()?'nowhide':''}" onclick="goNow()" ${atNow()?'tabindex="-1" aria-hidden="true"':''}>↩ ${{fortnight:'This fortnight',month:'This month','3m':'Latest 3 mths','6m':'Latest 6 mths',year:'Latest 12 mths'}[v.mode]}</button>`:'<span class="nowbtn nowhide" aria-hidden="true">↩</span>'}</div>${v.mode!=='all'?`<button onclick="shift(1)" aria-label="Next">›</button>`:''}</div></div>`;
 }
 function catMonthly(id,end,n){
   const out=[]; for(let i=n-1;i>=0;i--){ const m=ymAdd(end,-i); let a=0; for(const t of state.txns){ if(t.cat===id&&t.date.startsWith(m)&&inHH(t)) a+= -t.amount; } out.push({m,a}); } return out;
