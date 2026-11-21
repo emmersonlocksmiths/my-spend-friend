@@ -607,7 +607,7 @@ nav button.on .lic{color:var(--accent)}
 
 <script>
 /* App version: bump on every push (and VERSION in sw.js to match). */
-const APP_VERSION='0.87';
+const APP_VERSION='0.88';
 
 /* ============ Storage (Firebase cloud sync) ============ */
 // Data lives in Firestore (see the module script at the bottom). save() works out what changed
@@ -895,7 +895,13 @@ function importBankwest(text){
     if(A&&(!A.type||A.type==='everyday')&&mine.some(t=>t.type==='DRI'||(t.balance!=null&&t.balance<-20000))){ A.type='loan'; if(!A.name) A.name='Home loan'; loansFound++; } });
   state.txns.push(...newOnes);
   const rev=newOnes.filter(isCounted);
-  return {added,dupes,pending,skipped,loansFound,review:rev.length,loanTx:newOnes.filter(t=>isLoanAcct(t.acct)).length,auto:rev.filter(t=>t.sug).length};
+  // An all-accounts export (more than one account in the file) leaves out accounts with no transactions in that range.
+  // Those were still checked, so count them as up to date with no new transactions.
+  let quiet=0;
+  if(balSeen.size>=2){ const now=new Date().toISOString();
+    Object.keys(state.accounts).forEach(a=>{ const x=state.accounts[a]; if(balSeen.has(a)){ delete x.quiet; return; } if(!acctTxCount(a)) return; x.uploaded=now; x.quiet=true; quiet++; }); }
+  else balSeen.forEach(a=>{ if(state.accounts[a]) delete state.accounts[a].quiet; });
+  return {added,dupes,pending,skipped,loansFound,quiet,review:rev.length,loanTx:newOnes.filter(t=>isLoanAcct(t.acct)).length,auto:rev.filter(t=>t.sug).length};
 }
 
 /* ============ Period & maths ============ */
@@ -1137,7 +1143,7 @@ function freshLine(a){
   const ref=x.uploaded?new Date(x.uploaded).toLocaleDateString('en-CA'):last;
   if(!ref) return '';
   const n=daysAgo(ref), lvl=n<=3?'ok':n<=7?'mid':'old';
-  return `<div class="fresh fresh-${lvl}"><span class="fdot"></span>Last updated ${agoTxt(n)}</div>`;
+  return `<div class="fresh fresh-${lvl}"><span class="fdot"></span>Last updated ${agoTxt(n)}${x.quiet&&x.uploaded?' · no new transactions':''}</div>`;
 }
 function shortDay(d){ const x=new Date(d+'T00:00:00'); return DAYS[x.getDay()]+' '+x.getDate()+' '+MONTHS[x.getMonth()]; }
 function dayYear(d){ return shortDay(d)+' '+d.slice(0,4); }
@@ -2793,7 +2799,7 @@ function renderSettings(el){
   d.addEventListener('drop',ev=>handleFiles(ev.dataTransfer.files));
 }
 async function handleFiles(files){
-  const tot={added:0,dupes:0,pending:0,auto:0,loansFound:0,review:0,loanTx:0}; const errs=[];
+  const tot={added:0,dupes:0,pending:0,auto:0,loansFound:0,review:0,loanTx:0,quiet:0}; const errs=[];
   for(const f of files){
     try{ const r=importBankwest(await f.text()); for(const k in tot) tot[k]+=r[k]; }
     catch(e){ errs.push(f.name+': '+e.message); }
@@ -2804,6 +2810,7 @@ async function handleFiles(files){
   save();
   lastResult=`<b>${tot.added} new transaction${tot.added===1?'':'s'} added</b>${autoOn()?`<br><span class="small">${sorted} sorted automatically${xferN?` (including ${xferN} transfers matched between your accounts)`:''} · ${left} still need${left===1?'s':''} a category</span>`:` · ${tot.review} to review`}${tot.loanTx?` · ${tot.loanTx} home loan transaction${tot.loanTx===1?'':'s'} added`:''}<br>
     <span class="small">${tot.dupes} already imported (skipped) · ${tot.pending} pending (skipped)</span>
+    ${tot.quiet?`<div class="small" style="margin-top:6px">✓ ${tot.quiet} account${tot.quiet===1?' had':'s had'} no new transactions in this file, so ${tot.quiet===1?'it is':'they are'} marked as up to date.</div>`:''}
     ${tot.loansFound?`<div class="small" style="margin-top:6px">🏠 Found a home loan account. It's kept out of Review and spending; see it on the Dashboard.</div>`:''}
     ${errs.length?`<div class="small over" style="margin-top:6px">${errs.map(esc).join('<br>')}</div>`:''}
     ${uncatCount()?`<div style="margin-top:8px"><button class="btn" onclick="go('review')">Sort the rest (${uncatCount()})</button></div>`:''}${autoOn()&&sorted?` <button class="btn ghost" style="margin-top:8px" onclick="tab='accounts';txReset({dir:'auto'});acctSel='__all';render()">Check auto-sorted</button>`:''}${tot.loanTx&&!tot.review?`<div style="margin-top:8px"><button class="btn" onclick="go('loan')">🏠 View home loan</button></div>`:''}`;
